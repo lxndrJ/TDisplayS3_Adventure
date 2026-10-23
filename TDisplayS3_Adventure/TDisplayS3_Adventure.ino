@@ -23,6 +23,8 @@ TFT_eSPI tft;
 #define TXT_W        20
 #define TXT_LINES    5
 
+enum Ev { EV_NONE, EV_A_SHORT, EV_A_LONG, EV_B_SHORT, EV_B_LONG };
+
 enum {
   SC_TITLE, SC_DORF, SC_WALD, SC_MARKT, SC_AELINDRIL, SC_BERGE, SC_SPALTE,
   SC_UMWEG, SC_BRUECKE, SC_KAMPF_TROLL, SC_TROLL_SCHLAF, SC_TROLL_BESIEGT,
@@ -224,8 +226,6 @@ char msg[40] = "";
 uint32_t msgUntil = 0;
 char rollMsg[40] = "";
 static char wrapBuf[10][TXT_W + 1];
-
-enum Ev { EV_NONE, EV_A_SHORT, EV_A_LONG, EV_B_SHORT, EV_B_LONG };
 
 struct Btn { uint8_t pin; bool pressed; uint32_t t0; bool longFired; uint32_t deb; };
 Btn bA = {PIN_BTN_A, false, 0, false, 0};
