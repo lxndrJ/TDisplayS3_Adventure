@@ -7,12 +7,53 @@ und Gold-System. Steuerung komplett über die **zwei Taster** des Boards
 
 Spielzeit: je nach Weg ca. **20–40 Minuten**, mehrere Enden (Sieg, Flucht, Game Over).
 
+Das Projekt ist als **modulare Mini-Game-Engine** aufgebaut: Spiele kennen keine
+GPIOs und keine Display-Treiber, sondern nur die Schnittstellen in `src/core/`.
+Weitere Boards lassen sich durch eine einzelne Datei in `src/boards/` und einen
+Eintrag in `platformio.ini` anbinden.
+
+## Projektstruktur
+
+```
+include/tft_setup.h          TFT_eSPI-Setup für das Board (kein Library-Eingriff nötig)
+partitions_16mb.csv          16 MB Flash: 3 MB App + ~13 MB FATFS
+platformio.ini               Build-Konfiguration (ein env pro Board)
+src/
+├── main.cpp                 Einstiegspunkt: startet das Boot-Spiel
+├── core/                    Die Engine (board-unabhängig)
+│   ├── board_config.h       Bindet das aktive Board ein (aus platformio.ini)
+│   ├── buttons.h            Taster mit Entprellung + Short/Long-Erkennung
+│   ├── input.h/.cpp         Logische Tasten (Key::A / Key::B) -> InputState
+│   ├── display.h/.cpp       Display-Wrapper um TFT_eSPI (gfx)
+│   ├── game.h               Game-Interface: init / update / draw / quit
+│   └── engine.h/.cpp        Launcher-Loop (startet Spiel, wechselt bei wantsMenu)
+├── boards/
+│   └── board_tdisplay_s3.h  Alle GPIOs/Pins/Display-Geometrie des Boards
+└── games/
+    ├── games.h              Game-Registry (neue Spiele hier eintragen)
+    └── eldoria/             Eldoria auf der Engine (eldoria.h/.cpp)
+```
+
+## Neues Spiel hinzufügen
+
+1. `src/games/<name>/<name>.h/.cpp` anlegen, `class <Name>Game : public Game`
+   implementieren (`init`, `update(const InputState&, uint32_t)`, `draw`).
+2. In `src/games/games.h` einbinden und in `makeGame()` eintragen.
+3. Optional in `platformio.ini` ein zweites `env:` für ein anderes Board anlegen.
+
+## Neues Board unterstützen
+
+1. `src/boards/board_<name>.h` anlegen (Pins, `LONG_A_MS`/`LONG_B_MS`,
+   `SCR_W`/`SCR_H`, `TFT_ROTATION`).
+2. In `src/core/board_config.h` einbinden.
+3. In `platformio.ini` ein `[env:<name>]` mit `-D BOARD_<NAME>` anlegen.
+
 ## Bedienung
 
 | Aktion | Taster |
 |---|---|
-| Nächste Textseite / Option hoch | **B (GPIO14) kurz** |
-| Vorherige Textseite / Option runter | **A (GPIO0) kurz** |
+| Nächste Textseite / Option runter | **B (GPIO14) kurz** |
+| Vorherige Textseite / Option hoch | **A (GPIO0) kurz** |
 | Option auswählen / Kampf würfeln / Neustart | **B (GPIO14) lang halten (~0,7 s)** |
 | Inventar öffnen | **A (GPIO0) lang halten (~1,2 s)** |
 | Im Kampf fliehen | **B lang halten** |
@@ -20,27 +61,26 @@ Spielzeit: je nach Weg ca. **20–40 Minuten**, mehrere Enden (Sieg, Flucht, Gam
 > ⚠️ **Achtung:** GPIO0 ist der BOOT-Taster. Zum **Flashen** weiterhin:
 > BOOT halten → RST drücken → loslassen → Upload starten.
 
-## Bibliotheken
+## Build & Flash (PlatformIO)
 
-1. **TFT_eSPI** (Bodmer) – über den **Library Manager** installieren.
-2. Danach `User_Setup_Select.h` in der TFT_eSPI-Installation bearbeiten:
-   - `Arduino/libraries/TFT_eSPI/User_Setup_Select.h`
-   - Zeile `// #include <User_Setup.h>` auskommentieren (falls aktiv)
-   - Zeile `#include <User_Setups/Setup206_LilyGo_T_Display_S3.h>` **einkommentieren**
-3. **Tipp:** Wer Probleme mit TFT_eSPI > 2.0.14 hat (weißer/schwarzer Screen),
-   kann die fertige, von LilyGo gepflegte TFT_eSPI aus dem Repo
-   [Xinyuan-LilyGO/T-Display-S3](https://github.com/Xinyuan-LilyGO/T-Display-S3)
-   (`lib/TFT_eSPI`) nehmen und die installierte ersetzen.
+Voraussetzung: [PlatformIO](https://platformio.org/) (VS Code Extension oder CLI).
 
-## Board-Einstellungen (Arduino IDE)
+```bash
+pio run                 # baut für das Default-Board (env:t_display_s3)
+pio run -t upload       # baut und flasht (BOOT+RST-Sequenz beachten)
+pio device monitor      # serieller Monitor (115200 Baud)
+```
 
-- **Board:** `LilyGo T-Display-S3` (im ESP32-Core ≥ 3.0 unter „ESP32S3 Dev Module"
-  mit manuellem Partition-Schema, falls nicht gelistet)
-- **Partition Scheme:** `16M Flash (3MB APP/9.5MB FATFS)` – das Board hat 16 MB Flash
-- **PSRAM:** `Enabled` (8 MB Octal PSRAM – nicht zwingend nötig für dieses Spiel)
-- **USB CDC On Boot:** `Enabled`
-- **Upload Mode:** `UART0 / Hardware CDC`
-- **CPU Frequency:** 240 MHz
+Die TFT_eSPI-Konfiguration liegt in `include/tft_setup.h` (Setup206,
+ST7789 8-bit parallel). `TFT_eSPI.h` findet sie automatisch über den
+PlatformIO-Include-Pfad – die Library selbst muss **nicht** bearbeitet werden.
+
+## Board-Einstellungen (automatisch via platformio.ini)
+
+- **Board:** `esp32-s3-devkitc-1` (ESP32-S3, 240 MHz)
+- **Flash:** 16 MB, QIO, `partitions_16mb.csv` (3 MB App / ~13 MB FATFS)
+- **PSRAM:** 8 MB Octal (`qio_opi`) – eingeschaltet
+- **USB CDC On Boot:** aktiviert (`ARDUINO_USB_CDC_ON_BOOT=1`)
 
 ## Verifizierte Hardware-Pins (aus dem LilyGo-Repo)
 
@@ -50,7 +90,7 @@ Spielzeit: je nach Weg ca. **20–40 Minuten**, mehrere Enden (Sieg, Flucht, Gam
 | Taster A (BOOT) | GPIO0 (aktiv LOW) |
 | Taster B (frei) | GPIO14 (aktiv LOW) |
 | Power-Hold (muss HIGH sein!) | GPIO15 |
-| Batterie-ADC | GPIO4 (im Sketch ungenutzt) |
+| Batterie-ADC | GPIO4 (ungenutzt) |
 
 ## Spielprinzip
 
@@ -77,15 +117,17 @@ Seitengang → Turm → Kampf (Drache) → Thronsaal / Game Over / Sieg-Flucht`
 
 | Problem | Lösung |
 |---|---|
-| Weißer/schwarzer Screen, keine Grafik | `Setup206` in `User_Setup_Select.h` prüfen; TFT_eSPI ≤ 2.0.14 oder LilyGo-TFT_eSPI verwenden |
+| Weißer/schwarzer Screen, keine Grafik | `include/tft_setup.h` prüfen (Setup206, ST7789 parallel, TFT_BL=38) |
+| Build-Fehler in TFT_eSPI | `pio pkg update` ausführen; TFT_eSPI ≥ 2.5.43 nutzen |
 | Board wird nicht erkannt | Anderes USB-Kabel/Port testen; BOOT+RST-Sequenz wiederholen |
-| Taster reagieren nicht / komisch | Beide Taster sind aktiv LOW – im Sketch bereits berücksichtigt |
-| „Sketch too big" | Partition Scheme `16M Flash (3MB APP/9.5MB FATFS)` wählen |
-| Nach Upload kein Serial-Monitor | „USB CDC On Boot" auf `Enabled` stellen |
+| Taster reagieren nicht / komisch | Beide Taster sind aktiv LOW – in `buttons.h` bereits berücksichtigt |
+| „Sketch too big" | Partition Scheme in `platformio.ini` (`partitions_16mb.csv`) prüfen |
+| Nach Upload kein Serial-Monitor | `pio device monitor` nutzen; CDC on Boot ist in `platformio.ini` gesetzt |
 
 ## Erweiterungsideen
 
+- Grafisches Spielmenü im Launcher (`Engine` + `wantsMenu` ist vorbereitet)
 - Speichern/Laden via Preferences (NVS)
-- Mehr Szenen (der `Scene`-Struct ist leicht erweiterbar)
 - Soundeffekte über I2S/PCM5102 (z. B. Würfel-Sound, Fanfare beim Sieg)
 - Farbige Hintergründe pro Biom (Wald grün, Berg grau, Höhle schwarz)
+- Weitere Spiele in `src/games/` – Engine und Board-Layer sind wiederverwendbar
