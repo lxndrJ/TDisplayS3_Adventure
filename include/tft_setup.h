@@ -37,4 +37,6 @@
 #define LOAD_GLCD
 #define LOAD_FONT2
 
+#define USER_SETUP_LOADED
+
 #endif

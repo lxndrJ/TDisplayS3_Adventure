@@ -1,6 +1,8 @@
 #ifndef CORE_DISPLAY_H
 #define CORE_DISPLAY_H
 
+#include <Arduino.h>
+#include <tft_setup.h>
 #include <TFT_eSPI.h>
 #include "board_config.h"
 
