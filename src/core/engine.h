@@ -12,6 +12,9 @@
 class Engine {
 public:
   void begin(Game* game) {
+    // Power-Hold VOR dem Display-Init: ohne HIGH auf GPIO15 bleibt das
+    // Panel beim T-Display-S3 stromlos (schwarzer Screen, Backlight aus).
+    boardPowerOn();
     gfx.init();
     input.init();
     randomSeed(esp_random());
@@ -38,6 +41,14 @@ public:
   }
 
 private:
+  static void boardPowerOn() {
+    if constexpr (board::HAS_POWER_HOLD) {
+      pinMode(board::PIN_POWER_ON, OUTPUT);
+      digitalWrite(board::PIN_POWER_ON, HIGH);
+      delay(10);  // Panel-Strom stabilisieren lassen
+    }
+  }
+
   Game*    active_ = nullptr;
   uint32_t lastMs_ = 0;
 };

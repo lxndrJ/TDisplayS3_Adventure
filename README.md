@@ -75,6 +75,13 @@ Die TFT_eSPI-Konfiguration liegt in `include/tft_setup.h` (Setup206,
 ST7789 8-bit parallel). `TFT_eSPI.h` findet sie automatisch über den
 PlatformIO-Include-Pfad – die Library selbst muss **nicht** bearbeitet werden.
 
+**Wichtig für das T-Display-S3:** `include/tft_setup.h` enthält zusätzlich
+`#define USE_HSPI_PORT` – das ist der kritische Fix aus der LilyGo-gepflegten
+TFT_eSPI, ohne den das 8-bit-Parallel-Display auf dem S3 schwarz bleibt
+(siehe [TFT_eSPI issue #3329](https://github.com/Bodmer/TFT_eSPI/issues/3329)).
+Wir pinnen TFT_eSPI auf **2.5.43** – neuere Versionen haben auf diesem Board
+bekannte Probleme (LilyGo-Wiki).
+
 ## Board-Einstellungen (automatisch via platformio.ini)
 
 - **Board:** `esp32-s3-devkitc-1` (ESP32-S3, 240 MHz)
@@ -117,8 +124,10 @@ Seitengang → Turm → Kampf (Drache) → Thronsaal / Game Over / Sieg-Flucht`
 
 | Problem | Lösung |
 |---|---|
-| Weißer/schwarzer Screen, keine Grafik | `include/tft_setup.h` prüfen (Setup206, ST7789 parallel, TFT_BL=38) |
-| Build-Fehler in TFT_eSPI | `pio pkg update` ausführen; TFT_eSPI ≥ 2.5.43 nutzen |
+| Schwarzer Screen, Backlight an, keine Grafik | `USE_HSPI_PORT` in `include/tft_setup.h` prüfen; TFT_eSPI **nicht** auf > 2.5.43 updaten (TFT_eSPI#3329) |
+| Schwarzer Screen, Backlight aus | Power-Hold GPIO15 wird in `Engine::begin()` vor `gfx.init()` gesetzt – Reihenfolge nicht ändern |
+| Weißer Screen | `TFT_INVERSION_ON` in `include/tft_setup.h` prüfen |
+| Build-Fehler in TFT_eSPI | `pio pkg update` ausführen; TFT_eSPI ist auf 2.5.43 gepinnt |
 | Board wird nicht erkannt | Anderes USB-Kabel/Port testen; BOOT+RST-Sequenz wiederholen |
 | Taster reagieren nicht / komisch | Beide Taster sind aktiv LOW – in `buttons.h` bereits berücksichtigt |
 | „Sketch too big" | Partition Scheme in `platformio.ini` (`partitions_16mb.csv`) prüfen |

@@ -7,6 +7,7 @@
 
 #define USER_SETUP_ID 206
 
+#define USE_HSPI_PORT
 #define ST7789_DRIVER
 #define INIT_SEQUENCE_3
 #define CGRAM_OFFSET
