@@ -5,10 +5,11 @@ Willkommen im Wiki des **TDisplayS3 Adventure** Projekts – ein modulares Spiel
 ## Inhalt
 
 - [🏠 Home](Home) – Diese Seite
-- [🚀 Schnellstart: Neue Spielideen umsetzen](Schnellstart-Spielideen)
-- [🎮 Spielentwicklung](Spielentwicklung)
-- [🖥️ Board-Support](Board-Support)
-- [🔧 Troubleshooting](Troubleshooting)
+- [🚀 Schnellstart: Neue Spielideen umsetzen](Schnellstart-Spielideen) – **3 Schritte zum ersten Spiel**
+- [🎮 Spielentwicklung](Spielentwicklung) – Game-Interface, Input, Display, Best Practices
+- [📚 API-Referenz](API-Referenz) – Alle Klassen, Methoden und Konstanten
+- [🖥️ Board-Support](Board-Support) – Neues Board hinzufügen
+- [🔧 Troubleshooting](Troubleshooting) – Häufige Probleme & Lösungen
 
 ## Projekt
 
@@ -29,7 +30,33 @@ src/
 │   ├── display.*  Display-Wrapper
 │   └── buttons.h  Taster-Entprellung
 ├── boards/        Board-spezifische Konfiguration
+│   └── board_tdisplay_s3.h
 └── games/         Die Spiele
-    ├── eldoria/   Text-Adventure
-    └── neonrun/   Action-Runner
+    ├── games.h    Game-Registry
+    ├── eldoria/   Text-Adventure (Fantasy)
+    └── neonrun/   Action-Runner (Cyberpunk)
+        └── sprites.*  Austauschbare Grafik-Themes
 ```
+
+## Schnell-Links
+
+| Ich möchte... | Seite |
+|---------------|-------|
+| Mein erstes Spiel erstellen | [Schnellstart](Schnellstart-Spielideen) |
+| Die Engine verstehen | [Spielentwicklung](Spielentwicklung) |
+| Eine Funktion nachschlagen | [API-Referenz](API-Referenz) |
+| Ein neues Board anbinden | [Board-Support](Board-Support) |
+| Ein Problem lösen | [Troubleshooting](Troubleshooting) |
+
+## Aktuell vorhandene Spiele
+
+| Spiel | Genre | Besonderheiten |
+|-------|-------|----------------|
+| **Eldoria** | Text-Adventure | Szenen, Inventar, Kampf-Würfel, mehrere Enden |
+| **Neon Run** | Action/Runner | 3 Spuren, Firewall ausweichen, Chips sammeln, Sprite-Themes |
+
+## Hilfe
+
+- **Fragen?** → [GitHub Discussions](https://github.com/lxndrJ/TDisplayS3_Adventure/discussions)
+- **Bug melden** → [GitHub Issues](https://github.com/lxndrJ/TDisplayS3_Adventure/issues)
+- **Projekt-Repository** → [lxndrJ/TDisplayS3_Adventure](https://github.com/lxndrJ/TDisplayS3_Adventure)
