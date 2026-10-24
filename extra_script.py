@@ -18,7 +18,16 @@ pioenv = env.subst("$PIOENV")
 inc_dir = os.path.join(project_dir, "include")
 env.Append(CPPPATH=[inc_dir])
 
-# --- 2. TFT_eSPI User_Setup_Select.h patchen ---
+# --- 2. Bootloader pruefen: muss bootloader_opi_80m.elf sein ---
+# PlatformIO waehlt bei memory_type=qio_opi faelschlicherweise bootloader_qio_80m.elf
+# (kein OPI-PSRAM). board_build.boot=opi in platformio.ini korrigiert das.
+# Hier verifizieren wir, welcher Bootloader gebaut wird.
+boot_mode = env.BoardConfig().get("build.boot", "")
+if boot_mode != "opi":
+    print("[extra_script] WARNING: board_build.boot ist nicht 'opi'! "
+          "Bootloader unterstuetzt moeglicherweise kein OPI-PSRAM -> Crash!")
+
+# --- 3. TFT_eSPI User_Setup_Select.h patchen ---
 select_path = os.path.join(libdeps, pioenv, "TFT_eSPI", "User_Setup_Select.h")
 if os.path.isfile(select_path):
     with open(select_path) as f:
@@ -61,3 +70,4 @@ if os.path.isfile(select_path):
     print("[extra_script] TFT_eSPI User_Setup_Select.h gepatcht -> tft_setup.h (absoluter Pfad)")
 
 print("[extra_script] Added to CPPPATH:", inc_dir)
+print("[extra_script] Boot mode:", boot_mode, "(opi = korrekt fuer Octal PSRAM)")
