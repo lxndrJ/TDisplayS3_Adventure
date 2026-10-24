@@ -22,10 +22,7 @@ struct InputState {
 class InputManager {
 public:
   void init() {
-    if constexpr (board::HAS_POWER_HOLD) {
-      pinMode(board::PIN_POWER_ON, OUTPUT);
-      digitalWrite(board::PIN_POWER_ON, HIGH);
-    }
+    // Power-Hold wird von Engine::begin() vor gfx.init() gesetzt.
     btnA_ = new ButtonTracker(board::PIN_BTN_A, board::LONG_A_MS, board::DEBOUNCE_MS);
     btnB_ = new ButtonTracker(board::PIN_BTN_B, board::LONG_B_MS, board::DEBOUNCE_MS);
   }
