@@ -31,7 +31,9 @@ src/
 │   └── board_tdisplay_s3.h  Alle GPIOs/Pins/Display-Geometrie des Boards
 └── games/
     ├── games.h              Game-Registry (neue Spiele hier eintragen)
-    └── eldoria/             Eldoria auf der Engine (eldoria.h/.cpp)
+    ├── eldoria/             Eldoria auf der Engine (eldoria.h/.cpp)
+    └── neonrun/             Neon Run (neonrun.h/.cpp + sprites.h/.cpp)
+        └── sprites.h/.cpp   Austauschbare Grafik: NeonPalette + SpriteRenderer
 ```
 
 ## Neues Spiel hinzufügen
@@ -40,6 +42,29 @@ src/
    implementieren (`init`, `update(const InputState&, uint32_t)`, `draw`).
 2. In `src/games/games.h` einbinden und in `makeGame()` eintragen.
 3. Optional in `platformio.ini` ein zweites `env:` für ein anderes Board anlegen.
+
+## Grafik modular austauschen (Sprite-Themes)
+
+Spiele zeichnen nicht direkt, sondern über `SpriteRenderer`
+(`src/games/neonrun/sprites.h`). Ein Theme implementiert nur:
+
+| Methode | Inhalt |
+|---|---|
+| `palette()` | `NeonPalette` (alle Spielfarben als RGB565) |
+| `drawBackground()` | Himmel, Sterne, Strasse (scroll-abhängig) |
+| `drawPlayer()` | Spielfigur |
+| `drawBarObstacle()` | Firewall-Balken mit Lücke |
+| `drawDrone()` / `drawCoin()` | Gegner / Sammelobjekt |
+
+`NeonVectorTheme` ist das Standard-Theme (reine Vektorgrafik, kein Flash-Verbrauch).
+Ein Bitmap-Theme (z. B. `PROGMEM`-Sprite-Arrays via `tft.pushImage()`) implementiert
+dieselben Methoden und wird in `init()` des Spiels aktiviert:
+
+```cpp
+gSprites = &meinBitmapTheme;   // in NeonRunGame::init()
+```
+
+Spiel-Logik, Kollisionen und Steuerung bleiben dabei unangetastet.
 
 ## Neues Board unterstützen
 
