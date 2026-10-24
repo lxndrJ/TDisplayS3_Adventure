@@ -38,9 +38,15 @@ public:
         active_ = nullptr;
       }
     }
+
+    // Frame-Takt (~60 FPS): ohne Begrenzung rendert die Engine so schnell
+    // wie der Bus es hergibt - Animationen flackern, dt wird unsauber.
+    uint32_t used = millis() - now;
+    if (used < FRAME_MS) delay(FRAME_MS - used);
   }
 
 private:
+  static constexpr uint32_t FRAME_MS = 16;  // ~60 FPS
   static void boardPowerOn() {
     if constexpr (board::HAS_POWER_HOLD) {
       pinMode(board::PIN_POWER_ON, OUTPUT);

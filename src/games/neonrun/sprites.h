@@ -23,31 +23,33 @@ struct NeonPalette {
 };
 
 // Austauschbare Grafik-Ebene. Spiele zeichnen ausschliesslich ueber dieses
-// Interface. Das Standard-Theme zeichnet Vektorgrafik (Dreiecke/Rechtecke);
+// Interface - und zwar in den Framebuffer (TFT_eSprite), nicht direkt auf
+// das Panel: Nur ein pushSprite() pro Frame verhindert Flackern.
+// Das Standard-Theme zeichnet Vektorgrafik (Dreiecke/Rechtecke);
 // ein Bitmap-Theme (z. B. PROGMEM-Sprite-Arrays) implementiert dieselben
 // Methoden und laesst sich ohne Aenderung am Spiel einklinken.
 class SpriteRenderer {
 public:
   virtual ~SpriteRenderer() = default;
   virtual const NeonPalette& palette() const = 0;
-  virtual void drawBackground(TFT_eSPI& tft, uint32_t scroll) = 0;
-  virtual void drawPlayer(TFT_eSPI& tft, int16_t x, int16_t y, bool visible) = 0;
-  virtual void drawBarObstacle(TFT_eSPI& tft, int16_t x, int16_t y, int16_t w, int16_t h,
+  virtual void drawBackground(TFT_eSprite& fb, uint32_t scroll) = 0;
+  virtual void drawPlayer(TFT_eSprite& fb, int16_t x, int16_t y, bool visible) = 0;
+  virtual void drawBarObstacle(TFT_eSprite& fb, int16_t x, int16_t y, int16_t w, int16_t h,
                                int16_t gapX, int16_t gapW) = 0;
-  virtual void drawDrone(TFT_eSPI& tft, int16_t x, int16_t y, uint32_t t) = 0;
-  virtual void drawCoin(TFT_eSPI& tft, int16_t x, int16_t y, uint32_t t) = 0;
+  virtual void drawDrone(TFT_eSprite& fb, int16_t x, int16_t y, uint32_t t) = 0;
+  virtual void drawCoin(TFT_eSprite& fb, int16_t x, int16_t y, uint32_t t) = 0;
 };
 
 // Standard-Theme: Neon-Cyberpunk als Vektorgrafik.
 class NeonVectorTheme : public SpriteRenderer {
 public:
   const NeonPalette& palette() const override { return pal_; }
-  void drawBackground(TFT_eSPI& tft, uint32_t scroll) override;
-  void drawPlayer(TFT_eSPI& tft, int16_t x, int16_t y, bool visible) override;
-  void drawBarObstacle(TFT_eSPI& tft, int16_t x, int16_t y, int16_t w, int16_t h,
+  void drawBackground(TFT_eSprite& fb, uint32_t scroll) override;
+  void drawPlayer(TFT_eSprite& fb, int16_t x, int16_t y, bool visible) override;
+  void drawBarObstacle(TFT_eSprite& fb, int16_t x, int16_t y, int16_t w, int16_t h,
                        int16_t gapX, int16_t gapW) override;
-  void drawDrone(TFT_eSPI& tft, int16_t x, int16_t y, uint32_t t) override;
-  void drawCoin(TFT_eSPI& tft, int16_t x, int16_t y, uint32_t t) override;
+  void drawDrone(TFT_eSprite& fb, int16_t x, int16_t y, uint32_t t) override;
+  void drawCoin(TFT_eSprite& fb, int16_t x, int16_t y, uint32_t t) override;
 
 private:
   NeonPalette pal_ = {

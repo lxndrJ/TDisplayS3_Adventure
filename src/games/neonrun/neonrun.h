@@ -41,9 +41,10 @@ public:
   void endRun(bool won);
   void spawnEntity();
   void hurt();
-  void drawHud();
-  void drawWorld();
-  void drawOverlay(const char* title, const char* sub);
+  // Alle draw*-Helfer malen in den Framebuffer; render() pusht einmal pro Frame.
+  void drawHud(TFT_eSprite& fb);
+  void drawWorld(TFT_eSprite& fb);
+  void drawOverlay(TFT_eSprite& fb, const char* title, const char* sub);
   void render();
 
   Phase    phase_      = PH_TITLE;
@@ -60,6 +61,11 @@ public:
   uint8_t  barGapLane_ = 0;
   bool     barActive_  = false;
   Entity   ents_[MAX_ENTITIES];
+
+  // Vollbild-Framebuffer (170x320x16 Bit ~106 KB, auf dem S3 im PSRAM).
+  // Erst der einzelne pushSprite() pro Frame macht die 60-FPS-Animation
+  // flackerfrei - direkt auf das Panel gemalt flackert alles beim Loeschen.
+  TFT_eSprite fb_{&gfx.tft()};
 };
 
 #endif

@@ -4,6 +4,9 @@
 constexpr int16_t NeonRunGame::LANE_X[3];
 
 void NeonRunGame::init() {
+  // Framebuffer einmalig anlegen (ueberlebt Neustarts des Spiels)
+  if (!fb_.created()) fb_.createSprite(gfx.width(), gfx.height());
+
   phase_      = PH_TITLE;
   lane_       = 1;
   playerX_    = LANE_X[1];
@@ -142,90 +145,98 @@ void NeonRunGame::update(const InputState& in, uint32_t dtMs) {
   }
 }
 
-void NeonRunGame::drawHud() {
-  TFT_eSPI& tft = gfx.tft();
+void NeonRunGame::drawHud(TFT_eSprite& fb) {
   const NeonPalette& pal = gSprites->palette();
-  tft.setTextFont(1);
-  tft.setTextDatum(TL_DATUM);
+  fb.setTextFont(1);
+  fb.setTextDatum(TL_DATUM);
 
   // HP als Neon-Balken
-  tft.setTextColor(pal.textDim);
-  tft.drawString("HP", 4, 4);
+  fb.setTextColor(pal.textDim);
+  fb.drawString("HP", 4, 4);
   for (uint8_t i = 0; i < MAX_HP; i++)
-    tft.fillRect(20 + i * 14, 4, 12, 8, i < hp_ ? pal.obstacle : pal.bgMid);
+    fb.fillRect(20 + i * 14, 4, 12, 8, i < hp_ ? pal.obstacle : pal.bgMid);
 
   // Score + Best rechts
   char b[24];
   snprintf(b, sizeof(b), "%u", score_);
-  tft.setTextColor(pal.coin);
-  tft.drawString(b, 128, 4);
+  fb.setTextColor(pal.coin);
+  fb.drawString(b, 128, 4);
   snprintf(b, sizeof(b), "HI %u", best_);
-  tft.setTextColor(pal.textDim);
-  tft.drawString(b, 92, 16);
+  fb.setTextColor(pal.textDim);
+  fb.drawString(b, 92, 16);
 
-  tft.drawFastHLine(0, 14, gfx.height(), pal.obstacleDark);
+  fb.drawFastHLine(0, 14, gfx.width(), pal.obstacleDark);
 }
 
-void NeonRunGame::drawWorld() {
-  TFT_eSPI& tft = gfx.tft();
-  gSprites->drawBackground(tft, scroll_);
+void NeonRunGame::drawWorld(TFT_eSprite& fb) {
+  gSprites->drawBackground(fb, scroll_);
 
   // Firewall-Balken (Position wird in update() berechnet)
   if (barActive_)
-    gSprites->drawBarObstacle(tft, 20, barY_, gfx.width() - 40, 12,
+    gSprites->drawBarObstacle(fb, 20, barY_, gfx.width() - 40, 12,
                               LANE_X[barGapLane_] - 20, 34);
 
   for (auto& e : ents_) {
     if (!e.alive) continue;
-    if (e.kind == 0) gSprites->drawCoin(tft, (int16_t)e.x, (int16_t)e.y, millis());
-    else             gSprites->drawDrone(tft, (int16_t)e.x - 7, (int16_t)e.y, millis());
+    if (e.kind == 0) gSprites->drawCoin(fb, (int16_t)e.x, (int16_t)e.y, millis());
+    else             gSprites->drawDrone(fb, (int16_t)e.x - 7, (int16_t)e.y, millis());
   }
 
   bool blink = millis() < invulnUntil_ && (millis() / 80) & 1;
-  gSprites->drawPlayer(tft, (int16_t)playerX_, PLAYER_Y, !blink);
+  gSprites->drawPlayer(fb, (int16_t)playerX_, PLAYER_Y, !blink);
 }
 
-void NeonRunGame::drawOverlay(const char* title, const char* sub) {
-  TFT_eSPI& tft = gfx.tft();
+void NeonRunGame::drawOverlay(TFT_eSprite& fb, const char* title, const char* sub) {
   const NeonPalette& pal = gSprites->palette();
   int16_t w = gfx.width();
-  tft.fillRect(0, 96, w, 92, pal.bgTop);
-  tft.drawFastHLine(0, 96, w, pal.horizon);
-  tft.drawFastHLine(0, 187, w, pal.horizon);
-  tft.setTextFont(2);
-  tft.setTextColor(pal.player);
-  tft.setTextDatum(MC_DATUM);
-  tft.drawString(title, w / 2, 118);
-  tft.setTextFont(1);
-  tft.setTextColor(pal.text);
-  tft.drawString(sub, w / 2, 146);
+  fb.fillRect(0, 96, w, 92, pal.bgTop);
+  fb.drawFastHLine(0, 96, w, pal.horizon);
+  fb.drawFastHLine(0, 187, w, pal.horizon);
+  fb.setTextFont(2);
+  fb.setTextColor(pal.player);
+  fb.setTextDatum(MC_DATUM);
+  fb.drawString(title, w / 2, 118);
+  fb.setTextFont(1);
+  fb.setTextColor(pal.text);
+  fb.drawString(sub, w / 2, 146);
   char b[32];
   snprintf(b, sizeof(b), "Punkte: %u   Best: %u", score_, best_);
-  tft.setTextColor(pal.coin);
-  tft.drawString(b, w / 2, 166);
-  tft.setTextColor(pal.textDim);
-  tft.drawString("A/B: Spur | Taste: Start", w / 2, 296);
-  tft.drawString("B lang: Menue", w / 2, 308);
+  fb.setTextColor(pal.coin);
+  fb.drawString(b, w / 2, 166);
+  fb.setTextColor(pal.textDim);
+  fb.drawString("A/B: Spur | Taste: Start", w / 2, 296);
+  fb.drawString("B lang: Menue", w / 2, 308);
 }
 
 void NeonRunGame::render() {
-  TFT_eSPI& tft = gfx.tft();
-  if (phase_ == PH_RUN) {
-    drawWorld();
-    drawHud();
-  } else if (phase_ == PH_TITLE) {
-    drawWorld();
-    drawHud();
-    drawOverlay("NEON RUN", "Sprint durch die Neonstadt");
-  } else if (phase_ == PH_GAMEOVER) {
-    drawWorld();
-    drawHud();
-    drawOverlay("SYSTEM DOWN", "Die Firewall hat dich erwischt");
-  } else {
-    drawWorld();
-    drawHud();
-    drawOverlay("RUN COMPLETE", "Alle 25 Chips gesammelt!");
+  // Ohne Framebuffer (Heap/PSRAM zu voll) nur Fehlermeldung zeigen
+  if (!fb_.created()) {
+    TFT_eSPI& tft = gfx.tft();
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextFont(1);
+    tft.setTextColor(TFT_RED, TFT_BLACK);
+    tft.setTextDatum(TL_DATUM);
+    tft.drawString("Framebuffer alloc fehlgeschlagen", 6, 8);
+    return;
   }
+  if (phase_ == PH_RUN) {
+    drawWorld(fb_);
+    drawHud(fb_);
+  } else if (phase_ == PH_TITLE) {
+    drawWorld(fb_);
+    drawHud(fb_);
+    drawOverlay(fb_, "NEON RUN", "Sprint durch die Neonstadt");
+  } else if (phase_ == PH_GAMEOVER) {
+    drawWorld(fb_);
+    drawHud(fb_);
+    drawOverlay(fb_, "SYSTEM DOWN", "Die Firewall hat dich erwischt");
+  } else {
+    drawWorld(fb_);
+    drawHud(fb_);
+    drawOverlay(fb_, "RUN COMPLETE", "Alle 25 Chips gesammelt!");
+  }
+  // Kompletten Frame in einem Stueck aufs Panel - kein Flackern
+  fb_.pushSprite(0, 0);
 }
 
 void NeonRunGame::draw() {
