@@ -4,12 +4,21 @@ Willkommen im Wiki des **TDisplayS3 Adventure** Projekts – ein modulares Spiel
 
 ## Inhalt
 
+### Für Entwickler
 - [🏠 Home](Home) – Diese Seite
 - [🚀 Schnellstart: Neue Spielideen umsetzen](Schnellstart-Spielideen) – **3 Schritte zum ersten Spiel**
 - [🎮 Spielentwicklung](Spielentwicklung) – Game-Interface, Input, Display, Best Practices
 - [📚 API-Referenz](API-Referenz) – Alle Klassen, Methoden und Konstanten
 - [🖥️ Board-Support](Board-Support) – Neues Board hinzufügen
 - [🔧 Troubleshooting](Troubleshooting) – Häufige Probleme & Lösungen
+
+### Für KI-Agenten
+- [🤖 Agent-Integration](Agent-Integration) – **Anleitung für KI-Coding-Agenten**
+
+### Im Repository-Root
+- [AGENTS.md](https://github.com/lxndrJ/TDisplayS3_Adventure/blob/main/AGENTS.md) – Schnelle Agent-Richtlinien
+- [CONTRIBUTING.md](https://github.com/lxndrJ/TDisplayS3_Adventure/blob/main/CONTRIBUTING.md) – Mitwirken am Projekt
+- [.github/copilot-instructions.md](https://github.com/lxndrJ/TDisplayS3_Adventure/blob/main/.github/copilot-instructions.md) – GitHub Copilot Rules
 
 ## Projekt
 
@@ -47,6 +56,7 @@ src/
 | Eine Funktion nachschlagen | [API-Referenz](API-Referenz) |
 | Ein neues Board anbinden | [Board-Support](Board-Support) |
 | Ein Problem lösen | [Troubleshooting](Troubleshooting) |
+| **Als KI-Agent mitarbeiten** | **[Agent-Integration](Agent-Integration)** |
 
 ## Aktuell vorhandene Spiele
 

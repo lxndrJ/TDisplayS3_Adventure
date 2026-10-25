@@ -1,8 +1,12 @@
 # Eldoria – Fantasy-Adventure für das LilyGo T-Display-S3
 
+> 🤖 **Für KI-Coding-Agenten:** Siehe [AGENTS.md](AGENTS.md) für Richtlinien,
+> [.github/copilot-instructions.md](.github/copilot-instructions.md) für Copilot
+> und [docs/wiki/Agent-Integration.md](docs/wiki/Agent-Integration.md) für Details.
+
 Ein komplettes Text-Adventure mit gezeichneten Portraits, Kampf-Würfeln, Inventar
 und Gold-System. Steuerung komplett über die **zwei Taster** des Boards
-(**BOOT = GPIO0** und **frei belegbarer Taster = GPIO14**). Ziel: die gestohlene
+(**BOOT = GPIO0** und **frei belegabler Taster = GPIO14**). Ziel: die gestohlene
 **Mondkrone** des Drachen Morgath zurückholen – oder den Drachen besiegen.
 
 Spielzeit: je nach Weg ca. **20–40 Minuten**, mehrere Enden (Sieg, Flucht, Game Over).
@@ -157,6 +161,18 @@ Seitengang → Turm → Kampf (Drache) → Thronsaal / Game Over / Sieg-Flucht`
 | Taster reagieren nicht / komisch | Beide Taster sind aktiv LOW – in `buttons.h` bereits berücksichtigt |
 | „Sketch too big" | Partition Scheme in `platformio.ini` (`partitions_16mb.csv`) prüfen |
 | Nach Upload kein Serial-Monitor | `pio device monitor` nutzen; CDC on Boot ist in `platformio.ini` gesetzt |
+
+## Dokumentation & Agent-Support
+
+| Ressource | Beschreibung |
+|-----------|--------------|
+| [Wiki](docs/wiki/Home.md) | Vollständige Dokumentation (7 Seiten) |
+| [AGENTS.md](AGENTS.md) | Richtlinien für KI-Coding-Agenten |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Mitwirken am Projekt |
+| [.github/copilot-instructions.md](.github/copilot-instructions.md) | GitHub Copilot Instructions |
+| [Agent-Integration](docs/wiki/Agent-Integration.md) | Anleitung für KI-Agenten |
+
+**Für KI-Agenten:** Bitte zuerst [AGENTS.md](AGENTS.md) lesen! Dort stehen alle kritischen Regeln (keine GPIOs in Spielen, Framebuffer nutzen, TFT_eSPI nicht updaten, etc.).
 
 ## Erweiterungsideen
 
