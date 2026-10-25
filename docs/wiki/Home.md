@@ -32,10 +32,12 @@ src/
 ├── boards/        Board-spezifische Konfiguration
 │   └── board_tdisplay_s3.h
 └── games/         Die Spiele
-    ├── games.h    Game-Registry
-    ├── eldoria/   Text-Adventure (Fantasy)
-    └── neonrun/   Action-Runner (Cyberpunk)
-        └── sprites.*  Austauschbare Grafik-Themes
+    ├── games.h      Game-Registry
+    ├── eldoria/     Text-Adventure (Fantasy)
+    ├── neonrun/     Action-Runner (Cyberpunk)
+    │   └── sprites.*  Austauschbare Grafik-Themes
+    ├── neonshard/   Point-and-Click (Cyberpunk)
+    └── chipslide/   Schiebepuzzle (15 Bauteile)
 ```
 
 ## Schnell-Links
@@ -54,6 +56,8 @@ src/
 |-------|-------|----------------|
 | **Eldoria** | Text-Adventure | Szenen, Inventar, Kampf-Würfel, mehrere Enden |
 | **Neon Run** | Action/Runner | 3 Spuren, Firewall ausweichen, Chips sammeln, Sprite-Themes |
+| **Neon Shard** | Point-and-Click | Comic-Geschichte mit verzweigten Dialogen und 2 Enden |
+| **Chip Slide** | Schiebepuzzle | 15 Halbleiter-Bauteile sortieren, prozedurale Symbole, flüssige Gleit-Animation |
 
 ## Hilfe
 
