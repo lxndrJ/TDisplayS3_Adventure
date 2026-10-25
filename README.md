@@ -32,8 +32,10 @@ src/
 └── games/
     ├── games.h              Game-Registry (neue Spiele hier eintragen)
     ├── eldoria/             Eldoria auf der Engine (eldoria.h/.cpp)
-    └── neonrun/             Neon Run (neonrun.h/.cpp + sprites.h/.cpp)
-        └── sprites.h/.cpp   Austauschbare Grafik: NeonPalette + SpriteRenderer
+    ├── neonrun/             Neon Run (neonrun.h/.cpp + sprites.h/.cpp)
+    │   └── sprites.h/.cpp   Austauschbare Grafik: NeonPalette + SpriteRenderer
+    ├── neonshard/           Neon Shard (neonshard.h/.cpp + art.h/.cpp)
+    └── chipslide/           Chip Slide - Halbleiter-Schiebepuzzle
 ```
 
 ## Neues Spiel hinzufügen
