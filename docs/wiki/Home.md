@@ -37,7 +37,8 @@ src/
     ├── neonrun/     Action-Runner (Cyberpunk)
     │   └── sprites.*  Austauschbare Grafik-Themes
     ├── neonshard/   Point-and-Click (Cyberpunk)
-    └── chipslide/   Schiebepuzzle (15 Bauteile)
+    ├── chipslide/   Schiebepuzzle (15 Bauteile)
+    └── neondash/    Jump'n'Run (Cyberpunk)
 ```
 
 ## Schnell-Links
@@ -58,6 +59,7 @@ src/
 | **Neon Run** | Action/Runner | 3 Spuren, Firewall ausweichen, Chips sammeln, Sprite-Themes |
 | **Neon Shard** | Point-and-Click | Comic-Geschichte mit verzweigten Dialogen und 2 Enden |
 | **Chip Slide** | Schiebepuzzle | 15 Halbleiter-Bauteile sortieren, prozedurale Symbole, flüssige Gleit-Animation |
+| **Neon Dash** | Jump'n'Run | Ein-Tasten-Sprung über Hindernisse, Tempo steigt kontinuierlich, Datenchip-Bonus |
 
 ## Hilfe
 
