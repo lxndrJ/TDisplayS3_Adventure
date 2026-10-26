@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: default
 title: "API Reference"
 description: "Complete reference of all TDisplayS3 Adventure engine classes and functions: Game interface, Engine, Input, Display, Board config, Game registry, SpriteRenderer and TFT_eSPI."
 ---
@@ -376,4 +376,4 @@ digitalRead(pin);
 
 ---
 
-[← Wiki Home](Home.html) · [Docs Home](/TDisplayS3_Adventure/)
+[← Wiki Home](Home.html) · [Docs Home](/)

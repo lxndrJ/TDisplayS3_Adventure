@@ -1,7 +1,6 @@
 ---
 layout: default
 title: "Wiki Home"
-permalink: /wiki/
 description: "TDisplayS3 Adventure wiki: documentation for the modular mini-game engine for the LilyGo T-Display-S3 (ESP32-S3). Quickstart, game development, API reference, board support, troubleshooting."
 ---
 
@@ -21,7 +20,7 @@ Welcome to the wiki of the **TDisplayS3 Adventure** project – a modular game f
 ## Project
 
 - **Repository:** [lxndrJ/TDisplayS3_Adventure](https://github.com/lxndrJ/TDisplayS3_Adventure)
-- **Live docs (GitHub Pages):** [lxndrJ.github.io/TDisplayS3_Adventure](https://lxndrJ.github.io/TDisplayS3_Adventure/)
+- **Live docs (GitHub Pages):** [chipnplay.pandango.de](https://chipnplay.pandango.de/)
 - **Hardware:** LilyGo T-Display-S3 (ESP32-S3, 320×170 display, 2 buttons)
 - **Framework:** PlatformIO + Arduino + TFT_eSPI
 
@@ -77,4 +76,4 @@ src/
 
 ---
 
-[← Back to Docs Home](/TDisplayS3_Adventure/)
+[← Back to Docs Home](/)

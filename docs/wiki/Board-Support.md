@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: default
 title: "Board Support"
 description: "How to add a new ESP32 board (with display + 2 buttons) to the TDisplayS3 Adventure engine: board file, board_config.h, TFT_eSPI setup, PlatformIO environment, pin reference and checklist."
 ---
@@ -254,4 +254,4 @@ board is active HIGH.
 
 ---
 
-[← Wiki Home](Home.html) · [Docs Home](/TDisplayS3_Adventure/)
+[← Wiki Home](Home.html) · [Docs Home](/)

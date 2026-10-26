@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: default
 title: "Game Development"
 description: "How to write your own game for the TDisplayS3 Adventure engine: Game interface, input system, display, framebuffer, fonts, timing, random, memory, best practices."
 ---
@@ -377,4 +377,4 @@ Serial.println(F("Debug: player collided"));  // F() saves RAM
 
 ---
 
-[← Wiki Home](Home.html) · [Docs Home](/TDisplayS3_Adventure/)
+[← Wiki Home](Home.html) · [Docs Home](/)

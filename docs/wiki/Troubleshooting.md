@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: default
 title: "Troubleshooting"
 description: "Common problems and solutions for the TDisplayS3 Adventure project: display issues, button problems, build errors, serial monitor, memory and performance problems, debug checklist."
 ---
@@ -255,4 +255,4 @@ pio pkg update
 
 ---
 
-[← Wiki Home](Home.html) · [Docs Home](/TDisplayS3_Adventure/)
+[← Wiki Home](Home.html) · [Docs Home](/)

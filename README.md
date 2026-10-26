@@ -9,18 +9,18 @@ After flashing, a **launcher menu** starts; pick the game you want to play. Ever
 game is controlled entirely with the board's **two buttons**
 (**A = BOOT = GPIO0** and **B = free = GPIO14**, both active LOW).
 
-**Live documentation:** [lxndrJ.github.io/TDisplayS3_Adventure](https://lxndrJ.github.io/TDisplayS3_Adventure/)
+**Live documentation:** [chipnplay.pandango.de](https://chipnplay.pandango.de/)
 
 ### Documentation (GitHub Pages)
 
 | Page | URL |
 |------|-----|
-| Wiki Home | [lxndrJ.github.io/TDisplayS3_Adventure/wiki/](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/Home.html) |
-| Quickstart: Write Your Own Game | [Quickstart](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/Schnellstart-Spielideen.html) |
-| Game Development Guide | [Game Development](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/Spielentwicklung.html) |
-| API Reference | [API Reference](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/API-Referenz.html) |
-| Board Support | [Board Support](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/Board-Support.html) |
-| Troubleshooting | [Troubleshooting](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/Troubleshooting.html) |
+| Wiki Home | [chipnplay.pandango.de/wiki/](https://chipnplay.pandango.de/wiki/Home.html) |
+| Quickstart: Write Your Own Game | [Quickstart](https://chipnplay.pandango.de/wiki/Schnellstart-Spielideen.html) |
+| Game Development Guide | [Game Development](https://chipnplay.pandango.de/wiki/Spielentwicklung.html) |
+| API Reference | [API Reference](https://chipnplay.pandango.de/wiki/API-Referenz.html) |
+| Board Support | [Board Support](https://chipnplay.pandango.de/wiki/Board-Support.html) |
+| Troubleshooting | [Troubleshooting](https://chipnplay.pandango.de/wiki/Troubleshooting.html) |
 
 ## Included Games
 
@@ -89,8 +89,8 @@ src/
 2. Include it in `src/games/games.h` and add it to `makeGame()`.
 3. Optionally add a second `env:` in `platformio.ini` for another board.
 
-See [Game Development](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/Spielentwicklung.html)
-and [Quickstart](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/Schnellstart-Spielideen.html)
+See [Game Development](https://chipnplay.pandango.de/wiki/Spielentwicklung.html)
+and [Quickstart](https://chipnplay.pandango.de/wiki/Schnellstart-Spielideen.html)
 for details.
 
 ## Swapping Graphics Modularly (Sprite Themes)
