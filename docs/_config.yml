@@ -1,5 +1,6 @@
 # Jekyll configuration for GitHub Pages
-# Site: https://lxndrJ.github.io/TDisplayS3_Adventure/
+# Site: https://chipnplay.pandango.de/ (custom domain, root)
+# Fallback: https://lxndrJ.github.io/TDisplayS3_Adventure/ (set baseurl back to "/TDisplayS3_Adventure" if you switch)
 
 title: TDisplayS3 Adventure
 tagline: Modular mini-game platform for the LilyGo T-Display-S3 (ESP32-S3)
@@ -8,8 +9,8 @@ description: >-
   (ESP32-S3, 320x170 ST7789 display, 2 buttons). Eldoria, Neon Run,
   Neon Shard, Chip Slide, Neon Dash. PlatformIO + Arduino + TFT_eSPI.
 
-url: "https://lxndrJ.github.io"
-baseurl: "/TDisplayS3_Adventure"   # repo name = project Pages subpath
+url: "https://chipnplay.pandango.de"
+baseurl: ""   # custom domain serves from root; for lxndrJ.github.io/TDisplayS3_Adventure/ use "/TDisplayS3_Adventure"
 
 # Theme: use the default Primer-adjacent minima-like look shipped with Pages.
 # (No remote theme dependency = no extra build time, works with the

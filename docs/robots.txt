@@ -5,4 +5,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://lxndrJ.github.io/TDisplayS3_Adventure/sitemap.xml
+Sitemap: https://chipnplay.pandango.de/sitemap.xml

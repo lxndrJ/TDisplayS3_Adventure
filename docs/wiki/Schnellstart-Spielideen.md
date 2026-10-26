@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: default
 title: "Quickstart: Turn Game Ideas into Reality"
 description: "3 steps to your first game on the TDisplayS3 Adventure engine: create the game class, register it in the game registry, build and flash with PlatformIO."
 ---
