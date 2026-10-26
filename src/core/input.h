@@ -4,31 +4,31 @@
 #include "board_config.h"
 #include "buttons.h"
 
-// Einheitliche logische Tasten - unabhaengig vom Board.
-// Jedes Board mappt seine physischen Taster in board_config.h darauf.
+// Unified logical keys - independent of the board.
+// Each board maps its physical buttons onto these in board_config.h.
 enum class Key : uint8_t { A, B, KeyCount };
 
 struct InputState {
-  // true waehrend des gesamten Tastendrucks
+  // true for the whole duration of the press
   bool     down[(uint8_t)Key::KeyCount]      = {false, false};
-  // true nur im Frame des Loslassens (kurzer Druck)
+  // true only in the frame of release (short press)
   bool     pressed[(uint8_t)Key::KeyCount]   = {false, false};
-  // true einmalig nach longMs Haltezeit
+  // true once after longMs of holding
   bool     longPressed[(uint8_t)Key::KeyCount] = {false, false};
-  // Haltezeit in ms (0 = nicht gedrueckt)
+  // hold time in ms (0 = not pressed)
   uint32_t holdMs[(uint8_t)Key::KeyCount]    = {0, 0};
 };
 
 class InputManager {
 public:
   void init() {
-    // Power-Hold wird von Engine::begin() vor gfx.init() gesetzt.
+    // Power-hold is set by Engine::begin() before gfx.init().
     btnA_ = new ButtonTracker(board::PIN_BTN_A, board::LONG_A_MS, board::DEBOUNCE_MS);
     btnB_ = new ButtonTracker(board::PIN_BTN_B, board::LONG_B_MS, board::DEBOUNCE_MS);
   }
 
-  // Muss jeden Frame aufgerufen werden. Fragt beide Taster ab und
-  // fuellt den uebergebenen State.
+  // Must be called every frame. Polls both buttons and
+  // fills the passed state.
   void update(InputState& s) {
     s = InputState{};
     updateOne(*btnA_, Key::A, s);

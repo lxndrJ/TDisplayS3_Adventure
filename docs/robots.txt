@@ -1,0 +1,8 @@
+---
+# Front-matter empty on purpose; Jekyll copies this file as-is.
+---
+
+User-agent: *
+Allow: /
+
+Sitemap: https://lxndrJ.github.io/TDisplayS3_Adventure/sitemap.xml

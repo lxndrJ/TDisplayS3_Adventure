@@ -70,144 +70,144 @@ struct Scene {
 #define CH_HEAL(l,n,c,h) {l,n,0xFF,0xFF,(int8_t)c,0xFF,0xFF,0,h}
 
 const Scene scenes[SC_COUNT] = {
-  {10,0,"ZWERGENHALL",
-   "Eldoria liegt in Nebel. Die Mondkrone der Elfenkoenigin wurde gestohlen - der Drache Morgath soll sie besitzen. Du bist Thrain, Sohn des Schmieds. Werde zum Helden!",
-   {CH("Neues Spiel",SC_DORF),CH_END,CH_END,CH_END},
+  {10,0,"DWARVENHALL",
+   "Eldoria lies in the mist. The Moon Crown of the Elven Queen was stolen - the dragon Morgath is said to possess it. You are Thrain, son of the smith. Become a hero!",
+   {CH("New Game",SC_DORF),CH_END,CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {1,0,"Zwergenhall",
-   "Der Aelteste Barthos nickt dir zu. 'Der Drache haust jenseits des Elfenwaldes. Nimm Gold fuer die Reise - und sei wachsam!'",
-   {CH("In den Elfenwald",SC_WALD),CH("Ueber die Frostberge",SC_BERGE),CH("Zum Markt von Silberhain",SC_MARKT),CH_END},
+  {1,0,"Dwarvenhall",
+   "Elder Barthos nods at you. 'The dragon dwells beyond the Elven Wood. Take gold for the journey - and be watchful!'",
+   {CH("Into the Elven Wood",SC_WALD),CH("Over the Frost Peaks",SC_BERGE),CH("To the market of Silvershade",SC_MARKT),CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {2,0,"Elfenwald",
-   "Zwischen uralten Baeumen begegnet dir die Waldlaeuferin Aelindril. Ihre silbernen Augen funkeln misstrauisch.",
-   {CH("Freundlich begruessen",SC_AELINDRIL),CH("Zum Wunschbrunnen",SC_BRUNNEN),CH("Tiefer in den Wald",SC_RAETSEL),CH("Zurueck zum Dorf",SC_DORF)},
+  {2,0,"Elven Wood",
+   "Among ancient trees you meet the ranger Aelindril. Her silver eyes flash distrustfully.",
+   {CH("Greet her kindly",SC_AELINDRIL),CH("To the wishing well",SC_BRUNNEN),CH("Deeper into the wood",SC_RAETSEL),CH("Back to the village",SC_DORF)},
    nullptr,0,-1,-1,0xFF},
 
-  {3,0,"Silberhain",
-   "Haendler preisen ihre Waren an. Der Schmied haemmert eine schwere Axt. Im Staub liegt ein dickes Seil.",
-   {CH_BUY("Seil kaufen (5 Gold)",IT_SEIL,5,SC_MARKT),CH_BUY("Apfel kaufen (3 Gold)",IT_APFEL,3,SC_MARKT),CH_BUY("Kampfaxt (8 Gold)",IT_AXT,8,SC_MARKT),CH("In den Wald",SC_WALD)},
+  {3,0,"Silvershade",
+   "Merchants praise their wares. The smith hammers a heavy axe. A thick rope lies in the dust.",
+   {CH_BUY("Buy rope (5 gold)",IT_SEIL,5,SC_MARKT),CH_BUY("Buy apple (3 gold)",IT_APFEL,3,SC_MARKT),CH_BUY("Battle axe (8 gold)",IT_AXT,8,SC_MARKT),CH("Into the wood",SC_WALD)},
    nullptr,0,-1,-1,0xFF},
 
   {4,0,"Aelindril",
-   "'Der Troll Grommash bewacht die Steinbruecke', sagt die Elfin leise. 'Nimm das Amulett der Koenigin - es oeffnet ihr Tor.' Sie legt ein silbernes Amulett in deine Hand.",
-   {CH_GIVEF("Amulett annehmen",SC_BRUECKE,IT_AMULETT,FL_ELF),CH("Ablehnen",SC_BRUECKE),CH_END,CH_END},
+   "'The troll Grommash guards the Stonebridge,' the elf says softly. 'Take the Queen's amulet - it opens her gate.' She places a silver amulet in your hand.",
+   {CH_GIVEF("Accept the amulet",SC_BRUECKE,IT_AMULETT,FL_ELF),CH("Decline",SC_BRUECKE),CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {5,0,"Frostberge",
-   "Eisiger Wind pfeift ueber kahle Gipfel. Vor dir gaehnt eine breite Gletscherspalte, der Wind traegt Schneeflocken herueber.",
-   {CH_USE("Seil benutzen",SC_SPALTE,IT_SEIL),CH("Umweg nehmen",SC_UMWEG),CH("Zurueck",SC_DORF),CH_END},
+  {5,0,"Frost Peaks",
+   "Icy wind whistles over bare peaks. Before you yawns a wide glacier gap; the wind carries snowflakes across.",
+   {CH_USE("Use the rope",SC_SPALTE,IT_SEIL),CH("Take the detour",SC_UMWEG),CH("Back",SC_DORF),CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {6,0,"Gletscherspalte",
-   "Das Seil traegt dich sicher hinueber. Am anderen Ende, halb im Eis eingebettet, glitzert ein alter Schluessel.",
-   {CH_GIVE("Schluessel nehmen",SC_UMWEG,IT_SCHLUESSEL),CH("Weiter",SC_UMWEG),CH_END,CH_END},
+  {6,0,"Glacier Gap",
+   "The rope carries you safely across. At the far end, half embedded in ice, an old key glints.",
+   {CH_GIVE("Take the key",SC_UMWEG,IT_SCHLUESSEL),CH("Continue",SC_UMWEG),CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {7,0,"Schneetreiben",
-   "Der Umweg durch den tiefen Schnee kostet Stunden. Durchgefroren, aber unversehrt, erreichst du den Wald am Fuss der Berge.",
-   {CH("Weiter zur Bruecke",SC_BRUECKE),CH_END,CH_END,CH_END},
+  {7,0,"Snowdrift",
+   "The detour through deep snow costs hours. Freezing but unharmed, you reach the wood at the foot of the mountains.",
+   {CH("On to the bridge",SC_BRUECKE),CH_END,CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {8,0,"Steinbruecke",
-   "Grommash der Troll hockt mitten auf der Steinbruecke und schwingt seine Keule. 'Zoll! Fuenf Gold - oder Kostprobe meiner Faust!'",
-   {CH("Kaempfen",SC_KAMPF_TROLL),CH_USE("Apfel anbieten",SC_TROLL_SCHLAF,IT_APFEL),CH_COST("Fuenf Gold zahlen",SC_WACHE,5),CH("Fliehen",SC_WALD)},
+  {8,0,"Stonebridge",
+   "Grommash the troll crouches in the middle of the Stonebridge, swinging his club. 'Toll! Five gold - or a taste of my fist!'",
+   {CH("Fight",SC_KAMPF_TROLL),CH_USE("Offer the apple",SC_TROLL_SCHLAF,IT_APFEL),CH_COST("Pay five gold",SC_WACHE,5),CH("Flee",SC_WALD)},
    nullptr,0,-1,-1,0xFF},
 
-  {6,1,"Kampf!",
-   "Grommash stoesst mit seiner Keule zu! Wuerfle mindestens eine 4 zum Treffen. Eine Kampfaxt gibt +1 auf den Wurf.",
+  {6,1,"Fight!",
+   "Grommash lunges with his club! Roll at least a 4 to hit. A battle axe gives +1 to the roll.",
    {CH_END,CH_END,CH_END,CH_END},
    "Grommash",4,SC_TROLL_BESIEGT,SC_WALD,IT_TROLLZAHN},
 
-  {6,0,"Grommash schlaeft",
-   "Der Troll liegt im Gras und schnarcht laut wie ein Bär. Die Bruecke ist frei. Du schleichst vorbei.",
-   {CH("Bruecke ueberqueren",SC_WACHE),CH_END,CH_END,CH_END},
+  {6,0,"Grommash Sleeps",
+   "The troll lies in the grass, snoring loud as a bear. The bridge is free. You sneak past.",
+   {CH("Cross the bridge",SC_WACHE),CH_END,CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {6,0,"Grommash besiegt",
-   "Der Troll liegt betaeubt im Staub. Zwischen seinen Fingern haelt er noch immer einen riesigen Zahn.",
-   {CH_GIVE("Trollzahn nehmen",SC_WACHE,IT_TROLLZAHN),CH("Weiter",SC_WACHE),CH_END,CH_END},
+  {6,0,"Grommash Defeated",
+   "The troll lies stunned in the dust. Between his fingers he still holds a huge tooth.",
+   {CH_GIVE("Take the troll tooth",SC_WACHE,IT_TROLLZAHN),CH("Continue",SC_WACHE),CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {4,0,"Tor der Elfen",
-   "Wache Lyrien versperrt den Weg. 'Zeigt das Amulett der Koenigin - oder kehrt heim in eure Berge!'",
-   {CH_REQ("Amulett zeigen",SC_INNENHOF,IT_AMULETT),CH("Betteln",SC_WARTEN),CH("Zurueck",SC_BRUECKE),CH_END},
+  {4,0,"Gate of the Elves",
+   "Guard Lyrien blocks the way. 'Show the Queen's amulet - or go home to your mountains!'",
+   {CH_REQ("Show the amulet",SC_INNENHOF,IT_AMULETT),CH("Beg",SC_WARTEN),CH("Back",SC_BRUECKE),CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {4,0,"Tor der Elfen",
-   "Lyrien ruehrt sich nicht. 'Ohne Amulett kein Einlass. So sind die Gesetze der Koenigin.'",
-   {CH("Zurueck",SC_WACHE),CH_END,CH_END,CH_END},
+  {4,0,"Gate of the Elves",
+   "Lyrien does not stir. 'No amulet, no entry. Such are the laws of the Queen.'",
+   {CH("Back",SC_WACHE),CH_END,CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {8,0,"Elfenhain",
-   "Der Turm der Koenigin ragt vor dir auf. Dahinter, zwischen schwarzen Felsen, der dunkle Eingang zur Drachenhoehle.",
-   {CH("In die Hoehle",SC_HOEHLE),CH("Seiteneingang suchen",SC_SEITEN),CH("Alten Turm betreten",SC_TURM),CH("Zurueck zum Tor",SC_WACHE)},
+  {8,0,"Elven Court",
+   "The Queen's tower rises before you. Behind it, between black rocks, the dark entrance to the Dragon Cave.",
+   {CH("Into the cave",SC_HOEHLE),CH("Look for a side entrance",SC_SEITEN),CH("Enter the old tower",SC_TURM),CH("Back to the gate",SC_WACHE)},
    nullptr,0,-1,-1,0xFF},
 
-  {9,0,"Drachenhoehle",
-   "Morgath, der Drache, liegt auf einem Berg aus Gold und Muenzen. Die Mondkrone funkelt auf seinem Kopf. Sein Atem riecht nach Schwefel.",
-   {CH("Krone stehlen",SC_GEHEIM),CH("Drachen wecken",SC_KAMPF_DRACHE),CH_REQ("Aelindril rufen",SC_SCHLAFLIED,FL_ELF),CH_END},
+  {9,0,"Dragon Cave",
+   "Morgath the dragon lies on a mountain of gold and coins. The Moon Crown gleams on his head. His breath smells of sulfur.",
+   {CH("Steal the crown",SC_GEHEIM),CH("Wake the dragon",SC_KAMPF_DRACHE),CH_REQ("Call Aelindril",SC_SCHLAFLIED,FL_ELF),CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {7,0,"Geheimer Gang",
-   "Ein enger Gang hinter Wasserfaellen fuehrt tiefer in den Berg. Tropfen hallen wie Schritte.",
-   {CH("Weiter",SC_GEHEIM),CH_END,CH_END,CH_END},
+  {7,0,"Secret Passage",
+   "A narrow passage behind waterfalls leads deeper into the mountain. Drops echo like footsteps.",
+   {CH("Continue",SC_GEHEIM),CH_END,CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {7,0,"Hinter der Krone",
-   "Hinter dem Goldberg findest du eine schwere Eichentuere mit silbernem Beschlag. Daneben liegt die Mondkrone, nur eine Armlaenge entfernt.",
-   {CH("Tuer oeffnen",SC_THRON),CH_GIVE("Krone nehmen und fliehen",SC_FLUCHT,IT_KRONE),CH_END,CH_END},
+  {7,0,"Behind the Crown",
+   "Behind the mound of gold you find a heavy oak door with silver fittings. Next to it lies the Moon Crown, only an arm's length away.",
+   {CH("Open the door",SC_THRON),CH_GIVE("Take the crown and flee",SC_FLUCHT,IT_KRONE),CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {9,1,"Kampf!",
-   "Feuer! Hitze! Morgaths Schwingen peitschen durch die Luft. Wuerfle mindestens eine 5 zum Treffen. Eine Kampfaxt gibt +1.",
+  {9,1,"Fight!",
+   "Fire! Heat! Morgath's wings whip through the air. Roll at least a 5 to hit. A battle axe gives +1.",
    {CH_END,CH_END,CH_END,CH_END},
    "Morgath",5,SC_THRON,SC_SEITEN,IT_KRONE},
 
-  {9,0,"Morgath schlaeft",
-   "Aelindrils Wiegenlied wiegt den Drachen in tiefen Schlaf. Sein Atem zittert wie Rauch. Die Krone liegt erreichbar auf seinem Kopf.",
-   {CH_GIVE("Krone nehmen",SC_THRON,IT_KRONE),CH("Zurueck",SC_HOEHLE),CH_END,CH_END},
+  {9,0,"Morgath Sleeps",
+   "Aelindril's lullaby rocks the dragon into deep sleep. His breath trembles like smoke. The crown lies within reach on his head.",
+   {CH_GIVE("Take the crown",SC_THRON,IT_KRONE),CH("Back",SC_HOEHLE),CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {15,2,"Thronsaal",
-   "Die Elfenkoenigin nimmt die Mondkrone entgegen. 'Thrain, Kronenwaechter von Eldoria!' Posaunen ertoenen. Der Friede kehrt zurueck.",
-   {CH("Neu starten",SC_TITLE),CH_END,CH_END,CH_END},
+  {15,2,"Throne Hall",
+   "The Elven Queen accepts the Moon Crown. 'Thrain, Crown Warden of Eldoria!' Trumpets blare. Peace returns.",
+   {CH("Restart",SC_TITLE),CH_END,CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 
   {12,2,"Game Over",
-   "Dunkelheit umfaengt dich. Zwergenhall trauert um seinen Sohn. Die Nebel von Eldoria bleiben ewig grau.",
-   {CH("Nochmal versuchen",SC_TITLE),CH_END,CH_END,CH_END},
+   "Darkness engulfs you. Dwarvenhall mourns its son. The mists of Eldoria remain forever grey.",
+   {CH("Try again",SC_TITLE),CH_END,CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {10,2,"Sieg!",
-   "Mit der Krone im Rucksack entkommst du durch den Seitengang. Aelindril geleitet dich heim. Ganz Eldoria feiert dich als Helden!",
-   {CH("Neu starten",SC_TITLE),CH_END,CH_END,CH_END},
+  {10,2,"Victory!",
+   "With the crown in your pack you escape through the side passage. Aelindril escorts you home. All of Eldoria celebrates you as a hero!",
+   {CH("Restart",SC_TITLE),CH_END,CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {14,0,"Wunschbrunnen",
-   "Ein sprechender Fuchs sitzt an einem steinernen Brunnen. 'Ein Kraut heilt fuer zwei Gold. Fuenf Gold bringen dir einen silbernen Kelch - ein Geschenk der Elfen.'",
-   {CH_HEAL("Heiltrank (2 Gold)",SC_WALD,2,1),CH_BUY("Silberkelch (5 Gold)",IT_KELCH,5,SC_WALD),CH("Nichts",SC_WALD),CH_END},
+  {14,0,"Wishing Well",
+   "A talking fox sits at a stone well. 'An herb heals for two gold. Five gold bring you a silver chalice - a gift from the elves.'",
+   {CH_HEAL("Healing potion (2 gold)",SC_WALD,2,1),CH_BUY("Silver chalice (5 gold)",IT_KELCH,5,SC_WALD),CH("Nothing",SC_WALD),CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {4,0,"Raetsel im Wald",
-   "Ein Elf tritt aus dem Schatten. 'Was hat eine Stimme, aber keinen Koerper? Antwortest du falsch, kostet es dich 1 Lebenspunkt. Richtig schenke ich dir einen Schluessel.'",
-   {CH_HURT("Die Stille",SC_WALD,1),CH_GIVE("Das Echo",SC_WALD,IT_SCHLUESSEL),CH("Nichts sagen",SC_WALD),CH_END},
+  {4,0,"Riddle in the Wood",
+   "An elf steps from the shadows. 'What has a voice but no body? Answer wrong and it costs you 1 hit point. Right, and I give you a key.'",
+   {CH_HURT("The Silence",SC_WALD,1),CH_GIVE("The Echo",SC_WALD,IT_SCHLUESSEL),CH("Say nothing",SC_WALD),CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {8,0,"Alter Turm",
-   "Ein verwitterter Turm aus grauem Stein. Das schwere Portal ist mit einem rostigen Schloss verschlossen.",
-   {CH_USE("Schluessel benutzen",SC_TURM_INNEN,IT_SCHLUESSEL),CH("Weiter in die Hoehle",SC_HOEHLE),CH_END,CH_END},
+  {8,0,"Old Tower",
+   "A weathered tower of grey stone. The heavy portal is locked with a rusty lock.",
+   {CH_USE("Use the key",SC_TURM_INNEN,IT_SCHLUESSEL),CH("Onward into the cave",SC_HOEHLE),CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 
-  {8,0,"Turmkammer",
-   "In einer alten Truhe liegt ein silberner Kelch, verziert mit Elfenrunen. Daneben staubt ein leeres Buch.",
-   {CH_GIVE("Kelch nehmen",SC_INNENHOF,IT_KELCH),CH("Zurueck",SC_INNENHOF),CH_END,CH_END},
+  {8,0,"Tower Chamber",
+   "In an old chest lies a silver chalice, decorated with elven runes. Next to it an empty book gathers dust.",
+   {CH_GIVE("Take the chalice",SC_INNENHOF,IT_KELCH),CH("Back",SC_INNENHOF),CH_END,CH_END},
    nullptr,0,-1,-1,0xFF},
 };
 
 const char* itemName(uint8_t i) {
-  static const char* n[] = {"Seil","Apfel","Amulett","Schluessel","Trollzahn","Silberkelch","Kampfaxt","Mondkrone"};
+  static const char* n[] = {"Rope","Apple","Amulet","Key","Troll tooth","Silver chalice","Battle axe","Moon Crown"};
   return n[i & 7];
 }
 
@@ -293,25 +293,25 @@ void gotoScene(uint16_t id) {
 }
 
 void runChoice(const Choice& c) {
-  if (c.cost > 0 && gold < c.cost) { flash("Zu wenig Gold!"); return; }
+  if (c.cost > 0 && gold < c.cost) { flash("Not enough gold!"); return; }
   if (c.cost > 0) gold -= c.cost;
   if (c.use != 0xFF) {
     flags &= ~(1UL << c.use);
-    char b[40]; snprintf(b, sizeof(b), "%s benutzt", itemName(c.use));
+    char b[40]; snprintf(b, sizeof(b), "%s used", itemName(c.use));
     flash(b);
   }
   if (c.give != 0xFF) {
     flags |= (1UL << c.give);
-    char b[40]; snprintf(b, sizeof(b), "%s erhalten", itemName(c.give));
+    char b[40]; snprintf(b, sizeof(b), "%s received", itemName(c.give));
     flash(b);
   }
   if (c.setFlag != 0xFF) flags |= (1UL << c.setFlag);
   if (c.hurt) {
     hp -= c.hurt;
-    flash("-1 Lebenspunkt");
+    flash("-1 hit point");
     if (hp <= 0) { gotoScene(SC_GAMEOVER); return; }
   }
-  if (c.heal && hp < 3) { hp += c.heal; if (hp > 3) hp = 3; flash("+1 Lebenspunkt"); }
+  if (c.heal && hp < 3) { hp += c.heal; if (hp > 3) hp = 3; flash("+1 hit point"); }
   gotoScene((uint16_t)c.next);
 }
 
@@ -319,14 +319,14 @@ void fightRoll() {
   const Scene& s = scenes[cur];
   int r = random(1, 7) + (hasItem(IT_AXT) ? 1 : 0);
   bool hit = r >= s.enemyRoll;
-  snprintf(rollMsg, sizeof(rollMsg), "Wurf %d%s: %s", r, hasItem(IT_AXT) ? " (+1)" : "", hit ? "Treffer!" : "Daneben!");
+  snprintf(rollMsg, sizeof(rollMsg), "Roll %d%s: %s", r, hasItem(IT_AXT) ? " (+1)" : "", hit ? "Hit!" : "Miss!");
   if (hit) {
     if (s.winItem != 0xFF) flags |= (1UL << s.winItem);
     gotoScene((uint16_t)s.winNext);
   } else {
     hp--;
     if (hp <= 0) { gotoScene(SC_GAMEOVER); return; }
-    flash("-1 Lebenspunkt");
+    flash("-1 hit point");
     dirty = true;
   }
 }
@@ -412,7 +412,7 @@ void drawStatus() {
   char b[24];
   snprintf(b, sizeof(b), "Gold:%d", gold);
   tft.drawString(b, 58, 2);
-  snprintf(b, sizeof(b), "Zuege:%d", moves);
+  snprintf(b, sizeof(b), "Moves:%d", moves);
   tft.drawString(b, 108, 2);
   tft.drawFastHLine(0, 12, 170, TFT_DARKGREY);
 }
@@ -562,7 +562,7 @@ void drawOptions(const Scene& s) {
   if (page < (uint8_t)pages - 1) {
     tft.setTextColor(TFT_LIGHTGREY);
     tft.setTextDatum(TL_DATUM);
-    tft.drawString("Weiter >", 6, 212);
+    tft.drawString("Next >", 6, 212);
     return;
   }
   int idx = 0;
@@ -581,9 +581,9 @@ void drawFooter(uint8_t kind) {
   tft.setTextFont(1);
   tft.setTextColor(TFT_DARKGREY);
   tft.setTextDatum(TL_DATUM);
-  const char* f = "A: hoch | B: runter | B lang: OK";
-  if (kind == 1) f = "A/B: Wuerfeln | B lang: Fliehen";
-  else if (kind == 2) f = "B lang: Neustart";
+  const char* f = "A: up | B: down | B long: OK";
+  if (kind == 1) f = "A/B: Roll | B long: Flee";
+  else if (kind == 2) f = "B long: Restart";
   tft.drawString(f, 6, 302);
 }
 
@@ -592,7 +592,7 @@ void renderInv() {
   tft.setTextFont(2);
   tft.setTextColor(TFT_YELLOW);
   tft.setTextDatum(TL_DATUM);
-  tft.drawString("INVENTAR", 6, 8);
+  tft.drawString("INVENTORY", 6, 8);
   tft.setTextFont(1);
   tft.setTextColor(TFT_WHITE);
   int y = 44;
@@ -606,13 +606,13 @@ void renderInv() {
       y += 20;
     }
   }
-  if (!any) tft.drawString("(leer)", 12, y);
+  if (!any) tft.drawString("(empty)", 12, y);
   char b[32];
-  snprintf(b, sizeof(b), "Gold: %d   HP: %d/3   Zuege: %d", gold, hp, moves);
+  snprintf(b, sizeof(b), "Gold: %d   HP: %d/3   Moves: %d", gold, hp, moves);
   tft.setTextColor(TFT_LIGHTGREY);
   tft.drawString(b, 6, 250);
   tft.setTextColor(TFT_DARKGREY);
-  tft.drawString("A kurz oder B lang: Zurueck", 6, 302);
+  tft.drawString("A short or B long: Back", 6, 302);
 }
 
 void render() {
@@ -642,7 +642,7 @@ void render() {
   drawOptions(s);
   if (s.kind == 2) {
     char b[20];
-    snprintf(b, sizeof(b), "Zuege: %d", moves);
+    snprintf(b, sizeof(b), "Moves: %d", moves);
     tft.setTextFont(1);
     tft.setTextColor(TFT_YELLOW);
     tft.setTextDatum(MC_DATUM);

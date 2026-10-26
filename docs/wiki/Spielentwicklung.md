@@ -1,334 +1,340 @@
-# 🎮 Spielentwicklung
+---
+layout: page
+title: "Game Development"
+description: "How to write your own game for the TDisplayS3 Adventure engine: Game interface, input system, display, framebuffer, fonts, timing, random, memory, best practices."
+---
 
-Detaillierte Anleitung für die Entwicklung eigener Spiele auf der TDisplayS3 Adventure Engine.
+# 🎮 Game Development
 
-## Architektur-Übersicht
+A detailed guide for developing your own games on the TDisplayS3 Adventure engine.
+
+## Architecture Overview
 
 ```
 ┌─────────────────┐
-│   Dein Spiel    │  ← implementiert Game-Interface
-│  (src/games/)   │
+│   Your game     │  <- implements the Game interface
+│   (src/games/)  │
 └────────┬────────┘
-         │ nutzt
+         │ uses
 ┌────────▼────────┐
-│   Engine Core   │  ← Game, Engine, Display, Input
+│   Engine Core   │  <- Game, Engine, Display, Input
 │   (src/core/)   │
 └────────┬────────┘
-         │ konfiguriert über
+         │ configured via
 ┌────────▼────────┐
-│  Board Config   │  ← Pins, Display-Geometrie, Timing
+│  Board Config   │  <- pins, display geometry, timing
 │  (src/boards/)  │
 └─────────────────┘
 ```
 
-## Das Game-Interface
+## The Game Interface
 
-Jedes Spiel implementiert diese 4 Methoden (`src/core/game.h`):
+Every game implements these 4 methods (`src/core/game.h`):
 
 ```cpp
 class Game {
 public:
-  virtual const char* name() const = 0;           // Spielname für Menü
-  virtual void init() = 0;                         // Einmalig beim Start
-  virtual void update(const InputState& in, uint32_t dtMs) = 0;  // Logik
-  virtual void draw() = 0;                         // Rendern auf gfx.tft()
-  virtual void quit() {}                           // Optional: Aufräumen
+  virtual const char* name() const = 0;           // Game name for the menu
+  virtual void init() = 0;                         // Once at start
+  virtual void update(const InputState& in, uint32_t dtMs) = 0;  // Logic
+  virtual void draw() = 0;                         // Render to gfx.tft()
+  virtual void quit() {}                           // Optional: cleanup
 
-  bool wantsMenu = false;  // true = zurück zum Launcher
+  bool wantsMenu = false;  // true = back to the launcher
 };
 ```
 
-### Lebenszyklus eines Spiels
+### Lifecycle of a Game
 
 ```
-┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐
-│  init() │ ──► │ update()│ ──► │  draw() │ ──► │  loop   │
-│ einmalig│     │  ~60 FPS│     │  ~60 FPS│     │ wiederholen│
-└─────────┘     └─────────┘     └─────────┘     └─────────┘
-                                              │
-                                    wantsMenu = true?
-                                              │
-                                         ┌────┴────┐
-                                         ▼         │
-                                       quit()   weiter
+┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
+│  init()  │ ──► │ update() │ ──► │  draw()  │ ──► │  loop    │
+│  once    │     │  ~60 FPS │     │  ~60 FPS │     │  repeat  │
+└──────────┘     └──────────┘     └──────────┘     └────┬─────┘
+                                                          │
+                                                wantsMenu = true?
+                                                          │
+                                                     ┌────┴────┐
+                                                     ▼         │
+                                                   quit()   continue
 ```
 
-## Input-System
+## Input System
 
-### InputState-Struktur (`src/core/input.h`)
+### InputState Structure (`src/core/input.h`)
 
 ```cpp
 struct InputState {
-  bool     down[2];        // true während Tastendruck (Key::A=0, Key::B=1)
-  bool     pressed[2];     // true nur im Frame des Loslassens (kurz)
-  bool     longPressed[2]; // true einmalig nach langer Haltezeit
-  uint32_t holdMs[2];      // Haltezeit in ms (0 = nicht gedrückt)
+  bool     down[2];        // true while the button is held (Key::A=0, Key::B=1)
+  bool     pressed[2];     // true only in the frame of the release (short)
+  bool     longPressed[2]; // true once after a long hold
+  uint32_t holdMs[2];      // hold time in ms (0 = not pressed)
 };
 ```
 
-### Zugriff in deinem Spiel
+### Access in Your Game
 
 ```cpp
-void MeinSpiel::update(const InputState& in, uint32_t dtMs) {
-  // Kurzer Druck (einmalig beim Loslassen)
-  if (in.pressed[0]) { /* A kurz */ }
-  if (in.pressed[1]) { /* B kurz */ }
+void MyGame::update(const InputState& in, uint32_t dtMs) {
+  // Short press (once on release)
+  if (in.pressed[0]) { /* A short */ }
+  if (in.pressed[1]) { /* B short */ }
 
-  // Langer Druck (einmalig nach LONG_X_MS)
-  if (in.longPressed[0]) { /* A lang (~1200ms) */ }
-  if (in.longPressed[1]) { /* B lang (~700ms) */ }
+  // Long press (once after LONG_X_MS)
+  if (in.longPressed[0]) { /* A long (~1200ms) */ }
+  if (in.longPressed[1]) { /* B long (~700ms) */ }
 
-  // Kontinuierlich während Druck
-  if (in.down[0]) { /* A gehalten */ }
+  // Continuously while held
+  if (in.down[0]) { /* A held */ }
 
-  // Haltezeit in Millisekunden
-  uint32_t haltedauer = in.holdMs[1];
+  // Hold time in milliseconds
+  uint32_t holdDuration = in.holdMs[1];
 }
 ```
 
-### Taster-Zuordnung (T-Display-S3)
+### Button Mapping (T-Display-S3)
 
-| Logisch | Physisch | Pin | Aktiv |
-|---------|----------|-----|-------|
+| Logical | Physical | Pin | Active |
+|---------|----------|-----|--------|
 | Key::A  | BOOT     | GPIO0  | LOW |
-| Key::B  | Frei     | GPIO14 | LOW |
+| Key::B  | free     | GPIO14 | LOW |
 
-## Display-System
+## Display System
 
-### Zugriff über `gfx`
+### Access via `gfx`
 
 ```cpp
 #include "core/display.h"
 
-// Im draw():
+// In draw():
 auto& tft = gfx.tft();
 
-// Display-Größe
-constexpr int16_t W = gfx.width();   // 170 (Portrait)
-constexpr int16_t H = gfx.height();  // 320 (Portrait)
+// Display size
+constexpr int16_t W = gfx.width();   // 170 (portrait)
+constexpr int16_t H = gfx.height();  // 320 (portrait)
 ```
 
-### Framebuffer für flackerfreie Animation (empfohlen)
+### Framebuffer for Flicker-Free Animation (recommended)
 
-Für animierte Spiele (wie NeonRun) empfiehlt sich ein Sprite-Framebuffer:
+For animated games (like Neon Run) a sprite framebuffer is recommended:
 
 ```cpp
 #include <TFT_eSPI.h>
 
-// Als Member deklarieren (im PSRAM auf dem S3)
+// Declare as a member (lands in PSRAM on the S3)
 TFT_eSprite fb_{&gfx.tft()};
 
-void MeinSpiel::init() {
-  // Framebuffer erstellen (volle Bildschirmgröße)
+void MyGame::init() {
+  // Create the framebuffer (full screen size)
   fb_.setColorDepth(16);  // RGB565
   fb_.createSprite(gfx.width(), gfx.height());
 }
 
-void MeinSpiel::draw() {
-  // Alles in den Framebuffer zeichnen
+void MyGame::draw() {
+  // Draw everything into the framebuffer
   fb_.fillScreen(TFT_BLACK);
   fb_.fillCircle(85, 160, 20, TFT_RED);
 
-  // Einmalig auf das Display pushen (flackerfrei!)
+  // Push to the display once (flicker-free!)
   fb_.pushSprite(0, 0);
 }
 
-void MeinSpiel::quit() {
-  fb_.deleteSprite();  // Speicher freigeben
+void MyGame::quit() {
+  fb_.deleteSprite();  // free memory
 }
 ```
 
-### Wichtige TFT_eSPI-Befehle
+### Important TFT_eSPI Commands
 
-| Befehl | Beschreibung | Beispiel |
-|--------|-------------|----------|
-| `fillScreen(color)` | Bildschirm löschen | `tft.fillScreen(TFT_BLACK)` |
-| `drawString(text, x, y, font)` | Text ausgeben | `tft.drawString("HP: 3", 5, 5, 2)` |
-| `setTextColor(fg, bg)` | Textfarbe setzen | `tft.setTextColor(TFT_WHITE, TFT_BLACK)` |
-| `setTextDatum(datum)` | Textausrichtung | `tft.setTextDatum(TC_DATUM)` // top-center |
-| `fillRect(x,y,w,h,color)` | Rechteck füllen | `tft.fillRect(10, 10, 50, 20, TFT_RED)` |
-| `drawRect(x,y,w,h,color)` | Rechteck-Rahmen | `tft.drawRect(10, 10, 50, 20, TFT_WHITE)` |
-| `fillCircle(cx,cy,r,color)` | Kreis füllen | `tft.fillCircle(85, 160, 20, TFT_BLUE)` |
-| `drawCircle(cx,cy,r,color)` | Kreis-Rahmen | `tft.drawCircle(85, 160, 20, TFT_WHITE)` |
-| `drawLine(x1,y1,x2,y2,color)` | Linie zeichnen | `tft.drawLine(0, 0, 169, 319, TFT_GREEN)` |
-| `fillTriangle(x1,y1,x2,y2,x3,y3,color)` | Dreieck füllen | `tft.fillTriangle(85,140, 65,180, 105,180, TFT_YELLOW)` |
-| `drawPixel(x, y, color)` | Einzelpixel | `tft.drawPixel(85, 160, TFT_WHITE)` |
-| `setRotation(r)` | Display-Rotation | `tft.setRotation(1)` // 0-3 |
-| `pushImage(x, y, w, h, data)` | Bitmap laden | `tft.pushImage(0, 0, 32, 32, meinSprite)` |
+| Command | Description | Example |
+|---------|-------------|---------|
+| `fillScreen(color)` | Clear screen | `tft.fillScreen(TFT_BLACK)` |
+| `drawString(text, x, y, font)` | Draw text | `tft.drawString("HP: 3", 5, 5, 2)` |
+| `setTextColor(fg, bg)` | Set text color | `tft.setTextColor(TFT_WHITE, TFT_BLACK)` |
+| `setTextDatum(datum)` | Text alignment | `tft.setTextDatum(TC_DATUM)` // top-center |
+| `fillRect(x,y,w,h,color)` | Filled rectangle | `tft.fillRect(10, 10, 50, 20, TFT_RED)` |
+| `drawRect(x,y,w,h,color)` | Rectangle outline | `tft.drawRect(10, 10, 50, 20, TFT_WHITE)` |
+| `fillCircle(cx,cy,r,color)` | Filled circle | `tft.fillCircle(85, 160, 20, TFT_BLUE)` |
+| `drawCircle(cx,cy,r,color)` | Circle outline | `tft.drawCircle(85, 160, 20, TFT_WHITE)` |
+| `drawLine(x1,y1,x2,y2,color)` | Draw line | `tft.drawLine(0, 0, 169, 319, TFT_GREEN)` |
+| `fillTriangle(x1,y1,x2,y2,x3,y3,color)` | Filled triangle | `tft.fillTriangle(85,140, 65,180, 105,180, TFT_YELLOW)` |
+| `drawPixel(x, y, color)` | Single pixel | `tft.drawPixel(85, 160, TFT_WHITE)` |
+| `setRotation(r)` | Display rotation | `tft.setRotation(1)` // 0-3 |
+| `pushImage(x, y, w, h, data)` | Load bitmap | `tft.pushImage(0, 0, 32, 32, mySprite)` |
 
-### Fonts (1-8 verfügbar)
+### Fonts (1-8 available)
 
 ```cpp
-tft.drawString("Klein",  10, 10, 1);  // Font 1: klein (8px)
+tft.drawString("Small",  10, 10, 1);  // Font 1: small (8px)
 tft.drawString("Normal", 10, 30, 2);  // Font 2: normal (16px)
-tft.drawString("Groß",   10, 50, 4);  // Font 4: groß (26px)
-tft.drawString("Riesig", 10, 80, 7);  // Font 7: riesig (48px)
-tft.drawString("Zahl",   10, 140, 8); // Font 8: nur Ziffern (75px)
+tft.drawString("Large",  10, 50, 4);  // Font 4: large (26px)
+tft.drawString("Huge",   10, 80, 7);  // Font 7: huge (48px)
+tft.drawString("Number", 10, 140, 8); // Font 8: digits only (75px)
 ```
 
-## Zeit & Framerate
+## Time & Frame Rate
 
 ### Delta-Time (`dtMs`)
 
-Die Engine ruft `update()` mit dem Zeitdelta seit dem letzten Frame auf:
+The engine calls `update()` with the time delta since the last frame:
 
 ```cpp
-void MeinSpiel::update(const InputState& in, uint32_t dtMs) {
-  // dtMs = Millisekunden seit letztem Frame (~16ms bei 60 FPS)
+void MyGame::update(const InputState& in, uint32_t dtMs) {
+  // dtMs = milliseconds since the last frame (~16ms at 60 FPS)
 
-  // Frame-unabhängige Bewegung:
-  float geschwindigkeit = 100.0f;  // Pixel pro Sekunde
-  playerX += geschwindigkeit * (dtMs / 1000.0f);
+  // Frame-rate-independent movement:
+  float speed = 100.0f;  // pixels per second
+  playerX += speed * (dtMs / 1000.0f);
 }
 ```
 
-### Eigenes Timing
+### Custom Timing
 
 ```cpp
-// In der Klasse:
-uint32_t letzteAktionMs = 0;
-uint32_t aktionCooldown = 500;  // 500ms Cooldown
+// In the class:
+uint32_t lastActionMs = 0;
+uint32_t actionCooldown = 500;  // 500ms cooldown
 
-void MeinSpiel::update(const InputState& in, uint32_t dtMs) {
-  uint32_t jetzt = millis();
+void MyGame::update(const InputState& in, uint32_t dtMs) {
+  uint32_t now = millis();
 
-  if (in.pressed[1] && jetzt - letzteAktionMs > aktionCooldown) {
-    // Aktion ausführen
-    letzteAktionMs = jetzt;
+  if (in.pressed[1] && now - lastActionMs > actionCooldown) {
+    // do action
+    lastActionMs = now;
   }
 }
 ```
 
-## Zufallsgenerator
+## Random Number Generator
 
-Die Engine initialisiert `randomSeed()` automatisch:
+The engine initializes `randomSeed()` automatically:
 
 ```cpp
-// Würfelwurf W6 (1-6)
-int wuerfel = random(1, 7);
+// Dice roll W6 (1-6)
+int die = random(1, 7);
 
-// Zufällige Auswahl
-if (random(100) < 25) {  // 25% Chance
-  // kritischer Treffer!
+// Random choice
+if (random(100) < 25) {  // 25% chance
+  // critical hit!
 }
 
-// Zufällige Position
+// Random position
 int x = random(10, 160);
 ```
 
-## Speicher-Management (ESP32-S3)
+## Memory Management (ESP32-S3)
 
-| Ressource | Größe | Hinweis |
-|-----------|-------|---------|
-| Interner RAM | ~512 KB | Variablen, Stack |
-| PSRAM | 8 MB | Große Framebuffer, Bitmaps |
-| Flash | 16 MB | Programm, PROGMEM-Daten |
+| Resource | Size | Note |
+|----------|------|------|
+| Internal RAM | ~512 KB | Variables, stack |
+| PSRAM | 8 MB | Large framebuffers, bitmaps |
+| Flash | 16 MB | Program, PROGMEM data |
 
-### PROGMEM für konstante Daten
+### PROGMEM for Constant Data
 
 ```cpp
-// Bitmap im Flash speichern (spart RAM)
-const uint16_t meinSprite[] PROGMEM = {
+// Store bitmap in flash (saves RAM)
+const uint16_t mySprite[] PROGMEM = {
   0xF800, 0xF800, 0x07E0, 0x07E0,  // ...
 };
 
-// Aus Flash laden
-tft.pushImage(x, y, 16, 16, meinSprite);
+// Load from flash
+tft.pushImage(x, y, 16, 16, mySprite);
 ```
 
-### PSRAM für große Objekte
+### PSRAM for Large Objects
 
 ```cpp
-// Framebuffer liegen automatisch im PSRAM (bei TFT_eSprite)
+// Framebuffers automatically land in PSRAM (with TFT_eSprite)
 TFT_eSprite fb_{&gfx.tft()};
-fb_.createSprite(170, 320);  // ~106 KB im PSRAM
+fb_.createSprite(170, 320);  // ~106 KB in PSRAM
 ```
 
-## Sprite-Themes (austauschbare Grafik)
+## Sprite Themes (Swappable Graphics)
 
-NeonRun demonstriert das Sprite-Theme-System (`src/games/neonrun/sprites.h`):
+Neon Run demonstrates the sprite theme system (`src/games/neonrun/sprites.h`):
 
 ```cpp
-// Eigenes Theme implementieren:
-class MeinBitmapTheme : public SpriteRenderer {
+// Implement your own theme:
+class MyBitmapTheme : public SpriteRenderer {
 public:
-  const NeonPalette& palette() const override { return meinePalette; }
+  const NeonPalette& palette() const override { return myPalette; }
   void drawPlayer(TFT_eSprite& fb, int16_t x, int16_t y, bool visible) override {
-    // Eigenes Bitmap zeichnen statt Vektorgrafik
-    fb.pushImage(x, y, 16, 16, meinPlayerSprite);
+    // Draw your own bitmap instead of vector graphics
+    fb.pushImage(x, y, 16, 16, myPlayerSprite);
   }
-  // ... weitere Methoden
+  // ... more methods
 };
 
-// In init() aktivieren:
-void MeinSpiel::init() {
-  gSprites = &meinBitmapTheme;  // statt neonVectorTheme
+// Activate in init():
+void MyGame::init() {
+  gSprites = &myBitmapTheme;  // instead of neonVectorTheme
 }
 ```
 
 ## Best Practices
 
-### 1. `draw()` nicht blockieren
+### 1. Do Not Block `draw()`
 
 ```cpp
-// ❌ Schlecht: Lange Berechnung in draw()
+// ❌ Bad: heavy computation in draw()
 void draw() {
-  for (int i = 0; i < 10000; i++) { /* ... */ }  // Blockiert!
-  // zeichnen...
+  for (int i = 0; i < 10000; i++) { /* ... */ }  // Blocks!
+  // draw...
 }
 
-// ✅ Gut: Berechnung in update(), nur Zeichnen in draw()
+// ✅ Good: compute in update(), only draw in draw()
 void update(const InputState& in, uint32_t dtMs) {
-  // Logik hier
+  // logic here
 }
 void draw() {
-  // Nur zeichnen
+  // draw only
 }
 ```
 
-### 2. Framebuffer für Animationen
+### 2. Framebuffer for Animations
 
 ```cpp
-// ❌ Schlecht: Direkt auf Display (flackert)
-tft.fillScreen(TFT_BLACK);  // Flackern!
+// ❌ Bad: draw directly to the display (flickers)
+tft.fillScreen(TFT_BLACK);  // Flicker!
 tft.fillCircle(x, y, r, TFT_RED);
 
-// ✅ Gut: Framebuffer (flackerfrei)
+// ✅ Good: framebuffer (flicker-free)
 fb_.fillScreen(TFT_BLACK);
 fb_.fillCircle(x, y, r, TFT_RED);
-fb_.pushSprite(0, 0);  // Einmalig pushen
+fb_.pushSprite(0, 0);  // push once
 ```
 
-### 3. Konstanten für Magische Zahlen
+### 3. Constants for Magic Numbers
 
 ```cpp
-// ❌ Schlecht
-class MeinSpiel : public Game {
-  float x = 85;  // Was bedeutet 85?
+// ❌ Bad
+class MyGame : public Game {
+  float x = 85;  // What does 85 mean?
 };
 
-// ✅ Gut
-class MeinSpiel : public Game {
-  static constexpr int16_t MITTE_X = 85;
-  static constexpr int16_t SPIELER_Y = 262;
-  float x = MITTE_X;
+// ✅ Good
+class MyGame : public Game {
+  static constexpr int16_t CENTER_X = 85;
+  static constexpr int16_t PLAYER_Y = 262;
+  float x = CENTER_X;
 };
 ```
 
-### 4. Zustandsmaschine für Spielphasen
+### 4. State Machine for Game Phases
 
 ```cpp
-enum Phase : uint8_t { TITEL, SPIEL, GAMEOVER, SIEG };
+enum Phase : uint8_t { TITLE, PLAY, GAMEOVER, WIN };
 
-Phase phase_ = TITEL;
+Phase phase_ = TITLE;
 
 void update(const InputState& in, uint32_t dtMs) {
   switch (phase_) {
-    case TITEL:
-      if (in.pressed[1]) phase_ = SPIEL;
+    case TITLE:
+      if (in.pressed[1]) phase_ = PLAY;
       break;
-    case SPIEL:
-      // Spiellogik
+    case PLAY:
+      // game logic
       if (gameOver) phase_ = GAMEOVER;
       break;
     case GAMEOVER:
@@ -340,31 +346,35 @@ void update(const InputState& in, uint32_t dtMs) {
 
 ## Debugging
 
-### Serieller Monitor
+### Serial Monitor
 
 ```bash
-pio device monitor  # 115200 Baud
+pio device monitor  # 115200 baud
 ```
 
 ```cpp
-// In deinem Code:
+// In your code:
 Serial.printf("Score: %d, HP: %d, Phase: %d\n", score, hp, phase);
-Serial.println(F("Debug: Spieler kollidiert"));  // F() spart RAM
+Serial.println(F("Debug: player collided"));  // F() saves RAM
 ```
 
-### Häufige Fehler
+### Common Errors
 
-| Problem | Ursache | Lösung |
-|---------|---------|--------|
-| Schwarzer Screen | Power-Hold GPIO15 nicht HIGH | Engine::begin() nicht ändern |
-| Flackernde Grafik | Direkt auf Display gezeichnet | Framebuffer (TFT_eSprite) nutzen |
-| Taster reagieren nicht | Falscher Pin oder aktiv HIGH | Board-Config prüfen (aktiv LOW) |
-| Build-Fehler TFT_eSPI | Falsche Version | Auf 2.5.43 pinnen (platformio.ini) |
-| "Sketch too big" | Partition zu klein | partitions_16mb.csv prüfen |
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| Black screen | Power-hold GPIO15 not HIGH | Do not change Engine::begin() |
+| Flickering graphics | Drawing directly to the display | Use a framebuffer (TFT_eSprite) |
+| Buttons not responding | Wrong pin or active HIGH | Check board config (active LOW) |
+| Build error TFT_eSPI | Wrong version | Pin to 2.5.43 (platformio.ini) |
+| "Sketch too big" | Partition too small | Check partitions_16mb.csv |
 
-## Weiterführende Links
+## Further Links
 
-- [TFT_eSPI Dokumentation](https://github.com/Bodmer/TFT_eSPI)
+- [TFT_eSPI Documentation](https://github.com/Bodmer/TFT_eSPI)
 - [ESP32-S3 Datasheet](https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf)
 - [Arduino ESP32 Core](https://github.com/espressif/arduino-esp32)
-- [Projekt-Repository](https://github.com/lxndrJ/TDisplayS3_Adventure)
+- [Project Repository](https://github.com/lxndrJ/TDisplayS3_Adventure)
+
+---
+
+[← Wiki Home](Home.html) · [Docs Home](/TDisplayS3_Adventure/)

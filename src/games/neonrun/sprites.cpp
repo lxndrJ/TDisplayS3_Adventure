@@ -11,7 +11,7 @@ void NeonVectorTheme::drawBackground(TFT_eSprite& fb, uint32_t scroll) {
   fb.fillSprite(pal_.bgBottom);
   fb.fillRect(0, 0, W, roadY, pal_.bgTop);
 
-  // Sterne mit Parallax (langsamer als die Welt)
+  // Stars with parallax (slower than the world)
   int32_t sm = (int32_t)(scroll / 3) % (roadY - 24);
   for (uint8_t i = 0; i < 24; i++) {
     int16_t sx = (int16_t)((i * 67 + 13) % W);
@@ -20,18 +20,18 @@ void NeonVectorTheme::drawBackground(TFT_eSprite& fb, uint32_t scroll) {
     else             fb.fillRect(sx, sy, 1, 1, pal_.star);
   }
 
-  // Horizont-Glow
+  // horizon glow
   fb.drawFastHLine(0, roadY - 1, W, pal_.obstacleDark);
   fb.drawFastHLine(0, roadY, W, pal_.horizon);
 
-  // Bewegte Strassenstreifen
+  // moving road stripes
   int32_t m = (int32_t)(scroll / 24) % 24;
   for (int16_t y = roadY - 24 + (int16_t)m; y < H; y += 24)
     fb.fillRect(0, y, W, 12, pal_.bgMid);
 }
 
 void NeonVectorTheme::drawPlayer(TFT_eSprite& fb, int16_t x, int16_t y, bool visible) {
-  if (!visible) return;  // Blinzeln in der Unverwundbarkeit
+  if (!visible) return;  // blinking while invulnerable
   fb.fillTriangle(x + 1, y + 11, x + 8, y - 2, x + 15, y + 11, pal_.playerGlow);
   fb.fillTriangle(x + 3, y + 9, x + 8, y + 2, x + 13, y + 9, pal_.player);
   fb.fillCircle(x + 8, y + 6, 1, TFT_WHITE);
@@ -40,7 +40,7 @@ void NeonVectorTheme::drawPlayer(TFT_eSprite& fb, int16_t x, int16_t y, bool vis
 
 void NeonVectorTheme::drawBarObstacle(TFT_eSprite& fb, int16_t x, int16_t y, int16_t w, int16_t h,
                                       int16_t gapX, int16_t gapW) {
-  // Warnstreifen-Balken links und rechts der Luecke
+  // Warning-stripe bar left and right of the gap
   fb.fillRect(x, y, gapX, h, pal_.obstacleDark);
   fb.fillRect(x + gapX + gapW, y, w - gapX - gapW, h, pal_.obstacleDark);
   for (int16_t sx = x; sx < x + gapX; sx += 8)

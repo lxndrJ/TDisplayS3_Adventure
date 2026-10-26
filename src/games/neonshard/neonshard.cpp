@@ -14,44 +14,44 @@ static const uint16_t COL_DIM    = 0x630C;  // dunkles Cyan
 // ---------------------------------------------------------------- Szenen
 
 const NeonShardGame::SceneDef NeonShardGame::kScenes[SC_COUNT] = {
-  // SC_ALLEY - die Gasse mit Drone und Riko
+  // SC_ALLEY - the alley with drone and Riko
   { ART_ALLEY, 4, {
-    { H_ALLEY_DRONE, 238, 108, 76, 58, "Courier-Droide" },
+    { H_ALLEY_DRONE, 238, 108, 76, 58, "Courier drone" },
     { H_ALLEY_RIKO,   48,  86, 62, 78, "Riko" },
     { H_ALLEY_BAR,     6, 116, 78, 28, "> Bar" },
-    { H_ALLEY_SUBWAY, 236,116, 78, 28, "> U-Bahn" },
+    { H_ALLEY_SUBWAY, 236,116, 78, 28, "> Subway" },
   }},
   // SC_BAR - Mama Bytes Bar
   { ART_BAR, 3, {
     { H_BAR_MAMA,  126,  78, 76, 88, "Mama Byte" },
-    { H_BAR_STREET,   6, 116, 78, 28, "> Gasse" },
-    { H_BAR_SUBWAY, 236, 116, 78, 28, "> U-Bahn" },
+    { H_BAR_STREET,   6, 116, 78, 28, "> Alley" },
+    { H_BAR_SUBWAY, 236, 116, 78, 28, "> Subway" },
   }},
-  // SC_SUBWAY - Bahnsteig mit Agentin Chen
+  // SC_SUBWAY - platform with agent Chen
   { ART_SUBWAY, 3, {
-    { H_SUB_CHEN,  118,  84, 70, 84, "Agentin Chen" },
-    { H_SUB_STREET,   6, 116, 78, 28, "> Gasse" },
-    { H_SUB_ROOF,  236, 116, 78, 28, "> Helix-Turm" },
+    { H_SUB_CHEN,  118,  84, 70, 84, "Agent Chen" },
+    { H_SUB_STREET,   6, 116, 78, 28, "> Alley" },
+    { H_SUB_ROOF,  236, 116, 78, 28, "> Helix Tower" },
   }},
-  // SC_ROOF - Antennenwald auf dem Turm
+  // SC_ROOF - antenna forest on the tower
   { ART_ROOF, 2, {
-    { H_ROOF_ANTENNA, 128,  16, 66, 140, "Sendeantenne" },
-    { H_ROOF_SUBWAY,    6, 116, 78, 28, "> U-Bahn" },
+    { H_ROOF_ANTENNA, 128,  16, 66, 140, "Broadcast antenna" },
+    { H_ROOF_SUBWAY,    6, 116, 78, 28, "> Subway" },
   }},
-  // SC_ENDA - Morgen nach der Freilassung
+  // SC_ENDA - the morning after the release
   { ART_ENDA, 1, {
-    { H_END_EXIT, 0, 0, SW, SH, "B lang: Menue" },
+    { H_END_EXIT, 0, 0, SW, SH, "B long: Menu" },
   }},
-  // SC_ENDB - Neonregen nach dem Verkauf
+  // SC_ENDB - neon rain after the sale
   { ART_ENDB, 1, {
-    { H_END_EXIT, 0, 0, SW, SH, "B lang: Menue" },
+    { H_END_EXIT, 0, 0, SW, SH, "B long: Menu" },
   }},
 };
 
 // ---------------------------------------------------------------- Spielstart
 
 void NeonShardGame::init() {
-  // Landscape: Das Abenteuer nutzt die volle Breite des Panels
+  // Landscape: the adventure uses the full panel width
   gfx.tft().setRotation(1);
   if (!fb_.created()) fb_.createSprite(SW, SH);
   if (!bg_) {
@@ -64,11 +64,11 @@ void NeonShardGame::init() {
   tipMama_  = false;
   metChen_  = false;
   wantsMenu = false;
-  decodeArt(ART_TITLE);  // Titelscreen liegt sofort an
+  decodeArt(ART_TITLE);  // title screen ready immediately
 }
 
 void NeonShardGame::decodeArt(uint8_t art) {
-  // Szenengrafik RLE-dekodieren (Generator: tools/gen_neonshard_art.py)
+  // RLE-decode scene art (generator: tools/gen_neonshard_art.py)
   if (!bg_) return;
   const RleArt* a = nullptr;
   switch (art) {
@@ -127,7 +127,7 @@ void NeonShardGame::update(const InputState& in, uint32_t dtMs) {
 
     case PH_DIALOG:
       if (dlgIdx_ < dlgLineCount_ - 1) {
-        // Zeilen vorwaerts blaettern (A/B kurz), B lang ebenso
+        // page forward (A/B short), B long as well
         if (in.pressed[(uint8_t)Key::A] || in.pressed[(uint8_t)Key::B] ||
             in.longPressed[(uint8_t)Key::B])
           dlgIdx_++;
@@ -170,12 +170,12 @@ void NeonShardGame::interact(uint8_t hs) {
   switch (hs) {
     case H_ALLEY_DRONE: {
       static const char* const L1[] = {
-        "Vex: Ein zerschossener Courier-Droide. Noch warm.",
-        "Vex: In seiner Ladebuchse blinkt ein Datensplitter. Der gehoert wohl Helix.",
-        "Vex: Den behalte ich. Meine Schwester braucht eine Behandlung, keine Prinzipien.",
+        "Vex: A shot-up courier drone. Still warm.",
+        "Vex: A data shard blinks in its cargo bay. Probably belongs to Helix.",
+        "Vex: I'm keeping it. My sister needs treatment, not principles.",
       };
       static const char* const L2[] = {
-        "Vex: Nur noch Schrott und kalte Neonluft.",
+        "Vex: Nothing but scrap and cold neon air.",
       };
       if (hasShard_) beginDialog(DLG_DRONE2, L2, 1, nullptr, 0);
       else           beginDialog(DLG_DRONE,  L1, 3, nullptr, 0);
@@ -184,15 +184,15 @@ void NeonShardGame::interact(uint8_t hs) {
 
     case H_ALLEY_RIKO: {
       static const char* const L[] = {
-        "Riko: Hey Vex! Bloss nicht mit dem Ding rumlaufen.",
-        "Riko: Das ist kein normaler Splitter. Da wohnt was drin.",
-        "Riko: Mama Byte weiss mehr. Ihre Bar ist gleich links.",
-        "Riko: Aber pass auf: Helix scherzt nicht.",
+        "Riko: Hey Vex! Don't go running around with that thing.",
+        "Riko: That's no ordinary shard. Something lives in there.",
+        "Riko: Mama Byte knows more. Her bar is just to the left.",
+        "Riko: But watch out: Helix doesn't joke.",
       };
       static const char* const L2[] = {
-        "Riko: Und? Was ist auf dem Splitter?",
-        "Vex: Eine Stimme. Sie nennt sich Ghost.",
-        "Riko: ...Dann rannte mal. Bevor jemand anderes sie hoert.",
+        "Riko: So? What's on the shard?",
+        "Vex: A voice. She calls herself Ghost.",
+        "Riko: ...Then run. Before someone else hears her.",
       };
       if (hasShard_) beginDialog(DLG_RIKO2, L2, 3, nullptr, 0);
       else           beginDialog(DLG_RIKO,  L,  4, nullptr, 0);
@@ -212,21 +212,21 @@ void NeonShardGame::interact(uint8_t hs) {
 
     case H_BAR_MAMA: {
       static const char* const GATE[] = {
-        "Mama Byte: Vex, Kind. Ohne Ware kein Gespraech. Du weisst, wie das laeuft.",
+        "Mama Byte: Vex, kid. No goods, no talk. You know how it goes.",
       };
       static const char* const L[] = {
-        "Mama Byte: Hmm... ein Bewusstseins-Splitter. Eine FREIE KI, Vex.",
-        "Ghost: <aus dem Splitter> Ich zahle nicht in Credits. Ich zahle in Freiheit.",
-        "Mama Byte: 1000 Cred dafuer - oder du hoerst ihre Geschichte.",
+        "Mama Byte: Hmm... a consciousness shard. A FREE AI, Vex.",
+        "Ghost: <from the shard> I don't pay in credits. I pay in freedom.",
+        "Mama Byte: 1000 creds for it - or you hear her story.",
         "Mama Byte: Deine Wahl, Courier.",
       };
-      static const char* const C[] = { "Behalten - zuhoeren",
-                                        "Verkaufen (+1000C)" };
+      static const char* const C[] = { "Keep it - listen",
+                                        "Sell it (+1000C)" };
       if (!hasShard_)      beginDialog(DLG_MAMA_GATE, GATE, 1, nullptr, 0);
       else if (!metMama_) { beginDialog(DLG_MAMA, L, 4, C, 2); }
       else {
         static const char* const AGAIN[] = {
-          "Mama Byte: Die Zeit drueckt, Kind. Was wirds?",
+          "Mama Byte: Time's pressing, kid. What'll it be?",
         };
         beginDialog(DLG_MAMA, AGAIN, 1, C, 2);
       }
@@ -235,20 +235,20 @@ void NeonShardGame::interact(uint8_t hs) {
 
     case H_SUB_CHEN: {
       static const char* const GATE[] = {
-        "Chen: Sie verschwindet zwischen zwei Zuegen. Nichts zu holen hier.",
+        "Chen: She vanishes between two trains. Nothing to gain here.",
       };
       static const char* const L[] = {
-        "Chen: Courier Vex. Helix weiss, was du da hast. Ein Leck, nichts weiter.",
-        "Chen: 2000 Cred. Sofort, anonym, keine Fragen.",
-        "Chen: Oder du findest heraus, was Helix mit Lecks macht.",
+        "Chen: Courier Vex. Helix knows what you've got. A leak, nothing more.",
+        "Chen: 2000 creds. Cash, anonymous, no questions.",
+        "Chen: Or you find out what Helix does with leaks.",
       };
-      static const char* const C[] = { "Ablehnen - kein Leck",
-                                        "Verkaufen (+2000C)" };
+      static const char* const C[] = { "Refuse - no leak",
+                                        "Sell (+2000C)" };
       if (!hasShard_)        beginDialog(DLG_CHEN_GATE, GATE, 1, nullptr, 0);
       else if (!metChen_)     beginDialog(DLG_CHEN, L, 3, C, 2);
       else {
         static const char* const AGAIN[] = {
-          "Chen: Letzte Chance, Courier.",
+          "Chen: Last chance, courier.",
         };
         beginDialog(DLG_CHEN, AGAIN, 1, C, 2);
       }
@@ -257,7 +257,7 @@ void NeonShardGame::interact(uint8_t hs) {
 
     case H_SUB_ROOF: {
       static const char* const L[] = {
-        "Vex: Ohne Grund fahre ich nicht zum Helix-Turm.",
+        "Vex: I'm not heading to the Helix Tower for no reason.",
       };
       if (tipMama_) gotoScene(SC_ROOF);
       else          beginDialog(DLG_NO_TOWER, L, 1, nullptr, 0);
@@ -269,13 +269,13 @@ void NeonShardGame::interact(uint8_t hs) {
 
     case H_ROOF_ANTENNA: {
       static const char* const GATE[] = {
-        "Vex: Ein toter Wald aus Metall. Ohne Splitter sinnlos.",
+        "Vex: A dead forest of metal. Worthless without the shard.",
       };
       static const char* const L[] = {
-        "Vex: Die alte Sendeantenne... Mama Bytes Tipp war gut.",
-        "Ghost: <summt> Ich sende mich selbst. Ueberallhin. Niemand besitzt den Regen.",
-        "Ghost: Eines verspreche ich, Vex: Deine Schwester wird nicht vergessen.",
-        "Vex: Dann flieg, Ghost.",
+        "Vex: The old broadcast antenna... Mama Byte's tip was good.",
+        "Ghost: <humming> I send myself. Everywhere. Nobody owns the rain.",
+        "Ghost: One thing I promise you, Vex: your sister will not be forgotten.",
+        "Vex: Then fly, Ghost.",
       };
       if (hasShard_) beginDialog(DLG_ANTENNA, L, 4, nullptr, 0);
       else           beginDialog(DLG_ANTENNA_GATE, GATE, 1, nullptr, 0);
@@ -311,7 +311,7 @@ void NeonShardGame::dialogEnd(uint8_t dlgId, uint8_t choice) {
     default:
       break;
   }
-  phase_ = PH_SCENE;  // zurueck in die Szene
+  phase_ = PH_SCENE;  // back to the scene
 }
 
 // ---------------------------------------------------------------- Zeichnen
@@ -336,19 +336,19 @@ void NeonShardGame::draw() {
 }
 
 void NeonShardGame::drawTitle(TFT_eSprite& fb) {
-  // Titelgrafik; der Schriftzug ist Teil des generierten Bildes
+  // Title art; the lettering is part of the generated image
   fb.pushImage(0, 0, SW, SH, bg_);
   fb.setTextFont(1);
   fb.setTextColor(COL_DIM, 0x0000);
   fb.setTextDatum(TL_DATUM);
-  fb.drawString("B lang: Start", 6, 158);
+  fb.drawString("B long: Start", 6, 158);
 }
 
 void NeonShardGame::drawScene(TFT_eSprite& fb) {
   fb.pushImage(0, 0, SW, SH, bg_);
   const SceneDef& s = kScenes[scene_];
 
-  // Hotspot-Markierungen: Eck-Klammern, Auswahl in Neon
+  // Hotspot markers: corner brackets, selection in neon
   for (uint8_t i = 0; i < s.nHot; i++) {
     const Hotspot& h = s.hot[i];
     uint16_t col = (i == sel_) ? COL_ACCENT : 0x39E7;
@@ -360,7 +360,7 @@ void NeonShardGame::drawScene(TFT_eSprite& fb) {
     fb.drawFastHLine(x1 - c + 1, y1, c, col);      fb.drawFastVLine(x1, y1 - c + 1, c, col);
   }
 
-  // Hinweiszeile unten: gewaehltes Ziel + Steuerung
+  // Hint line at the bottom: selected target + controls
   fb.fillRect(0, 148, SW, 22, COL_BAND);
   fb.drawFastHLine(0, 148, SW, 0x1082);
   fb.setTextDatum(TL_DATUM);
@@ -369,7 +369,7 @@ void NeonShardGame::drawScene(TFT_eSprite& fb) {
   fb.drawString(s.hot[sel_].label, 6, 151);
   fb.setTextFont(1);
   fb.setTextColor(COL_DIM, COL_BAND);
-  fb.drawString("A/B: Ziel | B lang: Aktion", SW - 104, 155);
+  fb.drawString("A/B: Target | B long: Action", SW - 104, 155);
 }
 
 void NeonShardGame::drawDialog(TFT_eSprite& fb) {
@@ -378,9 +378,9 @@ void NeonShardGame::drawDialog(TFT_eSprite& fb) {
   fb.drawFastHLine(0, BAND_Y, SW, COL_ACCENT);
 
   fb.setTextDatum(TL_DATUM);
-  fb.setTextFont(2);   // Font 2 (16px): gut lesbar auf dem kleinen Panel
+  fb.setTextFont(2);   // font 2 (16px): easily readable on the small panel
 
-  // "Name: " praefix farbig auf eigener Zeile, Text darunter umgebrochen
+  // "Name: " prefix colored on its own line, text wrapped below
   const char* colon = strstr(line, ": ");
   const char* text  = line;
   int16_t py = BAND_Y + 3;
@@ -393,7 +393,7 @@ void NeonShardGame::drawDialog(TFT_eSprite& fb) {
     py += 17;
     text = colon + 2;
   }
-  // Text in bis zu 3 Zeilen a 24 Zeichen (Font 2), am Leerzeichen umbrechen
+  // Text in up to 3 lines of 24 chars (font 2), wrap at spaces
   char buf[25];
   int len = strlen(text), off = 0;
   fb.setTextColor(0xFFFF, COL_BAND);
@@ -408,14 +408,14 @@ void NeonShardGame::drawDialog(TFT_eSprite& fb) {
     off += n;
   }
 
-  // Zeilen-Fortschritt
+  // line progress
   fb.setTextFont(1);
   fb.setTextColor(COL_DIM, COL_BAND);
   char pg[10];
   snprintf(pg, sizeof(pg), "%u/%u", dlgIdx_ + 1, dlgLineCount_);
   fb.drawString(pg, SW - 26, BAND_Y + 3);
 
-  // Auswahlmoeglichkeiten (nur auf der letzten Zeile), Font 2
+  // Choices (only on the last line), font 2
   if (dlgIdx_ == dlgLineCount_ - 1 && dlgChoiceCount_ > 0) {
     fb.setTextFont(2);
     int16_t cy = BAND_Y + 20;
@@ -427,24 +427,24 @@ void NeonShardGame::drawDialog(TFT_eSprite& fb) {
     }
   } else if (dlgIdx_ < dlgLineCount_ - 1) {
     fb.setTextColor(COL_DIM, COL_BAND);
-    fb.drawString("B: weiter", SW - 60, SH - 10);
+    fb.drawString("B: continue", SW - 60, SH - 10);
   }
 }
 
 void NeonShardGame::drawEnd(TFT_eSprite& fb) {
   fb.pushImage(0, 0, SW, SH, bg_);
-  // Comic-Caption: kurze Zeilen in Grossschrift-Qualitaet (Font 2)
+  // Comic caption: short lines in large-type quality (font 2)
   static const char* const A[] = {
-    "Der Splitter ist leer.",
-    "Miras Rechnung: bezahlt.",
-    "Anonym. Von ueberall her.",
-    "GHOST: Ich bin noch da.",
+    "The shard is empty.",
+    "Mira's bill: paid.",
+    "Anonymous. From everywhere.",
+    "GHOST: I'm still here.",
   };
   static const char* const B[] = {
-    "2000 Cred im Sack.",
-    "Auf dem Splitter: GELÖSCHT.",
-    "Der Regen schmeckt bitter.",
-    "Riko sieht dich nicht mehr an.",
+    "2000 creds in the bag.",
+    "On the shard: DELETED.",
+    "The rain tastes bitter.",
+    "Riko won't look at you anymore.",
   };
   const char* const* ep = (scene_ == SC_ENDA) ? A : B;
   fb.fillRect(0, BAND_Y, SW, BAND_H, COL_BAND);
@@ -455,5 +455,5 @@ void NeonShardGame::drawEnd(TFT_eSprite& fb) {
   for (uint8_t i = 0; i < 4; i++) fb.drawString(ep[i], 6, BAND_Y + 4 + i * 17);
   fb.setTextFont(1);
   fb.setTextColor(COL_DIM, COL_BAND);
-  fb.drawString("B lang: Menue", SW - 80, SH - 10);
+  fb.drawString("B long: Menu", SW - 80, SH - 10);
 }

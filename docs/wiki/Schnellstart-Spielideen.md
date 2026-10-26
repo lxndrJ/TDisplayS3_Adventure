@@ -1,60 +1,66 @@
-# 🚀 Schnellstart: Neue Spielideen umsetzen
+---
+layout: page
+title: "Quickstart: Turn Game Ideas into Reality"
+description: "3 steps to your first game on the TDisplayS3 Adventure engine: create the game class, register it in the game registry, build and flash with PlatformIO."
+---
 
-Diese Anleitung zeigt, wie du schnell eine neue Spielidee auf dem T-Display-S3 umsetzt.
+# 🚀 Quickstart: Turn Game Ideas into Reality
 
-## Voraussetzungen
+This guide shows how to quickly implement a new game idea on the T-Display-S3.
 
-- [PlatformIO](https://platformio.org/) installiert (VS Code Extension oder CLI)
-- LilyGo T-Display-S3 angeschlossen
-- Projekt geklont: `git clone https://github.com/lxndrJ/TDisplayS3_Adventure.git`
+## Prerequisites
 
-## Schnellstart in 3 Schritten
+- [PlatformIO](https://platformio.org/) installed (VS Code extension or CLI)
+- LilyGo T-Display-S3 connected
+- Project cloned: `git clone https://github.com/lxndrJ/TDisplayS3_Adventure.git`
 
-### Schritt 1: Neues Spiel anlegen
+## Quickstart in 3 Steps
+
+### Step 1: Create a new game
 
 ```bash
-# Ordner erstellen
-mkdir -p src/games/meinspiel
+# Create the folder
+mkdir -p src/games/mygame
 ```
 
-**`src/games/meinspiel/meinspiel.h`** – minimale Vorlage:
+**`src/games/mygame/mygame.h`** – minimal template:
 
 ```cpp
-#ifndef MEINSPIEL_H
-#define MEINSPIEL_H
+#ifndef MYGAME_H
+#define MYGAME_H
 #include "core/game.h"
 
-class MeinSpielGame : public Game {
+class MyGameGame : public Game {
 public:
-  const char* name() const override { return "Mein Spiel"; }
+  const char* name() const override { return "My Game"; }
   void init() override;
   void update(const InputState& in, uint32_t dtMs) override;
   void draw() override;
 private:
-  // Dein Spielzustand hier
+  // Your game state here
   int score = 0;
 };
 #endif
 ```
 
-**`src/games/meinspiel/meinspiel.cpp`** – Implementierung:
+**`src/games/mygame/mygame.cpp`** – implementation:
 
 ```cpp
-#include "meinspiel.h"
+#include "mygame.h"
 #include "core/display.h"
 
-void MeinSpielGame::init() {
+void MyGameGame::init() {
   gfx.tft().fillScreen(TFT_BLACK);
   score = 0;
 }
 
-void MeinSpielGame::update(const InputState& in, uint32_t dtMs) {
-  // Steuerung: in.aShort, in.bShort, in.aLong, in.bLong
-  if (in.aShort) score += 10;
-  if (in.bLong) wantsMenu = true;  // zurück zum Menü
+void MyGameGame::update(const InputState& in, uint32_t dtMs) {
+  // Controls: in.pressed[0], in.pressed[1], in.longPressed[0], in.longPressed[1]
+  if (in.pressed[(uint8_t)Key::A]) score += 10;
+  if (in.longPressed[(uint8_t)Key::B]) wantsMenu = true;  // back to the menu
 }
 
-void MeinSpielGame::draw() {
+void MyGameGame::draw() {
   auto& tft = gfx.tft();
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_WHITE);
@@ -62,119 +68,121 @@ void MeinSpielGame::draw() {
 }
 ```
 
-### Schritt 2: In Registry eintragen
+### Step 2: Register in the game registry
 
-**`src/games/games.h`** bearbeiten:
+Edit **`src/games/games.h`**:
 
 ```cpp
-#include "meinspiel/meinspiel.h"  // hinzufügen
+#include "mygame/mygame.h"  // add
 
 inline Game* makeGame(uint8_t index) {
-  static EldoriaGame  eldoria;
-  static NeonRunGame  neonRun;
-  static MeinSpielGame meinSpiel;  // hinzufügen
+  static EldoriaGame   eldoria;
+  static NeonRunGame   neonRun;
+  static MyGameGame    myGame;  // add
   switch (index) {
     case 0:  return &eldoria;
     case 1:  return &neonRun;
-    case 2:  return &meinSpiel;    // hinzufügen
+    case 2:  return &myGame;    // add
     default: return nullptr;
   }
 }
 
-inline constexpr uint8_t GAME_COUNT = 3;  // 2 → 3
+inline constexpr uint8_t GAME_COUNT = 3;  // 2 -> 3
 ```
 
-### Schritt 3: Build & Flash
+### Step 3: Build & flash
 
 ```bash
-pio run -t upload    # baut und flasht
+pio run -t upload    # builds and flashes
 ```
 
-## Steuerung (T-Display-S3)
+## Controls (T-Display-S3)
 
-| Aktion | Taster |
+| Action | Button |
 |--------|--------|
-| Nächste Option / rechts | **B (GPIO14) kurz** |
-| Vorherige Option / links | **A (GPIO0) kurz** |
-| Auswählen / Bestätigen | **B (GPIO14) lang (~0,7 s)** |
-| Inventar / Spezial | **A (GPIO0) lang (~1,2 s)** |
+| Next option / right | **B (GPIO14) short** |
+| Previous option / left | **A (GPIO0) short** |
+| Select / confirm | **B (GPIO14) long (~0.7 s)** |
+| Inventory / special | **A (GPIO0) long (~1.2 s)** |
 
-> ⚠️ **Zum Flashen:** BOOT halten → RST drücken → loslassen → Upload starten
+> ⚠️ **For flashing:** hold BOOT → press RST → release → start upload
 
-## Engine-Features (bereits fertig)
+## Engine Features (ready to use)
 
-| Feature | Zugriff |
-|---------|---------|
-| **Taster-Eingaben** | `InputState` mit `aShort`, `bShort`, `aLong`, `bLong` |
-| **Display zeichnen** | `gfx.tft()` – direkter TFT_eSPI-Zugriff |
-| **Text ausgeben** | `tft.drawString(text, x, y, font)` |
-| **Formen zeichnen** | `tft.fillRect()`, `tft.drawCircle()`, etc. |
-| **Farben** | `TFT_BLACK`, `TFT_WHITE`, `TFT_RED`, `TFT_GREEN`, `TFT_BLUE`, `TFT_YELLOW` (RGB565) |
-| **Zurück zum Menü** | `wantsMenu = true` setzen |
-| **Spiel-Name** | `name()` überschreiben |
+| Feature | Access |
+|---------|--------|
+| **Button input** | `InputState` with `pressed[]`, `longPressed[]`, `down[]`, `holdMs[]` |
+| **Draw to display** | `gfx.tft()` – direct TFT_eSPI access |
+| **Print text** | `tft.drawString(text, x, y, font)` |
+| **Draw shapes** | `tft.fillRect()`, `tft.drawCircle()`, etc. |
+| **Colors** | `TFT_BLACK`, `TFT_WHITE`, `TFT_RED`, `TFT_GREEN`, `TFT_BLUE`, `TFT_YELLOW` (RGB565) |
+| **Back to menu** | set `wantsMenu = true` |
+| **Game name** | override `name()` |
 
-## Vorlagen zum Kopieren
+## Templates to Copy From
 
-| Genre | Vorlage | Datei |
-|-------|---------|-------|
-| **Text-Adventure** | Szenen, Inventar, Kampf-Würfel | `src/games/eldoria/eldoria.cpp` |
-| **Action/Runner** | Game-Loop, Kollision, Sprites | `src/games/neonrun/neonrun.cpp` |
-| **Sprite-Grafik** | Austauschbare Themes | `src/games/neonrun/sprites.h` |
+| Genre | Template | File |
+|-------|----------|------|
+| **Text adventure** | Scenes, inventory, combat dice | `src/games/eldoria/eldoria.cpp` |
+| **Action/runner** | Game loop, collision, sprites | `src/games/neonrun/neonrun.cpp` |
+| **Sprite graphics** | Swappable themes | `src/games/neonrun/sprites.h` |
 
-## Schneller Test-Workflow
+## Fast Test Workflow
 
-Um schnell zu iterieren ohne jedes Mal das Menü zu wechseln:
+To iterate quickly without going through the menu every time, boot directly
+into your game via the engine:
 
-1. Ändere `BOOT_GAME` in `src/games/games.h` auf deinen Spiel-Index:
-   ```cpp
-   inline constexpr uint8_t BOOT_GAME = 2;  // dein Spiel direkt starten
-   ```
-2. `pio run -t upload`
-3. Testen → Code ändern → wiederholen
+```cpp
+// src/core/engine.h (or main.cpp): start a specific game instead of the menu
+engine.begin(makeGame(2));   // your game's index
+```
 
-## Display-Spezifikationen
+1. `pio run -t upload`
+2. Test → change code → repeat
 
-| Eigenschaft | Wert |
-|-------------|------|
-| Auflösung | 320 × 170 Pixel |
-| Farbtiefe | 16-bit RGB565 |
-| Rotation | 1 (Landscape) |
-| Display-Treiber | ST7789 (8-bit parallel) |
+## Display Specifications
 
-## Nützliche TFT_eSPI-Befehle
+| Property | Value |
+|----------|-------|
+| Resolution | 320 × 170 pixels |
+| Color depth | 16-bit RGB565 |
+| Rotation | 1 (landscape) |
+| Display driver | ST7789 (8-bit parallel) |
+
+## Useful TFT_eSPI Commands
 
 ```cpp
 auto& tft = gfx.tft();
 
-// Bildschirm löschen
+// Clear the screen
 tft.fillScreen(TFT_BLACK);
 
 // Text
-tft.setTextColor(TFT_WHITE, TFT_BLACK);  // Vordergrund, Hintergrund
-tft.drawString("Hallo", 10, 10, 2);      // Font 1-8
+tft.setTextColor(TFT_WHITE, TFT_BLACK);  // foreground, background
+tft.drawString("Hello", 10, 10, 2);      // font 1-8
 
-// Formen
+// Shapes
 tft.fillRect(x, y, w, h, TFT_RED);
 tft.drawRect(x, y, w, h, TFT_WHITE);
 tft.fillCircle(cx, cy, r, TFT_GREEN);
 tft.drawLine(x1, y1, x2, y2, TFT_BLUE);
 
 // Pixel
-drawPixel(x, y, color);
+tft.drawPixel(x, y, color);
 
 // Rotation
-tft.setRotation(0);  // 0=Portrait, 1=Landscape, 2=Portrait-180, 3=Landscape-180
+tft.setRotation(0);  // 0=portrait, 1=landscape, 2=portrait-180, 3=landscape-180
 ```
 
-## Weiterführende Links
+## Further Links
 
-- [TFT_eSPI Dokumentation](https://github.com/Bodmer/TFT_eSPI)
+- [TFT_eSPI documentation](https://github.com/Bodmer/TFT_eSPI)
 - [ESP32-S3 Arduino Core](https://github.com/espressif/arduino-esp32)
-- [PlatformIO Dokumentation](https://docs.platformio.org/)
+- [PlatformIO documentation](https://docs.platformio.org/)
 - [LilyGo T-Display-S3](https://github.com/Xinyuan-LilyGO/T-Display-S3)
 
-## Hilfe
+## Help
 
-- **Fragen?** → [GitHub Discussions](https://github.com/lxndrJ/TDisplayS3_Adventure/discussions)
-- **Bug melden** → [GitHub Issues](https://github.com/lxndrJ/TDisplayS3_Adventure/issues)
-- **Projekt-Repository** → [lxndrJ/TDisplayS3_Adventure](https://github.com/lxndrJ/TDisplayS3_Adventure)
+- **Questions?** → [GitHub Discussions](https://github.com/lxndrJ/TDisplayS3_Adventure/discussions)
+- **Report a bug** → [GitHub Issues](https://github.com/lxndrJ/TDisplayS3_Adventure/issues)
+- **Project repository** → [lxndrJ/TDisplayS3_Adventure](https://github.com/lxndrJ/TDisplayS3_Adventure)

@@ -2,8 +2,8 @@
 #include "core/engine.h"
 #include "games/games.h"
 
-// Einstiegspunkt: Menue zeigen. Die Engine startet das gewaehlte Spiel
-// und kehrt bei wantsMenu dorthin zurueck.
+// Entry point: show the menu. The engine starts the selected game
+// and returns there when wantsMenu is set.
 void setup() {
   engine.begin(nullptr);
 }

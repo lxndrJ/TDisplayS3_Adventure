@@ -3,8 +3,8 @@
 
 #include <Arduino.h>
 
-// Generalisierter Taster mit Entprellung und Short/Long-Erkennung.
-// Wird von InputManager verwendet; Spiele kennen keine GPIOs.
+// Generic button with debouncing and short/long detection.
+// Used by InputManager; games never touch GPIOs.
 struct Button {
   uint8_t  pin       = 0;
   bool     pressed   = false;
@@ -15,7 +15,7 @@ struct Button {
 
 enum class BtnEvent : uint8_t {
   None,
-  Short,   // kurzer Tastendruck (Loslassen vor longMs)
+  Short,   // short press (released before longMs)
   Long     // langer Tastendruck (longMs erreicht, feuert einmalig)
 };
 

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="{{ page.lang | default: site.lang | default: 'en' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if page.title %}{{ page.title }} | {{ site.title }}{% else %}{{ site.title }}{% endif %}</title>
+  <meta name="description" content="{{ page.description | default: site.description | escape }}">
+  <link rel="canonical" href="{{ page.url | absolute_url }}">
+  <link rel="sitemap" type="application/xml" href="{{ '/sitemap.xml' | absolute_url }}">
+  <link rel="alternate" type="application/rss+xml" title="{{ site.title }} RSS" href="{{ '/feed.xml' | absolute_url }}">
+  <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+  {% seo %}
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="site-title" href="{{ '/' | relative_url }}">{{ site.title }}</a>
+      <span class="site-tagline">{{ site.tagline }}</span>
+      <nav class="site-nav">
+        <a href="{{ '/wiki/Home.html' | relative_url }}">Wiki</a>
+        <a href="{{ '/wiki/Schnellstart-Spielideen.html' | relative_url }}">Quickstart</a>
+        <a href="{{ '/wiki/Spielentwicklung.html' | relative_url }}">Game Dev</a>
+        <a href="{{ '/wiki/API-Referenz.html' | relative_url }}">API</a>
+        <a href="{{ '/wiki/Board-Support.html' | relative_url }}">Boards</a>
+        <a href="{{ '/wiki/Troubleshooting.html' | relative_url }}">Help</a>
+        <a href="{{ '/SEO-SETUP.html' | relative_url }}">SEO</a>
+        <a href="https://github.com/lxndrJ/TDisplayS3_Adventure">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page-content wrap">
+    <article class="post">
+      <h1 class="post-title">{{ page.title | default: site.title }}</h1>
+      <div class="post-content">
+        {{ content }}
+      </div>
+    </article>
+  </main>
+
+  <footer class="site-footer wrap">
+    <p>
+      {{ site.title }} &middot;
+      <a href="https://github.com/lxndrJ/TDisplayS3_Adventure">GitHub</a> &middot;
+      LilyGo T-Display-S3 (ESP32-S3) &middot;
+      PlatformIO + TFT_eSPI
+    </p>
+  </footer>
+</body>
+</html>

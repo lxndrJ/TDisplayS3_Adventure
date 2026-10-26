@@ -1,10 +1,10 @@
 #include "neonrun.h"
 
-// Out-of-Line-Definition (C++17: noetig, sobald die Adresse gebraucht wird)
+// Out-of-line definition (C++17: needed once the address is taken)
 constexpr int16_t NeonRunGame::LANE_X[3];
 
 void NeonRunGame::init() {
-  // Framebuffer einmalig anlegen (ueberlebt Neustarts des Spiels)
+  // Create the framebuffer once (survives game restarts)
   if (!fb_.created()) fb_.createSprite(gfx.width(), gfx.height());
 
   phase_      = PH_TITLE;
@@ -41,7 +41,7 @@ void NeonRunGame::endRun(bool won) {
 }
 
 void NeonRunGame::spawnEntity() {
-  // Spawn-Position: oberhalb des Bildschirms, Spur frei waehlen
+  // Spawn position: above the screen, pick a free lane
   for (uint8_t tries = 0; tries < 4; tries++) {
     uint8_t lane = (uint8_t)random(0, 3);
     bool taken = false;
@@ -53,7 +53,7 @@ void NeonRunGame::spawnEntity() {
     for (auto& e : ents_) if (!e.alive) { slot = &e; break; }
     if (!slot) return;
 
-    // Mit zunehmendem Score mehr Drohnen, zu Beginn fast nur Chips
+    // More drones with increasing score, mostly chips at the start
     bool drone = random(0, 100) < (uint8_t)min(15 + score_ * 2, 45);
     slot->lane  = lane;
     slot->x     = LANE_X[lane] + 7;
@@ -74,7 +74,7 @@ void NeonRunGame::hurt() {
 void NeonRunGame::update(const InputState& in, uint32_t dtMs) {
   uint32_t now = millis();
   float dt = dtMs / 1000.0f;
-  if (dt > 0.05f) dt = 0.05f;  // dt clampen (erste Frame, Hänger)
+  if (dt > 0.05f) dt = 0.05f;  // clamp dt (first frame, stalls)
 
   if (in.pressed[(uint8_t)Key::A]) {
     if (phase_ == PH_TITLE || phase_ == PH_GAMEOVER || phase_ == PH_WIN) startRun();
@@ -89,7 +89,7 @@ void NeonRunGame::update(const InputState& in, uint32_t dtMs) {
 
   if (phase_ != PH_RUN) return;
 
-  // Spieler bewegt sich zur Ziel-Spur
+  // Player moves towards the target lane
   float target = LANE_X[lane_];
   float diff = target - playerX_;
   float step = PLAYER_SPEED * dt;
@@ -100,8 +100,8 @@ void NeonRunGame::update(const InputState& in, uint32_t dtMs) {
   float speed = worldSpeed_ * (1.0f + score_ * 0.012f);
   scroll_ += (uint32_t)(speed * dt);
 
-  // Firewall-Balken: laeuft periodisch von oben nach unten, Luecke in
-  // einer festen Spur. Logik hier, Zeichnen in drawWorld().
+  // Firewall bar: runs periodically top to bottom, gap in one fixed
+  // lane. Logic here, drawing in drawWorld().
   uint32_t cycle = scroll_ % BAR_CYCLE;
   if (cycle < (uint32_t)BAR_TRAVEL) {
     barActive_  = true;
@@ -114,7 +114,7 @@ void NeonRunGame::update(const InputState& in, uint32_t dtMs) {
     barActive_ = false;
   }
 
-  // Spawn-Timer (wird mit Score schneller)
+  // Spawn timer (gets faster with score)
   uint32_t interval = (uint32_t)(SPAWN_MS / (1.0f + score_ * 0.01f));
   spawnTimer_ += dtMs;
   if (spawnTimer_ >= interval) {
@@ -122,13 +122,13 @@ void NeonRunGame::update(const InputState& in, uint32_t dtMs) {
     spawnEntity();
   }
 
-  // Entities bewegen sich nach unten
+  // Entities move downwards
   for (auto& e : ents_) {
     if (!e.alive) continue;
     e.y += speed * dt;
     if (e.y > gfx.height() + 20) { e.alive = false; continue; }
 
-    // Kollision: Entity in Spieler-Spur und auf Spieler-Höhe
+    // Collision: entity in player lane at player height
     int16_t px = (int16_t)playerX_;
     int16_t py = PLAYER_Y;
     if (now >= invulnUntil_ &&
@@ -150,13 +150,13 @@ void NeonRunGame::drawHud(TFT_eSprite& fb) {
   fb.setTextFont(1);
   fb.setTextDatum(TL_DATUM);
 
-  // HP als Neon-Balken
+  // HP as a neon bar
   fb.setTextColor(pal.textDim);
   fb.drawString("HP", 4, 4);
   for (uint8_t i = 0; i < MAX_HP; i++)
     fb.fillRect(20 + i * 14, 4, 12, 8, i < hp_ ? pal.obstacle : pal.bgMid);
 
-  // Score + Best rechts
+  // score + best on the right
   char b[24];
   snprintf(b, sizeof(b), "%u", score_);
   fb.setTextColor(pal.coin);
@@ -171,7 +171,7 @@ void NeonRunGame::drawHud(TFT_eSprite& fb) {
 void NeonRunGame::drawWorld(TFT_eSprite& fb) {
   gSprites->drawBackground(fb, scroll_);
 
-  // Firewall-Balken (Position wird in update() berechnet)
+  // Firewall bar (position computed in update())
   if (barActive_)
     gSprites->drawBarObstacle(fb, 20, barY_, gfx.width() - 40, 12,
                               LANE_X[barGapLane_] - 20, 34);
@@ -200,23 +200,23 @@ void NeonRunGame::drawOverlay(TFT_eSprite& fb, const char* title, const char* su
   fb.setTextColor(pal.text);
   fb.drawString(sub, w / 2, 146);
   char b[32];
-  snprintf(b, sizeof(b), "Punkte: %u   Best: %u", score_, best_);
+  snprintf(b, sizeof(b), "Score: %u   Best: %u", score_, best_);
   fb.setTextColor(pal.coin);
   fb.drawString(b, w / 2, 166);
   fb.setTextColor(pal.textDim);
-  fb.drawString("A/B: Spur | Taste: Start", w / 2, 296);
-  fb.drawString("B lang: Menue", w / 2, 308);
+  fb.drawString("A/B: Lane | Key: Start", w / 2, 296);
+  fb.drawString("B long: Menu", w / 2, 308);
 }
 
 void NeonRunGame::render() {
-  // Ohne Framebuffer (Heap/PSRAM zu voll) nur Fehlermeldung zeigen
+  // Without a framebuffer (heap/PSRAM too full) show only an error
   if (!fb_.created()) {
     TFT_eSPI& tft = gfx.tft();
     tft.fillScreen(TFT_BLACK);
     tft.setTextFont(1);
     tft.setTextColor(TFT_RED, TFT_BLACK);
     tft.setTextDatum(TL_DATUM);
-    tft.drawString("Framebuffer alloc fehlgeschlagen", 6, 8);
+    tft.drawString("Framebuffer alloc failed", 6, 8);
     return;
   }
   if (phase_ == PH_RUN) {
@@ -225,17 +225,17 @@ void NeonRunGame::render() {
   } else if (phase_ == PH_TITLE) {
     drawWorld(fb_);
     drawHud(fb_);
-    drawOverlay(fb_, "NEON RUN", "Sprint durch die Neonstadt");
+    drawOverlay(fb_, "NEON RUN", "Sprint through the neon city");
   } else if (phase_ == PH_GAMEOVER) {
     drawWorld(fb_);
     drawHud(fb_);
-    drawOverlay(fb_, "SYSTEM DOWN", "Die Firewall hat dich erwischt");
+    drawOverlay(fb_, "SYSTEM DOWN", "The firewall got you");
   } else {
     drawWorld(fb_);
     drawHud(fb_);
     drawOverlay(fb_, "RUN COMPLETE", "Alle 25 Chips gesammelt!");
   }
-  // Kompletten Frame in einem Stueck aufs Panel - kein Flackern
+  // Push the complete frame to the panel in one go - no flicker
   fb_.pushSprite(0, 0);
 }
 

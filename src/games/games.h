@@ -3,9 +3,9 @@
 
 #include "core/game.h"
 
-// Zentrale Registry aller Spiele.
-// Neues Spiel: Header hier einbinden, Instanz anlegen,
-// in games[] eintragen. Fertig.
+// Central registry of all games.
+// New game: include the header here, create the instance,
+// add it to the switch below. Done.
 #include "eldoria/eldoria.h"
 #include "neonrun/neonrun.h"
 #include "neonshard/neonshard.h"

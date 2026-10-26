@@ -3,7 +3,7 @@ spec = importlib.util.spec_from_file_location("gen", "tools/gen_neonshard_art.py
 gen = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gen)
 
-RAMP = " .:-=+*#%@"  # dunkel -> hell
+RAMP = " .:-=+*#%@"  # dark -> light
 
 def luminance(c):
     r, g, b = c
@@ -31,7 +31,7 @@ for name, fn in [("TITLE", gen.scene_title), ("ALLEY", gen.scene_alley),
                  ("ROOF", gen.scene_roof), ("END_A", gen.scene_end_a),
                  ("END_B", gen.scene_end_b)]:
     cv = fn()
-    # Glow mitbacken wie in main()
+    # bake in the glow like in main()
     if hasattr(cv, 'blur_glow'):
         cv.blur_glow(5)
         cv.bake()

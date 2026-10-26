@@ -4,9 +4,9 @@
 #include <TFT_eSPI.h>
 #include "board_config.h"
 
-// Duennes Wrapper-Objekt um TFT_eSPI. Spiele zeichnen hierrueber und
-// kennen weder Treiber noch Pins. Bei Bedarf (z. B. LovyanGFX) laesst
-// sich die Implementierung hinter dieser Schnittstelle austauschen.
+// Thin wrapper object around TFT_eSPI. Games draw through this and
+// know neither drivers nor pins. If needed (e.g. LovyanGFX), the
+// implementation can be swapped behind this interface.
 class Display {
 public:
   void init() {

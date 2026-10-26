@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Generiert die Szenengrafik fuer NEON SHARD (320x170, RGB565, RLE).
+"""Generates the scene art for NEON SHARD (320x170, RGB565, RLE).
 
-Prozedurale Cyberpunk-Comic-Kunst: Skyline-Silhouetten, Neon-Glow,
-Charakter-Silhouetten mit Rim-Light, Regen. Keine externen Assets.
+Procedural cyberpunk comic art: skyline silhouettes, neon glow,
+character silhouettes with rim-light, rain. No external assets.
 
-Ausgabe: src/games/neonshard/art.h
-Aufruf:  python3 tools/gen_neonshard_art.py
+Output: src/games/neonshard/art.h
+Run:    python3 tools/gen_neonshard_art.py
 """
 import math
 import random
@@ -16,7 +16,7 @@ import zlib
 W, H = 320, 170
 OUT_H = "src/games/neonshard/art.h"
 OUT_C = "src/games/neonshard/art.cpp"
-ASSET_DIR = "assets/neonshard"   # <Name>.png ersetzt die prozedurale Szene
+ASSET_DIR = "assets/neonshard"   # <Name>.png replaces the procedural scene
 
 # ---------------------------------------------------------------- Canvas
 
@@ -115,7 +115,7 @@ def to_rgb565(img):
     for y in range(H):
         for x in range(W):
             r, g, b = img[y][x]
-            # 2x2-Block-Dithering haelt die RLE-Laeufe lang
+            # 2x2 block dithering keeps the RLE runs long
             d = (BAYER2[(y // 2) % 2][(x // 2) % 2] - 0.5) * 3.0
             r = max(0, min(255, int(r + d)))
             g = max(0, min(255, int(g + d)))
@@ -124,7 +124,7 @@ def to_rgb565(img):
     return out
 
 def rle(rows):
-    runs = []  # (color, count) - niemals ueber Zeilengrenze
+    runs = []  # (color, count) - never across a row boundary
     for y in range(H):
         x = 0
         row = rows[y]
@@ -146,7 +146,7 @@ def draw_skyline(cv, base_y, max_h, color, rng, window_cols,
         bw = rng.randint(14, 38)
         bh = rng.randint(int(max_h * 0.3), max_h)
         cv.rect(x, base_y - bh, bw, bh + 10, color)
-        # Fenster
+        # windows
         for wy in range(base_y - bh + 3, base_y - 3, 5):
             for wx in range(x + 2, x + bw - 2, 4):
                 if rng.random() < wcol_p:
@@ -173,7 +173,7 @@ def draw_neon_sign(cv, x, y, w, h, color, label=None):
                     cv.set(cx, yy, (8, 6, 20))
 
 def draw_figure(cv, cx, top, hgt, coat, rim, wide=14):
-    """Silhouette mit Rim-Light - Comic-Charakter."""
+    """Silhouette with rim-light - comic character."""
     body = coat
     hy = top                      # Kopf
     hr = max(2, hgt // 12)
@@ -187,10 +187,10 @@ def draw_figure(cv, cx, top, hgt, coat, rim, wide=14):
     bw = wide
     for yy in range(sh, top + hgt):
         t = (yy - sh) / max(1, (top + hgt - sh))
-        half = bw * (0.55 + 0.45 * t)          # Mantel wird nach unten breiter
+        half = bw * (0.55 + 0.45 * t)          # coat gets wider towards the bottom
         for x in range(int(cx - half), int(cx + half)):
             cv.set(x, yy, body)
-    # Rim-Light: Kanten oben/links cyan
+    # Rim-light: edges top/left cyan
     for yy in range(sh, top + hgt):
         t = (yy - sh) / max(1, (top + hgt - sh))
         half = bw * (0.55 + 0.45 * t)
@@ -225,7 +225,7 @@ def reflections(cv, y0, cols, rng, n=40):
             if y < H:
                 cv.add(x, y, tuple(v * 0.25 for v in c))
 
-# Pixel-Font 5x7 fuer den Schriftzug
+# Pixel font 5x7 for the title text
 FONT5 = {
     'A': ["01110","10001","10001","11111","10001","10001","10001"],
     'B': ["11110","10001","10001","11110","10001","10001","11110"],
@@ -268,11 +268,11 @@ def draw_text(cv, text, x0, y0, scale, color, glow=True):
 # ---------------------------------------------------------------- PNG-Import
 
 def load_png(path):
-    """Minimaler PNG-Loader (RGB, RGBA, Graustufen, Palette; 8 Bit, nicht
-    interlaced). Gibt (w, h, [[(r,g,b), ...], ...]) zurueck."""
+    """Minimal PNG loader (RGB, RGBA, grayscale, palette; 8 bit, not
+    interlaced). Returns (w, h, [[(r,g,b), ...], ...])."""
     data = open(path, "rb").read()
     if data[:8] != b"\x89PNG\r\n\x1a\n":
-        raise SystemExit(f"{path}: keine PNG-Datei")
+        raise SystemExit(f"{path}: not a PNG file")
     pos = 8
     idat = b""
     w = h = bd = ct = 0
@@ -285,7 +285,7 @@ def load_png(path):
         if typ == b"IHDR":
             w, h, bd, ct, _comp, _filt, inter = struct.unpack(">IIBBBBB", chunk)
             if inter:
-                raise SystemExit(f"{path}: interlaced PNG nicht unterstuetzt")
+                raise SystemExit(f"{path}: interlaced PNG not supported")
             if bd != 8:
                 raise SystemExit(f"{path}: Bit-Tiefe 8 erwartet (got {bd})")
         elif typ == b"PLTE":
@@ -334,7 +334,7 @@ def load_png(path):
                 idx += 3
             elif ct == 6:
                 row.append((float(out[idx]), float(out[idx+1]), float(out[idx+2])))
-                idx += 4          # Alpha wird ignoriert (kein Blending noetig)
+                idx += 4          # alpha is ignored (no blending needed)
             elif ct == 0:
                 v = float(out[idx]); idx += 1
                 row.append((v, v, v))
@@ -363,12 +363,12 @@ def png_canvas(name):
 def has_png(name):
     return os.path.exists(os.path.join(ASSET_DIR, f"{name}.png"))
 
-# ---------------------------------------------------------------- Szenen
+# ---------------------------------------------------------------- Scenes
 
 def scene_title():
     cv = Canvas()
     cv.vgrad(0, H, (12, 8, 44), (66, 26, 78))
-    # Mond/Planet mit Corona
+    # Moon/planet with corona
     cv.disc(258, 40, 26, (235, 180, 190))
     for y in range(H):
         for x in range(W):
@@ -382,11 +382,11 @@ def scene_title():
                  [(120, 80, 200), (60, 200, 220), (200, 100, 160)], 0.10)
     draw_skyline(cv, 132, 62, (13, 10, 30), rng,
                  [(90, 220, 240), (255, 120, 200), (255, 200, 120)], 0.16)
-    # Strasse
+    # Road
     cv.rect(0, 132, W, H - 132, (10, 8, 22))
     reflections(cv, 134, [(90, 220, 240), (255, 120, 200), (200, 100, 160)],
                 random.Random(5), 36)
-    # Schriftzug mit Glow
+    # Title text with glow
     txt = "NEON SHARD"
     tw = len(txt) * 6 * 3
     draw_text(cv, txt, (W - tw) // 2, 34, 3, (255, 240, 210))
@@ -398,7 +398,7 @@ def scene_title():
 def scene_alley():
     cv = Canvas()
     cv.vgrad(0, 100, (20, 10, 48), (90, 30, 70))
-    # Fluchtpunkt-Glow am Ende der Gasse
+    # Vanishing-point glow at the end of the alley
     for y in range(60, 110):
         for x in range(110, 210):
             d = abs(x - 160) / 50 + abs(y - 88) / 25
@@ -423,25 +423,25 @@ def scene_alley():
     draw_neon_sign(cv, 250, 62, 46, 12, (60, 220, 255))
     draw_neon_sign(cv, 60, 20, 26, 10, (255, 190, 60))
     draw_neon_sign(cv, 284, 24, 24, 10, (200, 80, 255))
-    # Boden: nass
+    # Ground: wet
     cv.rect(0, 92, W, H - 92, (14, 10, 26))
     reflections(cv, 94, [(255, 60, 160), (60, 220, 255), (255, 190, 60)],
                 random.Random(3), 44)
-    # Charakter: Riko (links, Hotspot 48..110 / 86..164)
+    # Character: Riko (left, hotspot 48..110 / 86..164)
     draw_figure(cv, 78, 92, 70, (6, 6, 14), (60, 220, 255), wide=13)
-    # Drone-Wrack (rechts, Hotspot 238..314 / 108..166)
+    # Drone wreck (right, hotspot 238..314 / 108..166)
     cv.rect(250, 132, 52, 18, (30, 26, 44))      # Rumpf
     cv.rect(244, 136, 10, 8, (24, 20, 38))        # Rotorstummel
     cv.rect(296, 130, 12, 14, (24, 20, 38))
-    cv.rect(262, 146, 24, 10, (20, 16, 30))       # Riss
-    # Blinklicht + Glow
+    cv.rect(262, 146, 24, 10, (20, 16, 30))       # crack
+    # Blinking light + glow
     for y in range(124, 146):
         for x in range(246, 306):
             d = abs(x - 276) / 30 + abs(y - 138) / 12
             f = max(0.0, 1.0 - d) ** 2
             cv.glow[y][x] = (140 * f, 40 * f, 50 * f)
     cv.rect(274, 128, 5, 5, (255, 60, 120))       # Notlicht
-    # Splitter-Glimmen in der Ladebuchse
+    # Shard shimmer in the charging port
     cv.set(268, 152, (255, 230, 120))
     cv.glow_add(268, 152, (255, 200, 80))
     cv.glow_add(269, 152, (255, 200, 80))
@@ -455,7 +455,7 @@ def scene_bar():
     cv.vgrad(0, H, (28, 12, 30), (58, 20, 26))
     # Rueckwand
     cv.rect(0, 20, W, 120, (34, 16, 26))
-    # Regal mit Leuchtflaschen rechts
+    # Shelf with glowing bottles on the right
     cv.rect(228, 34, 84, 66, (24, 12, 20))
     for sy in range(40, 96, 16):
         cv.rect(228, sy, 84, 2, (60, 30, 40))
@@ -468,14 +468,14 @@ def scene_bar():
     # Neon-Schild links
     draw_neon_sign(cv, 12, 30, 40, 14, (255, 70, 150))
     draw_neon_sign(cv, 18, 50, 30, 10, (70, 220, 255))
-    # Theke
+    # Counter
     cv.rect(0, 118, W, 16, (52, 26, 30))
     cv.rect(0, 134, W, 36, (30, 14, 22))
-    cv.rect(40, 128, 26, 8, (255, 210, 90))       # Drink-Glow
+    cv.rect(40, 128, 26, 8, (255, 210, 90))       # drink glow
     cv.glow_rect(38, 126, 30, 12, (180, 140, 50))
-    # Charakter: Mama Byte (Mitte, Hotspot 126..202 / 78..166)
+    # Character: Mama Byte (center, hotspot 126..202 / 78..166)
     draw_figure(cv, 162, 82, 80, (10, 6, 18), (255, 90, 160), wide=18)
-    # Haengende Lampe mit Lichtkegel
+    # Hanging lamp with light cone
     cv.rect(160, 12, 2, 12, (20, 20, 30))
     for yy in range(24, 110):
         t = (yy - 24) / 86
@@ -498,7 +498,7 @@ def scene_subway():
         cv.rect(x, 148, 14, 3, (24, 22, 30))
     cv.rect(0, 140, W, 3, (70, 74, 90))            # Schiene 1
     cv.rect(0, 144, W, 3, (70, 74, 90))
-    # Tunnelmund rechts mit Zuglicht
+    # Tunnel mouth right with train light
     cv.rect(236, 40, 84, 84, (6, 7, 12))
     for y in range(40, 124):
         for x in range(236, 320):
@@ -510,13 +510,13 @@ def scene_subway():
     cv.glow_rect(28, 42, 10, 10, (120, 30, 30))
     cv.rect(46, 44, 6, 6, (60, 255, 120))
     cv.glow_rect(44, 42, 10, 10, (20, 120, 50))
-    # Bank links
+    # Bench left
     cv.rect(20, 108, 70, 4, (40, 30, 36))
     cv.rect(24, 112, 4, 16, (30, 22, 28))
     cv.rect(80, 112, 4, 16, (30, 22, 28))
-    # Charakter: Agentin Chen (Mitte, Hotspot 118..188 / 84..168)
+    # Character: Agent Chen (center, hotspot 118..188 / 84..168)
     draw_figure(cv, 150, 88, 74, (8, 8, 16), (255, 245, 235), wide=12)
-    # Neonwerbung am Bahnsteig
+    # Neon ad on the platform
     draw_neon_sign(cv, 100, 28, 66, 12, (90, 130, 255))
     cv.blur_glow(5)
     cv.bake()
@@ -533,7 +533,7 @@ def scene_roof():
     # Stadt unten
     draw_skyline(cv, 108, 44, (20, 14, 40), rng,
                  [(90, 220, 240), (255, 120, 200)], 0.14)
-    cv.rect(0, 108, W, 62, (12, 10, 24))           # Dach
+    cv.rect(0, 108, W, 62, (12, 10, 24))           # roof
     # Antennen-Wald
     for ax in range(8, W, 46):
         for yy in range(112, 126):
@@ -570,7 +570,7 @@ def scene_end_a():
             d = math.sqrt((x - 160) ** 2 + (y - 96) ** 2)
             f = max(0.0, 1.0 - d / 40) ** 2
             cv.glow[y][x] = (220 * f, 120 * f, 60 * f)
-    # Silhouetten-Stadt
+    # Silhouette city
     draw_skyline(cv, 112, 54, (24, 14, 30), random.Random(31),
                  [(255, 200, 120)], 0.06)
     cv.rect(0, 112, W, H - 112, (18, 12, 24))
@@ -578,7 +578,7 @@ def scene_end_a():
     for bx, by in [(90, 60), (104, 52), (120, 64), (210, 58), (226, 66)]:
         cv.rect(bx, by, 3, 1, (30, 16, 30))
         cv.rect(bx - 3, by + 1, 3, 1, (30, 16, 30))
-    # Warme Spiegelung auf nassem Dach
+    # Warm reflection on the wet roof
     reflections(cv, 114, [(255, 180, 100), (255, 120, 140)], random.Random(9), 40)
     cv.blur_glow(6)
     cv.bake()
@@ -596,7 +596,7 @@ def scene_end_b():
     draw_neon_sign(cv, 220, 44, 80, 14, (60, 200, 255))
     draw_neon_sign(cv, 120, 20, 40, 10, (255, 200, 60))
     reflections(cv, 118, [(255, 60, 150), (60, 200, 255)], rng, 30)
-    # Vex von hinten, allein im Regen
+    # Vex from behind, alone in the rain
     draw_figure(cv, 160, 96, 72, (4, 4, 10), (120, 170, 220), wide=15)
     rain(cv, 220, slant=2)
     cv.blur_glow(5)
@@ -624,11 +624,11 @@ def main():
         ("ArtEndA",  "EndA",   scene_end_a),
         ("ArtEndB",  "EndB",   scene_end_b),
     ]
-    # art.h: nur Deklarationen (wird ueber games.h in viele TUs inkludiert)
+    # art.h: declarations only (included via games.h in many TUs)
     hdr = [
-        "// Generiert von tools/gen_neonshard_art.py - NICHT manuell editieren.",
-        "// 320x170 RGB565, zeilenweise RLE (Laeufe enden am Zeilenende).",
-        "// Daten liegen in art.cpp, damit das Header nicht aufblaht.",
+        "// Generated by tools/gen_neonshard_art.py - do NOT edit manually.",
+        "// 320x170 RGB565, row-wise RLE (runs end at the row boundary).",
+        "// Data lives in art.cpp so the header does not bloat.",
         "#ifndef GAMES_NEONSHARD_ART_H",
         "#define GAMES_NEONSHARD_ART_H",
         "",
@@ -638,9 +638,9 @@ def main():
         "struct RleArt  { const RleRun* data; uint16_t runs; };",
         "",
     ]
-    # art.cpp: die eigentlichen Bilddaten
+    # art.cpp: the actual image data
     dat = [
-        "// Generiert von tools/gen_neonshard_art.py - NICHT manuell editieren.",
+        "// Generated by tools/gen_neonshard_art.py - do NOT edit manually.",
         '#include "art.h"',
         "",
     ]

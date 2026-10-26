@@ -1,9 +1,9 @@
 #ifndef TFT_SETUP_H
 #define TFT_SETUP_H
 
-// TFT_eSPI-Konfiguration fuer das LilyGo T-Display-S3 (Setup206).
-// TFT_eSPI.h findet diese Datei automatisch ueber __has_include(<tft_setup.h>),
-// weil PlatformIO das include/-Verzeichnis in den Include-Pfad aufnimmt.
+// TFT_eSPI configuration for the LilyGo T-Display-S3 (Setup206).
+// TFT_eSPI.h finds this file automatically via __has_include(<tft_setup.h>),
+// because PlatformIO adds the include/ directory to the include path.
 
 #define USER_SETUP_ID 206
 
