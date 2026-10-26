@@ -18,6 +18,7 @@ ausgewählt. Jedes Spiel läuft komplett über die **zwei Taster** des Boards
 | **Neon Run** | Action/Runner (Cyberpunk) | Auf 3 Spuren durch die Neonstadt laufen: Firewall-Balken ausweichen, Datenchips sammeln, Drohnen meiden |
 | **Neon Shard** | Point-and-Click (Cyberpunk) | Comic-Geschichte: Courier Vex findet einen Datensplitter mit einer freien KI – frei werden oder verkaufen? 2 Enden |
 | **Chip Slide** | Schiebepuzzle | 15 Halbleiter-Bauteile (Widerstand, Diode, LED, IC …) auf den Bauplan sortieren – flüssige Gleit-Animation, Halten = weiterschieben |
+| **Neon Dash** | Jump'n'Run (Cyberpunk) | Ein Tastendruck = Sprung über Firewall-Staemme und schwebende Drohnen – das Tempo steigt kontinuierlich, Datenchips als Bonus |
 
 ## Projektstruktur
 
@@ -42,7 +43,8 @@ src/
     ├── neonrun/             Neon Run (neonrun.h/.cpp + sprites.h/.cpp)
     │   └── sprites.h/.cpp   Austauschbare Grafik: NeonPalette + SpriteRenderer
     ├── neonshard/           Neon Shard (neonshard.h/.cpp + art.h/.cpp)
-    └── chipslide/           Chip Slide – Halbleiter-Schiebepuzzle
+    ├── chipslide/           Chip Slide – Halbleiter-Schiebepuzzle
+    └── neondash/            Neon Dash – Cyberpunk-Jump'n'Run
 ```
 
 ## Bedienung
@@ -63,6 +65,7 @@ src/
 | **Neon Run** | A kurz = Spur nach links, B kurz = Spur nach rechts (an Titel/Game-Over/Sieg: beliebiger Druck startet), B lang = zurück zum Menü |
 | **Neon Shard** | A kurz = vorheriges Ziel, B kurz = nächstes Ziel, B lang = Aktion / Dialog weiter, A lang = Dialog schneller Vorlauf |
 | **Chip Slide** | A kurz = Schiebe-Richtung wechseln (Pfeil im HUD), B kurz = Stein in Pfeilrichtung schieben, B halten = automatisch weiterschieben, A lang = zurück zum Menü |
+| **Neon Dash** | A oder B kurz = springen (Titel/Game-Over: beliebiger Druck startet/neustartet), B lang = zurück zum Menü |
 
 > ⚠️ **Achtung:** GPIO0 ist der BOOT-Taster. Zum **Flashen** weiterhin:
 > BOOT halten → RST drücken → loslassen → Upload starten.
@@ -184,6 +187,15 @@ Seitengang → Turm → Kampf (Drache) → Thronsaal / Game Over / Sieg-Flucht`
 - Dialoge mit verzweigten Entscheidungen (Splitter behalten/verkaufen,
   Agentin Chen ablehnen oder bestechen)
 - Die Szenengrafik liegt RLE-kodiert vor (Generator: `tools/gen_neonshard_art.py`)
+
+### Neon Dash (Jump'n'Run)
+
+- Fester Spieler links, Hindernisse kommen von rechts: **Firewall-Staemme** (16–36 px hoch) und **schwebende Drohnen** (sinusförmig, tief genug zum Treffen, hoch genug zum Drüber-Springen)
+- **Ein Button**: A oder B kurz = Sprung (physikalisch mit Schwerkraft, Sprunghöhe ~70 px, kein Doppel-Sprung)
+- **Tempo steigt kontinuierlich**: 150 px/s → 470 px/s (+2,6 px/s pro Sekunde); der Spawn-Abstand schrumpft entsprechend, bleibt aber fair (> 200 px)
+- **Datenchips** schweben über hohen Staemmen – Einsammeln gibt +25 m Bonus
+- Score = gelaufene Meter + Chip-Bonus; Highscore (nur RAM) wird gehalten
+- HUD: Speed-Bar, aktuelle Meter, Highscore; Steuerungshinweis unten
 
 ### Chip Slide (Schiebepuzzle)
 
