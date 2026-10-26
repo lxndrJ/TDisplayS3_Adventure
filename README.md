@@ -1,16 +1,23 @@
-# Eldoria – Fantasy-Adventure für das LilyGo T-Display-S3
+# TDisplayS3 Adventure – Mini-Game-Plattform für das LilyGo T-Display-S3
 
-Ein komplettes Text-Adventure mit gezeichneten Portraits, Kampf-Würfeln, Inventar
-und Gold-System. Steuerung komplett über die **zwei Taster** des Boards
-(**BOOT = GPIO0** und **frei belegbarer Taster = GPIO14**). Ziel: die gestohlene
-**Mondkrone** des Drachen Morgath zurückholen – oder den Drachen besiegen.
-
-Spielzeit: je nach Weg ca. **20–40 Minuten**, mehrere Enden (Sieg, Flucht, Game Over).
-
-Das Projekt ist als **modulare Mini-Game-Engine** aufgebaut: Spiele kennen keine
-GPIOs und keine Display-Treiber, sondern nur die Schnittstellen in `src/core/`.
+Eine Sammlung von Spielen für das **LilyGo T-Display-S3** (ESP32-S3, 320×170 Display,
+2 Taster), aufgebaut als **modulare Mini-Game-Engine**: Spiele kennen keine GPIOs
+und keine Display-Treiber, sondern nur die Schnittstellen in `src/core/`.
 Weitere Boards lassen sich durch eine einzelne Datei in `src/boards/` und einen
 Eintrag in `platformio.ini` anbinden.
+
+Nach dem Flashen startet ein **Launcher-Menü**; dort wird das gewünschte Spiel
+ausgewählt. Jedes Spiel läuft komplett über die **zwei Taster** des Boards
+(**A = BOOT = GPIO0** und **B = frei belegbar = GPIO14**, beide aktiv LOW).
+
+## Enthaltene Spiele
+
+| Spiel | Genre | Kurzbeschreibung |
+|---|---|---|
+| **Eldoria** | Text-Adventure (Fantasy) | Die gestohlene **Mondkrone** des Drachen Morgath zurückholen – mit Inventar, Kampf-Würfeln und mehreren Enden (20–40 Min.) |
+| **Neon Run** | Action/Runner (Cyberpunk) | Auf 3 Spuren durch die Neonstadt laufen: Firewall-Balken ausweichen, Datenchips sammeln, Drohnen meiden |
+| **Neon Shard** | Point-and-Click (Cyberpunk) | Comic-Geschichte: Courier Vex findet einen Datensplitter mit einer freien KI – frei werden oder verkaufen? 2 Enden |
+| **Chip Slide** | Schiebepuzzle | 15 Halbleiter-Bauteile (Widerstand, Diode, LED, IC …) auf den Bauplan sortieren – flüssige Gleit-Animation, Halten = weiterschieben |
 
 ## Projektstruktur
 
@@ -19,7 +26,7 @@ include/tft_setup.h          TFT_eSPI-Setup für das Board (kein Library-Eingrif
 partitions_16mb.csv          16 MB Flash: 3 MB App + ~13 MB FATFS
 platformio.ini               Build-Konfiguration (ein env pro Board)
 src/
-├── main.cpp                 Einstiegspunkt: startet das Boot-Spiel
+├── main.cpp                 Einstiegspunkt: startet den Launcher (Menü)
 ├── core/                    Die Engine (board-unabhängig)
 │   ├── board_config.h       Bindet das aktive Board ein (aus platformio.ini)
 │   ├── buttons.h            Taster mit Entprellung + Short/Long-Erkennung
@@ -31,12 +38,34 @@ src/
 │   └── board_tdisplay_s3.h  Alle GPIOs/Pins/Display-Geometrie des Boards
 └── games/
     ├── games.h              Game-Registry (neue Spiele hier eintragen)
-    ├── eldoria/             Eldoria auf der Engine (eldoria.h/.cpp)
+    ├── eldoria/             Eldoria (eldoria.h/.cpp)
     ├── neonrun/             Neon Run (neonrun.h/.cpp + sprites.h/.cpp)
     │   └── sprites.h/.cpp   Austauschbare Grafik: NeonPalette + SpriteRenderer
     ├── neonshard/           Neon Shard (neonshard.h/.cpp + art.h/.cpp)
-    └── chipslide/           Chip Slide - Halbleiter-Schiebepuzzle
+    └── chipslide/           Chip Slide – Halbleiter-Schiebepuzzle
 ```
+
+## Bedienung
+
+### Im Launcher-Menü (immer gleich)
+
+| Aktion | Taster |
+|---|---|
+| Vorheriges Spiel | **A (GPIO0) kurz** |
+| Nächstes Spiel | **B (GPIO14) kurz** |
+| Spiel starten | **B (GPIO14) lang halten (~0,7 s)** |
+
+### In den Spielen
+
+| Spiel | Steuerung |
+|---|---|
+| **Eldoria** | A kurz = hoch / vorherige Option, B kurz = runter / nächste Option, B lang = OK / Würfeln / Fliehen / Neustart, A lang = Inventar öffnen |
+| **Neon Run** | A kurz = Spur nach links, B kurz = Spur nach rechts (an Titel/Game-Over/Sieg: beliebiger Druck startet), B lang = zurück zum Menü |
+| **Neon Shard** | A kurz = vorheriges Ziel, B kurz = nächstes Ziel, B lang = Aktion / Dialog weiter, A lang = Dialog schneller Vorlauf |
+| **Chip Slide** | A kurz = Schiebe-Richtung wechseln (Pfeil im HUD), B kurz = Stein in Pfeilrichtung schieben, B halten = automatisch weiterschieben, A lang = zurück zum Menü |
+
+> ⚠️ **Achtung:** GPIO0 ist der BOOT-Taster. Zum **Flashen** weiterhin:
+> BOOT halten → RST drücken → loslassen → Upload starten.
 
 ## Neues Spiel hinzufügen
 
@@ -45,9 +74,12 @@ src/
 2. In `src/games/games.h` einbinden und in `makeGame()` eintragen.
 3. Optional in `platformio.ini` ein zweites `env:` für ein anderes Board anlegen.
 
+Details siehe [Wiki: Spielentwicklung](docs/wiki/Spielentwicklung.md) und
+[Wiki: Schnellstart](docs/wiki/Schnellstart-Spielideen.md).
+
 ## Grafik modular austauschen (Sprite-Themes)
 
-Spiele zeichnen nicht direkt, sondern über `SpriteRenderer`
+Neon Run zeichnet nicht direkt, sondern über `SpriteRenderer`
 (`src/games/neonrun/sprites.h`). Ein Theme implementiert nur:
 
 | Methode | Inhalt |
@@ -74,19 +106,6 @@ Spiel-Logik, Kollisionen und Steuerung bleiben dabei unangetastet.
    `SCR_W`/`SCR_H`, `TFT_ROTATION`).
 2. In `src/core/board_config.h` einbinden.
 3. In `platformio.ini` ein `[env:<name>]` mit `-D BOARD_<NAME>` anlegen.
-
-## Bedienung
-
-| Aktion | Taster |
-|---|---|
-| Nächste Textseite / Option runter | **B (GPIO14) kurz** |
-| Vorherige Textseite / Option hoch | **A (GPIO0) kurz** |
-| Option auswählen / Kampf würfeln / Neustart | **B (GPIO14) lang halten (~0,7 s)** |
-| Inventar öffnen | **A (GPIO0) lang halten (~1,2 s)** |
-| Im Kampf fliehen | **B lang halten** |
-
-> ⚠️ **Achtung:** GPIO0 ist der BOOT-Taster. Zum **Flashen** weiterhin:
-> BOOT halten → RST drücken → loslassen → Upload starten.
 
 ## Build & Flash (PlatformIO)
 
@@ -126,7 +145,9 @@ bekannte Probleme (LilyGo-Wiki).
 | Power-Hold (muss HIGH sein!) | GPIO15 |
 | Batterie-ADC | GPIO4 (ungenutzt) |
 
-## Spielprinzip
+## Spielprinzipien
+
+### Eldoria (Text-Adventure)
 
 - **3 Lebenspunkte** (HP-Herzen oben links), **10 Gold** Startkapital
 - **Kampf:** Kurzer Druck auf A oder B würfelt einen W6. Mit der **Kampfaxt**
@@ -141,11 +162,39 @@ bekannte Probleme (LilyGo-Wiki).
 - **Elfen-Endweg:** Amulett + Aelindril als Flag nutzen, um Morgath
   einschlafen zu lassen (im Inventar sichtbar)
 
-## Story-Übersicht (alle Szenen)
+**Story-Übersicht (alle Szenen):**
 
 `Titel → Zwergenhall → Wald → Markt / Berge → Aelindril → Brunnen / Rätsel →
 Gletscherspalte → Umweg → Brücke (Troll) → Elfentor → Elfenhain → Höhle →
 Seitengang → Turm → Kampf (Drache) → Thronsaal / Game Over / Sieg-Flucht`
+
+### Neon Run (Action/Runner)
+
+- 3 Spuren, seitlich scrollende Neonstadt
+- **Firewall-Balken** mit Lücke ausweichen (3 Treffer = Game Over, blinkende
+  Unverwundbarkeit danach)
+- **Datenchips** sammeln – bei 25 Chips ist der Run gewonnen (Bestzeit wird
+  als Highscore gehalten)
+- **Drohnen** meiden; Grafik über austauschbare Sprite-Themes (Vektor oder Bitmap)
+
+### Neon Shard (Point-and-Click)
+
+- Comic-Geschichte in 6 Szenen (Gasse, Bar, U-Bahn, Helix-Turm, 2 Enden)
+- Ziel-Icons per A/B anwählen, mit **B lang** interagieren
+- Dialoge mit verzweigten Entscheidungen (Splitter behalten/verkaufen,
+  Agentin Chen ablehnen oder bestechen)
+- Die Szenengrafik liegt RLE-kodiert vor (Generator: `tools/gen_neonshard_art.py`)
+
+### Chip Slide (Schiebepuzzle)
+
+- 4×4-Feld mit 15 Bauteilen + 1 Lücke; Ziel ist der **Bauplan** (Miniatur im HUD)
+- Alle 15 Symbole (R, D, LED, TR, IC, C, BAT, L, Q, SW, RLY, F, ANT, SPK, GND)
+  werden prozedural gezeichnet – kein Bitmap-Verbrauch
+- Der gemischte Zustand entsteht durch Zufallszüge der Lücke (immer lösbar)
+- Richtig platzierte Bauteile leuchten **grün**; fertige Schaltung wird mit
+  pulsierendem Rahmen gefeiert
+- Zug-Zähler und Fortschritt (x/15) im HUD; **B halten** schiebt automatisch
+  weiter, bis die Richtung oder das Spielfeld es nicht mehr hergibt
 
 ## Troubleshooting
 
@@ -163,7 +212,8 @@ Seitengang → Turm → Kampf (Drache) → Thronsaal / Game Over / Sieg-Flucht`
 ## Erweiterungsideen
 
 - Grafisches Spielmenü im Launcher (`Engine` + `wantsMenu` ist vorbereitet)
-- Speichern/Laden via Preferences (NVS)
+- Speichern/Laden via Preferences (NVS) – z. B. Highscores, Eldoria-Spielstand
 - Soundeffekte über I2S/PCM5102 (z. B. Würfel-Sound, Fanfare beim Sieg)
-- Farbige Hintergründe pro Biom (Wald grün, Berg grau, Höhle schwarz)
+- Beschleuniger-Steuerung (Tilt) für Chip Slide – Game-Interface ist vorbereitet
+- Farbige Hintergründe pro Biom in Eldoria (Wald grün, Berg grau, Höhle schwarz)
 - Weitere Spiele in `src/games/` – Engine und Board-Layer sind wiederverwendbar
