@@ -6,11 +6,11 @@
 #include "core/display.h"
 #include "art.h"
 
-// NEON SHARD - Cyberpunk-Point-and-Click im Landscape-Modus (320x170).
-// Comic-Geschichte: Courier Vex findet einen Datensplitter mit einer
-// freien KI und muss entscheiden, was Freiheit kostet.
-// Steuerung: A kurz = vorheriges Ziel, B kurz = naechstes Ziel,
-// B lang = Aktion/Weiter, A lang = (im Dialog) schneller Vorlauf.
+// NEON SHARD - cyberpunk point-and-click in landscape mode (320x170).
+// Comic story: courier Vex finds a data shard with a free AI and must
+// decide what freedom costs.
+// Controls: A short = previous target, B short = next target,
+// B long = action/continue, A long = (in dialog) fast-forward.
 class NeonShardGame : public Game {
 public:
   const char* name() const override { return "Neon Shard"; }
@@ -30,7 +30,7 @@ public:
     ART_ENDA, ART_ENDB, ART_COUNT
   };
 
-  // Hotspot-IDs (pro Szene eindeutig, Bedeutung in interact())
+  // Hotspot IDs (unique per scene, meaning in interact())
   enum : uint8_t {
     H_NONE,
     H_START,
@@ -41,7 +41,7 @@ public:
     H_END_EXIT
   };
 
-  // Klickzone im Landscape-Bild (320x170)
+  // Click zone in the landscape image (320x170)
   struct Hotspot {
     uint8_t     id;
     int16_t     x, y, w, h;
@@ -56,7 +56,7 @@ public:
 
   static const SceneDef& scene(uint8_t id) { return kScenes[id]; }
 
-  // Geschichte-Zustand
+  // story state
   bool hasShard_  = false;
   bool metMama_   = false;
   bool tipMama_   = false;
@@ -67,8 +67,8 @@ public:
   void decodeArt(uint8_t art);
   void interact(uint8_t hs);
   void dialogEnd(uint8_t dlgId, uint8_t choice);
-  // Dialog: Zeilen (Text; "Name: " praefix wird farbig) und optional
-  // Auswahl am Ende. dialogEnd() verzweigt die Geschichte.
+  // Dialog: lines (text; "Name: " prefix is colored) and optional
+  // choices at the end. dialogEnd() branches the story.
   void beginDialog(uint8_t dlgId, const char* const* lines, uint8_t nLines,
                    const char* const* choices, uint8_t nChoices);
   void drawScene(TFT_eSprite& fb);
@@ -76,29 +76,29 @@ public:
   void drawTitle(TFT_eSprite& fb);
   void drawEnd(TFT_eSprite& fb);
 
-  // Dialog-Instanzen
+  // dialog instances
   enum : uint8_t {
     DLG_DRONE, DLG_DRONE2, DLG_RIKO, DLG_RIKO2,
     DLG_MAMA_GATE, DLG_MAMA, DLG_CHEN_GATE, DLG_CHEN,
     DLG_ANTENNA_GATE, DLG_ANTENNA, DLG_NO_TOWER,
-    DLG_FLAVOR = 0xFF   // nur Text, keine Verzweigung am Ende
+    DLG_FLAVOR = 0xFF   // text only, no branching at the end
   };
 
   Phase     phase_   = PH_TITLE;
   uint8_t   scene_   = SC_ALLEY;
-  uint8_t   sel_     = 0;      // gewaehlter Hotspot
-  // Dialog-Zustand
+  uint8_t   sel_     = 0;      // selected hotspot
+  // dialog state
   uint8_t   dlgId_        = 0;
   const char* const* dlgLines_     = nullptr;
   uint8_t   dlgLineCount_ = 0;
-  uint8_t   dlgIdx_       = 0;   // aktuelle Zeile
+  uint8_t   dlgIdx_       = 0;   // current line
   const char* const* dlgChoices_   = nullptr;
   uint8_t   dlgChoiceCount_ = 0;
   uint8_t   dlgChoice_    = 0;
 
-  // Framebuffer (Landscape) und Dekoder-Puffer fuer die Szenengrafik
+  // Framebuffer (landscape) and decoder buffer for the scene art
   TFT_eSprite fb_{&gfx.tft()};
-  uint16_t* bg_ = nullptr;     // 320x170, PSRAM bevorzugt
+  uint16_t* bg_ = nullptr;     // 320x170, PSRAM preferred
 
   static const SceneDef kScenes[SC_COUNT];
 };

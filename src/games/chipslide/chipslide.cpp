@@ -2,33 +2,33 @@
 
 // ---------------------------------------------------------------- Layout
 
-// Portrait 170x320: Spielfeld oben, HUD (Pfeil + Miniatur-Bauplan) unten.
+// Portrait 170x320: board on top, HUD (arrow + blueprint miniature) below.
 static constexpr int16_t SW = 170;
 static constexpr int16_t SH = 320;
 
-static constexpr int16_t GRID_X  = 8;    // Spielfeld links oben
+static constexpr int16_t GRID_X  = 8;    // board top-left
 static constexpr int16_t GRID_Y  = 26;
-static constexpr int16_t CELL    = 38;   // Kachel-Kantenlaenge
-static constexpr int16_t GAP     = 1;    // Luecke zwischen Kacheln
+static constexpr int16_t CELL    = 38;   // tile edge length
+static constexpr int16_t GAP     = 1;    // gap between tiles
 static constexpr int16_t STEP    = CELL + GAP;
 static constexpr int16_t GRID_W  = 4 * STEP - GAP;  // 155
 
 static constexpr int16_t HUD_Y   = 196;  // HUD-Beginn
-static constexpr int16_t MINI_X  = 122;  // Miniatur-Bauplan (rechts)
-static constexpr int16_t MINI_C  = 9;    // Miniatur-Kachel
+static constexpr int16_t MINI_X  = 122;  // blueprint miniature (right)
+static constexpr int16_t MINI_C  = 9;    // miniature tile
 static constexpr int16_t MINI_S  = MINI_C + 1;
 
-// Neon-Palette (RGB565), passend zu Engine-Menue und NeonShard
-static const uint16_t COL_BG     = 0x0008;  // fast schwarz-blau
-static const uint16_t COL_GRID   = 0x39E7;  // Leiterbahn-Cyan
-static const uint16_t COL_TILE   = 0x10C3;  // Chip-Gehaeuse
-static const uint16_t COL_TILE2  = 0x0861;  // Gehaeuse-Schatten
-static const uint16_t COL_ACCENT = 0x07FF;  // Neon-Cyan
-static const uint16_t COL_WARM   = 0xFFE0;  // Neon-Gelb (Pfeil)
-static const uint16_t COL_OK     = 0x07E0;  // Neon-Gruen (geloest)
-static const uint16_t COL_DIM    = 0x630C;  // dunkles Cyan (Text)
+// Neon palette (RGB565), matching the engine menu and NeonShard
+static const uint16_t COL_BG     = 0x0008;  // near black-blue
+static const uint16_t COL_GRID   = 0x39E7;  // trace cyan
+static const uint16_t COL_TILE   = 0x10C3;  // chip package
+static const uint16_t COL_TILE2  = 0x0861;  // package shadow
+static const uint16_t COL_ACCENT = 0x07FF;  // neon cyan
+static const uint16_t COL_WARM   = 0xFFE0;  // neon yellow (arrow)
+static const uint16_t COL_OK     = 0x07E0;  // neon green (solved)
+static const uint16_t COL_DIM    = 0x630C;  // dim cyan (text)
 
-// Symbol-IDs: 0..14 Bauteile, 15 = Luecke (EMPTY)
+// Symbol IDs: 0..14 components, 15 = gap (EMPTY)
 enum : uint8_t {
   SYM_RESISTOR, SYM_DIODE, SYM_LED, SYM_TRANSISTOR,
   SYM_IC, SYM_CAPACITOR, SYM_BATTERY, SYM_INDUCTOR,
@@ -50,7 +50,7 @@ static int16_t cellCy(uint8_t i) { return cellY(i) + CELL / 2; }
 // ---------------------------------------------------------------- Spielstart
 
 void ChipSlideGame::init() {
-  // Portrait bleibt eingestellt (Board-Default Rotation 0)
+  // Portrait stays set (board default rotation 0)
   gfx.tft().setRotation(board::TFT_ROTATION);
   if (!fb_.created()) fb_.createSprite(SW, SH);
   phase_       = PH_TITLE;
@@ -67,7 +67,7 @@ void ChipSlideGame::quit() {
 }
 
 void ChipSlideGame::startGame() {
-  // geloeste Grundstellung, dann mischen
+  // solved base layout, then shuffle
   for (uint8_t i = 0; i < CELLS; i++) board_[i] = i;
   empty_ = EMPTY;
   shuffle();
@@ -83,9 +83,9 @@ void ChipSlideGame::startGame() {
 }
 
 void ChipSlideGame::shuffle() {
-  // Zufallszuege der Luecke - garantiert eine loesbare Stellung und
-  // verhindert, dass die Startaufstellung schon gewonnen ist.
-  // dir_ ist hier die Bewegungsrichtung der Luecke (Gegenteil des Steins).
+  // Random gap moves - guarantees a solvable layout and prevents
+  // the start layout from being already solved.
+  // Here dir_ is the gap's movement direction (opposite of the tile).
   for (uint16_t i = 0; i < SHUFFLE_MOVES; i++) {
     uint8_t choices[DIR_COUNT];
     uint8_t n = 0;
@@ -109,7 +109,7 @@ void ChipSlideGame::shuffle() {
     board_[to]     = EMPTY;
     empty_         = to;
   }
-  // Luecke landet nicht in der Zielecke (sonst waere fast gewonnen)
+  // The gap never lands in the goal corner (otherwise almost solved)
   if (empty_ == EMPTY) {
     uint8_t to = EMPTY - 1;
     board_[EMPTY] = board_[to];
@@ -119,15 +119,15 @@ void ChipSlideGame::shuffle() {
 }
 
 // ---------------------------------------------------------------- Logik
-// dir_ beschreibt die Richtung, in die der Stein geschoben wird: Der Stein
-// muss auf der Gegenseite der Luecke liegen und gleitet in sie hinein.
+// dir_ describes the direction the tile is pushed: the tile must sit
+// on the opposite side of the gap and glides into it.
 
 bool ChipSlideGame::canMove(uint8_t dir) const {
   switch (dir) {
-    case DIR_RIGHT: return (empty_ % 4) != 0;  // Stein links der Luecke
-    case DIR_LEFT:  return (empty_ % 4) != 3;  // Stein rechts der Luecke
-    case DIR_DOWN:  return empty_ >= 4;        // Stein oberhalb der Luecke
-    case DIR_UP:    return empty_ < 12;        // Stein unterhalb der Luecke
+    case DIR_RIGHT: return (empty_ % 4) != 0;  // tile left of the gap
+    case DIR_LEFT:  return (empty_ % 4) != 3;  // tile right of the gap
+    case DIR_DOWN:  return empty_ >= 4;        // tile above the gap
+    case DIR_UP:    return empty_ < 12;        // tile below the gap
     default:        return false;
   }
 }
@@ -154,8 +154,8 @@ bool ChipSlideGame::tryMove() {
 }
 
 void ChipSlideGame::finishMove() {
-  // Der Stein sitzt nach dem Zug am Zielfeld (animTo_), die Luecke
-  // wandert in sein Ausgangsfeld (animFrom_).
+  // After the move the tile sits at the target cell (animTo_), the gap
+  // moves into its origin cell (animFrom_).
   board_[animFrom_] = EMPTY;
   board_[animTo_]   = animSym_;
   empty_     = animFrom_;
@@ -168,8 +168,8 @@ void ChipSlideGame::finishMove() {
 }
 
 void ChipSlideGame::countSolved() {
-  // Nur die 15 Bauteile zaehlen; die Luecke ist erst am Ziel, wenn sie
-  // in der rechten unteren Ecke steht (separat geprueft).
+  // Only the 15 components count; the gap is at its goal only when it
+  // sits in the bottom-right corner (checked separately).
   uint8_t n = 0;
   for (uint8_t i = 0; i < SYM_COUNT; i++) if (board_[i] == i) n++;
   solved_ = n;
@@ -188,7 +188,7 @@ void ChipSlideGame::update(const InputState& in, uint32_t dtMs) {
     case PH_PLAY: {
       if (in.longPressed[(uint8_t)Key::A]) { wantsMenu = true; return; }
 
-      // A kurz: Richtung weiterdrehen (Pfeil blinkt als Feedback)
+      // A short: cycle direction (arrow flashes as feedback)
       if (in.pressed[(uint8_t)Key::A]) {
         dir_ = (uint8_t)((dir_ + 1) % DIR_COUNT);
         dirFlashMs_ = 260;
@@ -196,16 +196,16 @@ void ChipSlideGame::update(const InputState& in, uint32_t dtMs) {
       if (dirFlashMs_ && dtMs)
         dirFlashMs_ = (dirFlashMs_ > dtMs) ? dirFlashMs_ - dtMs : 0;
 
-      // Gleit-Animation laeuft: nach ANIM_MS abschliessen
+      // Slide animation running: finish after ANIM_MS
       if (animating_) {
         animMs_ = (uint16_t)min((uint32_t)animMs_ + dtMs, (uint32_t)ANIM_MS);
         if (animMs_ >= ANIM_MS) finishMove();
-        return;  // waehrend der Animation keine weiteren Zuege
+        return;  // no further moves during the animation
       }
 
-      // B: Stein schieben - kurzer Druck = ein Zug, Halten = nach kurzer
-      // Pause automatisch weiterschieben (fluessiger Spielfluss). Nach
-      // Halten nicht zusaetzlich auf das Loslassen reagieren.
+      // B: slide tile - short press = one move, holding = after a short
+      // pause automatically slide on (smooth flow of play). After
+      // holding, don't react to the release again.
       bool wantMove = in.pressed[(uint8_t)Key::B] && !repeatFired_;
       if (in.down[(uint8_t)Key::B] && !repeatFired_) {
         if (in.holdMs[(uint8_t)Key::B] >= REPEAT_FIRST_MS) {
@@ -225,7 +225,7 @@ void ChipSlideGame::update(const InputState& in, uint32_t dtMs) {
       if (in.longPressed[(uint8_t)Key::A] || in.longPressed[(uint8_t)Key::B])
         wantsMenu = true;
       else if (in.pressed[(uint8_t)Key::A] || in.pressed[(uint8_t)Key::B])
-        startGame();  // nochmal von vorn
+        startGame();  // again from the start
       break;
   }
 }
@@ -239,7 +239,7 @@ void ChipSlideGame::draw() {
     tft.setTextFont(1);
     tft.setTextColor(TFT_RED, TFT_BLACK);
     tft.setTextDatum(TL_DATUM);
-    tft.drawString("Framebuffer alloc fehlgeschlagen", 6, 8);
+    tft.drawString("Framebuffer alloc failed", 6, 8);
     return;
   }
   fb_.fillScreen(COL_BG);
@@ -260,11 +260,11 @@ void ChipSlideGame::drawTitle(TFT_eSprite& fb) {
   fb.drawString("CHIP SLIDE", SW / 2, 40);
   fb.setTextFont(2);
   fb.setTextColor(0xFFFF, COL_BG);
-  fb.drawString("Bauteile sortieren", SW / 2, 80);
+  fb.drawString("Sort the components", SW / 2, 80);
   fb.setTextColor(COL_DIM, COL_BG);
-  fb.drawString("Ziel: der Bauplan", SW / 2, 102);
+  fb.drawString("Goal: the blueprint", SW / 2, 102);
 
-  // Miniatur-Bauplan als Vorschau
+  // blueprint miniature as preview
   for (uint8_t i = 0; i < CELLS; i++) {
     int16_t x = SW / 2 - 2 * MINI_S + (i % 4) * MINI_S;
     int16_t y = 128 + (i / 4) * MINI_S;
@@ -275,25 +275,25 @@ void ChipSlideGame::drawTitle(TFT_eSprite& fb) {
 
   fb.setTextFont(2);
   fb.setTextColor(COL_WARM, COL_BG);
-  fb.drawString("A: Richtung", SW / 2, 186);
-  fb.drawString("B: Stein schieben", SW / 2, 206);
+  fb.drawString("A: Direction", SW / 2, 186);
+  fb.drawString("B: Slide tile", SW / 2, 206);
   fb.setTextFont(1);
   fb.setTextColor(COL_DIM, COL_BG);
-  fb.drawString("beliebig: Start", SW / 2, 288);
+  fb.drawString("any key: Start", SW / 2, 288);
 }
 
 void ChipSlideGame::drawGrid(TFT_eSprite& fb) {
-  // Ueberschrift
+  // heading
   fb.setTextDatum(TL_DATUM);
   fb.setTextFont(2);
   fb.setTextColor(COL_ACCENT, COL_BG);
   fb.drawString("CHIP SLIDE", 8, 6);
   fb.setTextColor(COL_DIM, COL_BG);
-  fb.drawString("Z:", SW - 62, 6);
+  fb.drawString("M:", SW - 62, 6);
   fb.setTextColor(0xFFFF, COL_BG);
   fb.drawNumber(moves_, SW - 34, 6);
 
-  // Waehrend der Animation sitzt die Luecke schon am Ziel
+  // During the animation the gap already sits at its target
   uint8_t hole = animating_ ? animTo_ : empty_;
   fb.fillRect(cellX(hole), cellY(hole), CELL, CELL, 0x0000);
   fb.drawRect(cellX(hole), cellY(hole), CELL, CELL, 0x2104);
@@ -301,7 +301,7 @@ void ChipSlideGame::drawGrid(TFT_eSprite& fb) {
   for (uint8_t i = 0; i < CELLS; i++) {
     if (i == empty_ || i == hole) continue;
     if (animating_ && (i == animFrom_ || i == animTo_)) continue;
-    bool locked = (board_[i] == i);              // richtig platziert
+    bool locked = (board_[i] == i);              // correctly placed
     uint16_t col = locked ? COL_OK : COL_TILE;
     int16_t x = cellX(i), y = cellY(i);
     fb.fillRect(x, y, CELL, CELL, COL_TILE2);
@@ -311,10 +311,10 @@ void ChipSlideGame::drawGrid(TFT_eSprite& fb) {
                locked ? 0x0000 : 0xFFFF, col);
   }
 
-  // Gleitender Stein: interpolierte Position zwischen animFrom_ und animTo_
+  // Sliding tile: interpolated position between animFrom_ and animTo_
   if (animating_) {
     float t = animMs_ / (float)ANIM_MS;
-    // ease-out: schneller Start, weiches Auslaufen
+    // ease-out: fast start, soft settle
     t = 1.0f - (1.0f - t) * (1.0f - t);
     int16_t x = (int16_t)(cellX(animFrom_) + (cellX(animTo_) - cellX(animFrom_)) * t);
     int16_t y = (int16_t)(cellY(animFrom_) + (cellY(animTo_) - cellY(animFrom_)) * t);
@@ -329,7 +329,7 @@ void ChipSlideGame::drawHud(TFT_eSprite& fb) {
   // Trennlinie
   fb.drawFastHLine(0, HUD_Y - 4, SW, 0x1082);
 
-  // Richtungspfeil (links) - blinkt kurz nach A-Druck als Feedback
+  // Direction arrow (left) - flashes briefly after A press as feedback
   int16_t ax = 30, ay = HUD_Y + 34;
   uint16_t pcol = (dirFlashMs_ && (millis() / 60) % 2 == 0) ? 0xFFFF : COL_WARM;
   fb.drawCircle(ax, ay, 21, COL_GRID);
@@ -350,25 +350,25 @@ void ChipSlideGame::drawHud(TFT_eSprite& fb) {
   fb.setTextDatum(TC_DATUM);
   fb.setTextFont(1);
   fb.setTextColor(COL_DIM, COL_BG);
-  fb.drawString("Richtung", ax, ay + 26);
+  fb.drawString("Direction", ax, ay + 26);
 
-  // Mitte: Zuege + Fortschritt
+  // center: moves + progress
   fb.setTextFont(2);
   fb.setTextColor(COL_WARM, COL_BG);
   fb.drawNumber(moves_, 85, HUD_Y + 6);
   fb.setTextFont(1);
   fb.setTextColor(COL_DIM, COL_BG);
-  fb.drawString("Zuege", 85, HUD_Y + 24);
+  fb.drawString("Moves", 85, HUD_Y + 24);
   fb.setTextColor(0x7BEF, COL_BG);
   char pr[12];
   snprintf(pr, sizeof(pr), "%u/15", solved_);
   fb.drawString(pr, 85, HUD_Y + 40);
 
-  // Miniatur-Bauplan (rechts): gruen = Bauteil an Zielposition
+  // Blueprint miniature (right): green = component at goal position
   int16_t mx = MINI_X, my = HUD_Y + 8;
   fb.setTextDatum(TL_DATUM);
   fb.setTextColor(COL_DIM, COL_BG);
-  fb.drawString("Bauplan", mx - 6, HUD_Y - 2);
+  fb.drawString("Blueprint", mx - 6, HUD_Y - 2);
   for (uint8_t i = 0; i < CELLS; i++) {
     int16_t x = mx + (i % 4) * MINI_S;
     int16_t y = my + (i / 4) * MINI_S;
@@ -379,18 +379,18 @@ void ChipSlideGame::drawHud(TFT_eSprite& fb) {
     fb.drawRect(x, y, MINI_C, MINI_C, (c == COL_OK) ? COL_OK : 0x2104);
   }
 
-  // Hinweiszeile
+  // hint line
   fb.setTextColor(COL_DIM, COL_BG);
-  fb.drawString("B: schieben  A lang: Menue", 6, SH - 11);
+  fb.drawString("B: slide  A long: Menu", 6, SH - 11);
 }
 
 void ChipSlideGame::drawWin(TFT_eSprite& fb) {
-  // Band ueber dem unteren Drittel
+  // band over the lower third
   uint32_t sinceWin = millis() - winT_;
   fb.fillRect(0, HUD_Y - 4, SW, SH - HUD_Y + 4, COL_BG);
   fb.drawFastHLine(0, HUD_Y - 4, SW, COL_WARM);
 
-  // Pulsierender Rahmen um das fertige Spielfeld
+  // Pulsing frame around the finished board
   bool pulse = (sinceWin / 120) % 2 == 0;
   fb.drawRect(GRID_X - 3, GRID_Y - 3, GRID_W + 6, GRID_W + 6,
               pulse ? COL_WARM : COL_OK);
@@ -398,28 +398,28 @@ void ChipSlideGame::drawWin(TFT_eSprite& fb) {
   fb.setTextDatum(TC_DATUM);
   fb.setTextFont(4);
   fb.setTextColor(pulse ? COL_WARM : COL_ACCENT, COL_BG);
-  fb.drawString("SIEG!", SW / 2, HUD_Y + 12);
+  fb.drawString("SOLVED!", SW / 2, HUD_Y + 12);
   fb.setTextFont(2);
   fb.setTextColor(0xFFFF, COL_BG);
-  fb.drawString("Schaltung laeuft", SW / 2, HUD_Y + 44);
+  fb.drawString("Circuit live", SW / 2, HUD_Y + 44);
   char s[16];
-  snprintf(s, sizeof(s), "%u Zuege", moves_);
+  snprintf(s, sizeof(s), "%u moves", moves_);
   fb.drawString(s, SW / 2, HUD_Y + 64);
   fb.setTextFont(1);
   fb.setTextColor(COL_DIM, COL_BG);
-  fb.drawString("beliebig: nochmal | lang: Menue", SW / 2, SH - 11);
+  fb.drawString("any key: again | long: Menu", SW / 2, SH - 11);
 }
 
 // ---------------------------------------------------------------- Symbole
-// Jedes Bauteil wird als vereinfachtes Schaltzeichen in die Kachel gemalt.
-// cx/cy = Kachelmitte, col = Symbolfarbe, bg = Kachel-Innenfarbe (Label).
+// Each component is drawn as a simplified schematic symbol into the tile.
+// cx/cy = tile center, col = symbol color, bg = tile inner color (label).
 
 void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
                                 int16_t cy, uint16_t col, uint16_t bg) const {
   const int16_t L = 13;  // halbe Symbol-Ausdehnung (Zuleitungen)
   switch (id) {
     case SYM_RESISTOR: {
-      // Zickzack zwischen zwei Zuleitungen
+      // zigzag between two leads
       fb.drawFastHLine(cx - L, cy, L - 8, col);
       fb.drawFastHLine(cx + 8, cy, L - 8, col);
       fb.drawLine(cx - 8, cy, cx - 5, cy - 6, col);
@@ -430,7 +430,7 @@ void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
       break;
     }
     case SYM_DIODE: {
-      // Dreieck + Sperrstrich
+      // triangle + barrier line
       fb.fillTriangle(cx - 6, cy - 8, cx - 6, cy + 8, cx + 7, cy, col);
       fb.drawFastVLine(cx + 9, cy - 8, 16, col);
       fb.drawFastHLine(cx - L, cy, 7, col);
@@ -438,7 +438,7 @@ void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
       break;
     }
     case SYM_LED: {
-      // Diode + zwei Abstrahl-Pfeile
+      // diode + two emission arrows
       fb.fillTriangle(cx - 5, cy - 7, cx - 5, cy + 7, cx + 6, cy, col);
       fb.drawFastVLine(cx + 8, cy - 7, 14, col);
       fb.drawLine(cx + 3, cy - 7, cx + 10, cy - 14, col);
@@ -450,7 +450,7 @@ void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
       break;
     }
     case SYM_TRANSISTOR: {
-      // Kreis + Basisstrich + Kollektor/Emitter
+      // circle + base bar + collector/emitter
       fb.drawCircle(cx, cy, 12, col);
       fb.drawFastVLine(cx - 4, cy - 7, 14, col);
       fb.drawLine(cx - 4, cy - 6, cx + 7, cy - 11, col);
@@ -459,7 +459,7 @@ void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
       break;
     }
     case SYM_IC: {
-      // Rechteck mit 3 Pins pro Seite + Pin-1-Markierung
+      // rectangle with 3 pins per side + pin-1 marker
       fb.fillRect(cx - 8, cy - 10, 16, 20, col);
       fb.fillRect(cx - 1, cy - 12, 3, 3, col);
       for (int i = 0; i < 3; i++) {
@@ -470,7 +470,7 @@ void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
       break;
     }
     case SYM_CAPACITOR: {
-      // Zwei parallele Platten
+      // two parallel plates
       fb.drawFastVLine(cx - 2, cy - 9, 18, col);
       fb.drawFastVLine(cx + 2, cy - 9, 18, col);
       fb.drawFastHLine(cx - L, cy, L - 2, col);
@@ -478,7 +478,7 @@ void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
       break;
     }
     case SYM_BATTERY: {
-      // Lange + kurze Platte, doppelter Satz
+      // long + short plate, double set
       fb.drawFastVLine(cx - 6, cy - 10, 20, col);
       fb.drawFastVLine(cx - 2, cy - 6, 12, col);
       fb.drawFastVLine(cx + 2, cy - 10, 20, col);
@@ -488,7 +488,7 @@ void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
       break;
     }
     case SYM_INDUCTOR: {
-      // Drei Halbboegen ueber der Zuleitung (0 Grad = 6 Uhr, 180 = 12 Uhr)
+      // three half arcs over the lead (0 deg = 6 o'clock, 180 = 12 o'clock)
       fb.drawFastHLine(cx - L, cy, L - 11, col);
       fb.drawFastHLine(cx + 11, cy, L - 11, col);
       for (int i = 0; i < 3; i++) {
@@ -498,7 +498,7 @@ void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
       break;
     }
     case SYM_CRYSTAL: {
-      // Rechteck zwischen zwei Platten (Quarz)
+      // rectangle between two plates (crystal)
       fb.fillRect(cx - 4, cy - 6, 8, 12, col);
       fb.drawFastVLine(cx - 8, cy - 9, 18, col);
       fb.drawFastVLine(cx + 8, cy - 9, 18, col);
@@ -507,7 +507,7 @@ void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
       break;
     }
     case SYM_SWITCH: {
-      // Offen-Schalter
+      // open switch
       fb.drawCircle(cx - 8, cy + 6, 2, col);
       fb.drawCircle(cx + 8, cy + 6, 2, col);
       fb.drawLine(cx - 8, cy + 6, cx + 6, cy - 8, col);
@@ -516,7 +516,7 @@ void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
       break;
     }
     case SYM_RELAY: {
-      // Spule + schaltender Kontakt
+      // coil + switching contact
       fb.drawRect(cx - 11, cy - 10, 12, 20, col);
       for (int i = 0; i < 3; i++)
         fb.drawFastHLine(cx - 11, cy - 6 + i * 5, 12, col);
@@ -527,13 +527,13 @@ void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
       break;
     }
     case SYM_FUSE: {
-      // Rechteck mit durchgehender Linie (Schmelzsicherung)
+      // rectangle with a continuous line (fuse)
       fb.drawRect(cx - 8, cy - 5, 16, 10, col);
       fb.drawFastHLine(cx - L, cy, 2 * L + 1, col);
       break;
     }
     case SYM_ANTENNA: {
-      // Stab + zwei Wellenboegen nach rechts
+      // rod + two wave arcs to the right
       fb.drawFastVLine(cx, cy - 12, 20, col);
       fb.fillCircle(cx, cy - 12, 2, col);
       fb.drawFastHLine(cx - 5, cy + 8, 10, col);
@@ -542,7 +542,7 @@ void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
       break;
     }
     case SYM_SPEAKER: {
-      // Lautsprecher-Kasten + Membran + Schallwellen
+      // speaker box + diaphragm + sound waves
       fb.fillRect(cx - 10, cy - 6, 6, 12, col);
       fb.fillTriangle(cx - 4, cy - 6, cx - 4, cy + 6, cx + 4, cy + 10, col);
       fb.fillTriangle(cx - 4, cy - 6, cx - 4, cy + 6, cx + 4, cy - 10, col);
@@ -551,7 +551,7 @@ void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
       break;
     }
     case SYM_GND: {
-      // Massezeichen: drei abnehmende Striche
+      // ground symbol: three decreasing strokes
       fb.drawFastVLine(cx, cy - 12, 10, col);
       fb.drawFastHLine(cx - 3, cy - 2, 6, col);
       fb.drawFastHLine(cx - 7, cy + 3, 14, col);
@@ -563,7 +563,7 @@ void ChipSlideGame::drawSymbol(TFT_eSprite& fb, uint8_t id, int16_t cx,
       break;
   }
 
-  // Kurzlabel unter dem Symbol (Font 1, 8px)
+  // short label under the symbol (font 1, 8px)
   fb.setTextDatum(TC_DATUM);
   fb.setTextFont(1);
   fb.setTextColor(col, bg);

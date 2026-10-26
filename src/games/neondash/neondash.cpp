@@ -1,21 +1,21 @@
 #include "neondash.h"
 
 // ---------------------------------------------------------------- Palette
-// Gleiche Neon-Familie wie NeonRun (eigenstaendig, damit das Spiel auch
-// ohne das SpriteRenderer-Interface des Runners laeuft).
-static const uint16_t COL_BG_TOP  = 0x0841;  // Nachthimmel
-static const uint16_t COL_BG_MID  = 0x1082;  // Strassenstreifen
-static const uint16_t COL_BG_BOT  = 0x2104;  // Strasse
-static const uint16_t COL_STAR    = 0xC618;  // Sterne
-static const uint16_t COL_HORIZON = 0xF81F;  // Neon-Magenta
-static const uint16_t COL_PLAYER  = 0x07FF;  // Neon-Cyan
-static const uint16_t COL_GLOW    = 0x0780;  // Cyan-Glow
-static const uint16_t COL_OBS     = 0xF81F;  // Firewall-Magenta
-static const uint16_t COL_OBS_DK  = 0x8010;  // dunkles Magenta
-static const uint16_t COL_DRONE   = 0xFD20;  // Neon-Orange
-static const uint16_t COL_DRONE_D = 0xA000;  // dunkles Orange
-static const uint16_t COL_CHIP    = 0xFFE0;  // Neon-Gelb
-static const uint16_t COL_CHIP_D  = 0x8400;  // dunkles Gelb
+// Same neon family as NeonRun (self-contained, so the game also runs
+// without the runner's SpriteRenderer interface).
+static const uint16_t COL_BG_TOP  = 0x0841;  // night sky
+static const uint16_t COL_BG_MID  = 0x1082;  // road stripes
+static const uint16_t COL_BG_BOT  = 0x2104;  // road
+static const uint16_t COL_STAR    = 0xC618;  // stars
+static const uint16_t COL_HORIZON = 0xF81F;  // neon magenta
+static const uint16_t COL_PLAYER  = 0x07FF;  // neon cyan
+static const uint16_t COL_GLOW    = 0x0780;  // cyan glow
+static const uint16_t COL_OBS     = 0xF81F;  // firewall magenta
+static const uint16_t COL_OBS_DK  = 0x8010;  // dark magenta
+static const uint16_t COL_DRONE   = 0xFD20;  // neon orange
+static const uint16_t COL_DRONE_D = 0xA000;  // dark orange
+static const uint16_t COL_CHIP    = 0xFFE0;  // neon yellow
+static const uint16_t COL_CHIP_D  = 0x8400;  // dark yellow
 static const uint16_t COL_TEXT    = 0xFFFF;
 static const uint16_t COL_DIM     = 0x7BEF;
 
@@ -66,8 +66,8 @@ void NeonDashGame::spawnObstacle() {
   for (auto& o : obs_) if (!o.alive) { slot = &o; break; }
   if (!slot) return;
 
-  // Drohnen schweben hoch, Staemme stehen auf dem Boden. Mit zunehmender
-  // Geschwindigkeit mehr Drohnen.
+  // Drones float high, pillars stand on the ground. More drones with
+  // increasing speed.
   uint8_t laneRoll = random(0, 100);
   uint8_t maxDronePct = (uint8_t)min(20 + runMs_ / 4000, 55u);
   bool drone = laneRoll < maxDronePct;
@@ -76,18 +76,18 @@ void NeonDashGame::spawnObstacle() {
     slot->kind = 1;
     slot->h    = 12;
     slot->x    = SW + 20;
-    // y wird in update() als Schwebe-Hoehe gesetzt
+    // y is set in update() as the hover height
     slot->y    = GROUND_Y - 24;
   } else {
     slot->kind = 0;
-    // Staemme: 1-3 Segmente hoch (Sprung schafft max ~70 px)
+    // Pillars: 1-3 segments high (jump clears max ~70 px)
     slot->h    = 16 + (uint8_t)random(0, 3) * 10;  // 16/26/36
     slot->x    = SW + 20;
     slot->y    = GROUND_Y - slot->h;
   }
   slot->alive  = true;
 
-  // Datenchip: Bonus in Sprunghoehe ueber Boden-Staemmen
+  // Data chip: bonus at jump height above ground pillars
   if (!drone && slot->h >= 26) {
     for (auto& c : chips_) {
       if (c.alive) continue;
@@ -115,7 +115,7 @@ void NeonDashGame::update(const InputState& in, uint32_t dtMs) {
     case PH_RUN: {
       if (in.longPressed[(uint8_t)Key::B]) { wantsMenu = true; return; }
 
-      // Einziger Spiel-Button: Sprung (nur am Boden moeglich)
+      // The only gameplay button: jump (only possible on the ground)
       if ((in.pressed[(uint8_t)Key::A] || in.pressed[(uint8_t)Key::B]) &&
           onGround_) {
         vy_       = JUMP_V;
@@ -124,10 +124,10 @@ void NeonDashGame::update(const InputState& in, uint32_t dtMs) {
 
       runMs_ += dtMs;
 
-      // Tempo steigt kontinuierlich bis zum Cap
+      // Pace rises continuously up to the cap
       speed_ = min(SPEED_MAX, SPEED_START + SPEED_RAMP * (runMs_ / 1000.0f));
 
-      // Sprung-Physik
+      // jump physics
       vy_ += GRAVITY * dt;
       py_ += vy_ * dt;
       if (py_ >= GROUND_Y - PLAYER_H) {
@@ -141,7 +141,7 @@ void NeonDashGame::update(const InputState& in, uint32_t dtMs) {
       scroll_   = (uint32_t)(scroll_ + step);
       score_    = (uint16_t)(distance_ / 10) + chipBonus_;  // 1 m = 10 px
 
-      // Hindernisse bewegen sich nach links
+      // Obstacles move to the left
       int16_t pTop = (int16_t)py_;
       for (auto& o : obs_) {
         if (!o.alive) continue;
@@ -149,15 +149,15 @@ void NeonDashGame::update(const InputState& in, uint32_t dtMs) {
         int16_t ox = (int16_t)o.x;
         int16_t oy;
         if (o.kind == 0) {
-          oy = GROUND_Y - o.h;  // Firewall-Staemme am Boden
+          oy = GROUND_Y - o.h;  // firewall pillars on the ground
         } else {
-          // Drohne: schwebt tief genug, dass der Spieler kollidiert,
-          // aber der Sprung (max ~70 px) locker drueber kommt
+          // Drone: hovers low enough to hit the player,
+          // but the jump (max ~70 px) clears it easily
           oy = GROUND_Y - 24 + (int16_t)(sinf((ox + runMs_) * 0.006f) * 8);
         }
         o.y = oy;
         if (ox < -24) { o.alive = false; continue; }
-        // Kollision mit der Spieler-Box
+        // collision with the player box
         if (overlaps(PLAYER_X, pTop, PLAYER_W, PLAYER_H,
                      ox, oy, 12, o.h)) {
           endRun();
@@ -165,7 +165,7 @@ void NeonDashGame::update(const InputState& in, uint32_t dtMs) {
         }
       }
 
-      // Datenchips: einsammeln (auch in der Luft), bringen Bonus
+      // Data chips: collect (also mid-air), grant bonus
       for (auto& c : chips_) {
         if (!c.alive) continue;
         c.x -= step;
@@ -177,14 +177,14 @@ void NeonDashGame::update(const InputState& in, uint32_t dtMs) {
         }
       }
 
-      // Naechstes Hindernis spawnen: Abstand schrumpft mit dem Tempo,
-      // damit die Reaktionszeit konstant bleibt (Speed-Up = dichter).
+      // Spawn next obstacle: distance shrinks with speed
+      // so reaction time stays constant (speed-up = denser).
       spawnIn_ -= step;
       if (spawnIn_ <= 0) {
         spawnObstacle();
-        // Abstand in Pixeln; je schneller, desto enger - aber nie so
-        // eng, dass zwei Hindernisse nicht mehr nacheinander zu schaffen
-        // sind (min. ~1.3x Sprungreichweite).
+        // Distance in pixels; the faster, the tighter - but never so
+        // tight that two obstacles can't be cleared one after another
+        // (min ~1.3x jump range).
         float gap = 230.0f + (float)random(0, 160);
         gap = max(200.0f, gap - (speed_ - SPEED_START) * 0.35f);
         spawnIn_ = gap;
@@ -209,14 +209,14 @@ void NeonDashGame::draw() {
     tft.setTextFont(1);
     tft.setTextColor(TFT_RED, TFT_BLACK);
     tft.setTextDatum(TL_DATUM);
-    tft.drawString("Framebuffer alloc fehlgeschlagen", 6, 8);
+    tft.drawString("Framebuffer alloc failed", 6, 8);
     return;
   }
   if (phase_ == PH_TITLE || phase_ == PH_GAMEOVER) {
     drawWorld(fb_);
     drawOverlay(fb_, phase_ == PH_TITLE ? "NEON DASH" : "CRASH!",
-                phase_ == PH_TITLE ? "A/B: Sprung - Hindernisse meiden"
-                                   : "A/B: nochmal | B lang: Menue");
+                phase_ == PH_TITLE ? "A/B: Jump - dodge obstacles"
+                                   : "A/B: retry | B long: Menu");
   } else {
     drawWorld(fb_);
   }
@@ -230,7 +230,7 @@ void NeonDashGame::drawWorld(TFT_eSprite& fb) {
   fb.fillSprite(COL_BG_BOT);
   fb.fillRect(0, 0, SW, roadY, COL_BG_TOP);
 
-  // Sterne mit Parallax (halbe Weltgeschwindigkeit)
+  // stars with parallax (half world speed)
   int32_t sm = (int32_t)(scroll_ / 6) % (roadY - 24);
   for (uint8_t i = 0; i < 20; i++) {
     int16_t sx = (int16_t)((i * 67 + 13) % SW);
@@ -239,11 +239,11 @@ void NeonDashGame::drawWorld(TFT_eSprite& fb) {
     else             fb.fillRect(sx, sy, 1, 1, COL_STAR);
   }
 
-  // Horizont-Glow
+  // horizon glow
   fb.drawFastHLine(0, roadY - 1, SW, COL_OBS_DK);
   fb.drawFastHLine(0, roadY, SW, COL_HORIZON);
 
-  // Bewegte Boden-Markierungen
+  // moving ground markings
   int32_t m = (int32_t)(scroll_ / 24) % 24;
   for (int16_t y = roadY + 4 + (int16_t)m; y < SH; y += 24)
     fb.fillRect(0, y, SW, 10, COL_BG_MID);
@@ -255,13 +255,13 @@ void NeonDashGame::drawWorld(TFT_eSprite& fb) {
     int16_t ox = (int16_t)o.x;
     int16_t oy = o.y;
     if (o.kind == 0) {
-      // Firewall-Staemme: Warnstreifen-Saeule
+      // Firewall pillar: warning-stripe column
       fb.fillRect(ox, oy, 12, o.h, COL_OBS_DK);
       for (int16_t sy = oy; sy < oy + o.h; sy += 8)
         fb.fillRect(ox, sy, 12, 4, COL_OBS);
       fb.drawRect(ox, oy, 12, o.h, COL_HORIZON);
     } else {
-      // Schwebende Drohne
+      // floating drone
       fb.drawFastVLine(ox + 6, oy, 4, COL_DRONE);
       fb.fillCircle(ox + 6, oy, 1, COL_CHIP);
       fb.fillRect(ox, oy + 3, 12, 8, COL_DRONE_D);
@@ -272,7 +272,7 @@ void NeonDashGame::drawWorld(TFT_eSprite& fb) {
     }
   }
 
-  // Datenchips (pulsierend)
+  // data chips (pulsing)
   int16_t r = 4 + (int16_t)((millis() / 180) & 1);
   for (auto& c : chips_) {
     if (!c.alive) continue;
@@ -284,12 +284,12 @@ void NeonDashGame::drawWorld(TFT_eSprite& fb) {
     fb.fillCircle(cx, cy, 1, COL_CHIP_D);
   }
 
-  // Spieler: Dreieck-Runner mit Glow + Flamme beim Aufwaertsflug
+  // Player: triangle runner with glow + flame while rising
   int16_t px = PLAYER_X, pTop = (int16_t)py_;
   fb.fillTriangle(px + 1, pTop + 11, px + 8, pTop - 2, px + 15, pTop + 11, COL_GLOW);
   fb.fillTriangle(px + 3, pTop + 9, px + 8, pTop + 2, px + 13, pTop + 9, COL_PLAYER);
   fb.fillCircle(px + 8, pTop + 6, 1, TFT_WHITE);
-  if (vy_ < -50)  // Schub nach oben
+  if (vy_ < -50)  // thrust upwards
     fb.fillTriangle(px + 6, pTop + 11, px + 10, pTop + 11, px + 8,
                     pTop + 15 + (int16_t)(-vy_ / 60), COL_DRONE);
 }
@@ -298,18 +298,18 @@ void NeonDashGame::drawHud(TFT_eSprite& fb) {
   fb.setTextFont(1);
   fb.setTextDatum(TL_DATUM);
 
-  // Meter (Score) rechts oben
+  // meters (score) top right
   char b[24];
   snprintf(b, sizeof(b), "%um", score_);
   fb.setTextColor(COL_CHIP, COL_BG_TOP);
   fb.drawString(b, 128, 4);
 
-  // Highscore darunter
+  // highscore below
   snprintf(b, sizeof(b), "HI %um", best_);
   fb.setTextColor(COL_DIM, COL_BG_TOP);
   fb.drawString(b, 118, 16);
 
-  // Speed-Bar: aktuelles Tempo als Balken (links)
+  // Speed bar: current pace as a bar (left)
   fb.setTextColor(COL_DIM, COL_BG_TOP);
   fb.drawString("SPD", 4, 4);
   int16_t bw = (int16_t)((speed_ / SPEED_MAX) * 56);
@@ -319,11 +319,11 @@ void NeonDashGame::drawHud(TFT_eSprite& fb) {
 
   fb.drawFastHLine(0, 26, SW, COL_OBS_DK);
 
-  // Steuerungshinweis unten
+  // control hint at the bottom
   if (phase_ == PH_RUN) {
     fb.setTextColor(COL_DIM, COL_BG_BOT);
-    fb.drawString("A/B: Sprung", 4, SH - 10);
-    fb.drawString("B lang: Menue", SW - 62, SH - 10);
+    fb.drawString("A/B: Jump", 4, SH - 10);
+    fb.drawString("B long: Menu", SW - 62, SH - 10);
   }
 }
 
@@ -339,11 +339,11 @@ void NeonDashGame::drawOverlay(TFT_eSprite& fb, const char* title, const char* s
   fb.setTextColor(COL_TEXT, COL_BG_TOP);
   fb.drawString(sub, SW / 2, 146);
   char b[32];
-  snprintf(b, sizeof(b), "Rekord: %um", best_);
+  snprintf(b, sizeof(b), "Record: %um", best_);
   fb.setTextColor(COL_CHIP, COL_BG_TOP);
   fb.drawString(b, SW / 2, 164);
   if (phase_ == PH_GAMEOVER) {
-    snprintf(b, sizeof(b), "Gefahren: %um", score_);
+    snprintf(b, sizeof(b), "Run: %um", score_);
     fb.setTextColor(COL_TEXT, COL_BG_TOP);
     fb.drawString(b, SW / 2, 178);
   }

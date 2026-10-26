@@ -1,248 +1,258 @@
+---
+layout: page
+title: "Troubleshooting"
+description: "Common problems and solutions for the TDisplayS3 Adventure project: display issues, button problems, build errors, serial monitor, memory and performance problems, debug checklist."
+---
+
 # 🔧 Troubleshooting
 
-Häufige Probleme und Lösungen für das TDisplayS3 Adventure Projekt.
+Common problems and solutions for the TDisplayS3 Adventure project.
 
-## Display-Probleme
+## Display Problems
 
-### Schwarzer Screen, Backlight an, keine Grafik
+### Black Screen, Backlight On, No Graphics
 
-| Ursache | Lösung |
-|---------|--------|
-| `USE_HSPI_PORT` fehlt | In `include/tft_setup.h` prüfen – muss definiert sein! |
-| TFT_eSPI zu neu | **Nicht** auf > 2.5.43 updaten (bekannte Probleme, siehe [TFT_eSPI#3329](https://github.com/Bodmer/TFT_eSPI/issues/3329)) |
-| Falscher Display-Treiber | `ST7789_DRIVER` in `tft_setup.h` prüfen |
-| Falsche Pins | Alle TFT-Pins in `tft_setup.h` mit Board-Doku abgleichen |
+| Cause | Solution |
+|-------|----------|
+| `USE_HSPI_PORT` missing | Check `include/tft_setup.h` - must be defined! |
+| TFT_eSPI too new | **Do not** update past 2.5.43 (known problems, see [TFT_eSPI#3329](https://github.com/Bodmer/TFT_eSPI/issues/3329)) |
+| Wrong display driver | Check `ST7789_DRIVER` in `tft_setup.h` |
+| Wrong pins | Match all TFT pins in `tft_setup.h` with the board docs |
 
-**Schnell-Check:**
+**Quick check:**
 ```cpp
-// In tft_setup.h müssen stehen:
+// In tft_setup.h these must be present:
 #define USE_HSPI_PORT
 #define ST7789_DRIVER
 #define TFT_PARALLEL_8_BIT
 #define TFT_INVERSION_ON
 ```
 
-### Schwarzer Screen, Backlight aus
+### Black Screen, Backlight Off
 
-| Ursache | Lösung |
-|---------|--------|
-| Power-Hold GPIO15 nicht HIGH | Wird in `Engine::begin()` vor `gfx.init()` gesetzt – **Reihenfolge nicht ändern!** |
+| Cause | Solution |
+|-------|----------|
+| Power-hold GPIO15 not HIGH | Set in `Engine::begin()` before `gfx.init()` - **do not change the order!** |
 
-**Code-Prüfung (`src/core/engine.h`):**
+**Code check (`src/core/engine.h`):**
 ```cpp
 void begin(Game* game) {
-  boardPowerOn();  // ← MUSS vor gfx.init() stehen!
+  boardPowerOn();  // <- MUST come before gfx.init()!
   gfx.init();
   // ...
 }
 ```
 
-### Weißer Screen / komische Farben
+### White Screen / Odd Colors
 
-| Ursache | Lösung |
-|---------|--------|
-| Inversion falsch | `TFT_INVERSION_ON` in `include/tft_setup.h` prüfen |
-| RGB/BGR vertauscht | `TFT_RGB_ORDER TFT_RGB` (nicht TFT_BGR!) in `tft_setup.h` |
-| CGRAM Offset | `CGRAM_OFFSET` definiert lassen |
+| Cause | Solution |
+|-------|----------|
+| Inversion wrong | Check `TFT_INVERSION_ON` in `include/tft_setup.h` |
+| RGB/BGR swapped | `TFT_RGB_ORDER TFT_RGB` (not TFT_BGR!) in `tft_setup.h` |
+| CGRAM offset | Leave `CGRAM_OFFSET` defined |
 
-### Display flackert / Artefakte
+### Display Flickers / Artifacts
 
-| Ursache | Lösung |
-|---------|--------|
-| SPI zu schnell | `SPI_FREQUENCY` reduzieren (auf 40 MHz oder weniger) |
-| Direkt auf Display zeichnen | **Framebuffer nutzen** (`TFT_eSprite`) – siehe [Spielentwicklung](Spielentwicklung#framebuffer) |
-| DMA-Konflikte | Bei 8-bit parallel: `USE_HSPI_PORT` verwenden |
+| Cause | Solution |
+|-------|----------|
+| SPI too fast | Reduce `SPI_FREQUENCY` (to 40 MHz or less) |
+| Drawing directly to the display | **Use a framebuffer** (`TFT_eSprite`) - see [Game Development](Spielentwicklung.html#framebuffer-for-flicker-free-animation-recommended) |
+| DMA conflicts | For 8-bit parallel: use `USE_HSPI_PORT` |
 
-## Taster-Probleme
+## Button Problems
 
-### Taster reagieren nicht / komisch
+### Buttons Not Responding / Erratic
 
-| Ursache | Lösung |
-|---------|--------|
-| Aktiv HIGH statt LOW | Beide Taster sind **aktiv LOW** – in `buttons.h` bereits berücksichtigt |
-| Entprellung zu kurz | `DEBOUNCE_MS` in `board_tdisplay_s3.h` erhöhen (Standard: 30ms) |
-| Falscher Pin | GPIO0 (BOOT) und GPIO14 prüfen |
-| GPIO0 blockiert | BOOT-Taster: Flash-Sequenz beachten (siehe unten) |
+| Cause | Solution |
+|-------|----------|
+| Active HIGH instead of LOW | Both buttons are **active LOW** - already handled in `buttons.h` |
+| Debounce too short | Increase `DEBOUNCE_MS` in `board_tdisplay_s3.h` (default: 30ms) |
+| Wrong pin | Check GPIO0 (BOOT) and GPIO14 |
+| GPIO0 blocked | BOOT button: mind the flash sequence (see below) |
 
-### Taster A (GPIO0 / BOOT) geht nicht im Spiel
+### Button A (GPIO0 / BOOT) Does Not Work in-Game
 
-GPIO0 ist der **BOOT-Taster**. Zum Flashen:
+GPIO0 is the **BOOT button**. To flash:
 
 ```
-1. BOOT-Taster halten
-2. RST (Reset) drücken und loslassen
-3. BOOT loslassen
-4. Upload starten (pio run -t upload)
+1. Hold the BOOT button
+2. Press and release RST (Reset)
+3. Release BOOT
+4. Start the upload (pio run -t upload)
 ```
 
-Im normalen Betrieb funktioniert GPIO0 als Eingang.
+In normal operation GPIO0 works as an input.
 
-## Build-Probleme
+## Build Problems
 
-### Build-Fehler in TFT_eSPI
+### Build Errors in TFT_eSPI
 
 ```bash
-# Abhängigkeiten aktualisieren
+# Update dependencies
 pio pkg update
 
-# TFT_eSPI-Version prüfen (muss 2.5.43 sein)
+# Check the TFT_eSPI version (must be 2.5.43)
 pio pkg list | grep TFT_eSPI
 ```
 
-Falls eine neuere Version installiert wurde:
+If a newer version got installed:
 ```ini
-; In platformio.ini pinnen:
+; Pin in platformio.ini:
 lib_deps =
   bodmer/TFT_eSPI@2.5.43
 ```
 
-### "Sketch too big" / Partition-Fehler
+### "Sketch too big" / Partition Error
 
-| Ursache | Lösung |
-|---------|--------|
-| App-Partition zu klein | `partitions_16mb.csv` prüfen (3 MB App) |
-| Falsches Partition-Schema | In `platformio.ini`: `board_build.partitions = partitions_16mb.csv` |
+| Cause | Solution |
+|-------|----------|
+| App partition too small | Check `partitions_16mb.csv` (3 MB app) |
+| Wrong partition scheme | In `platformio.ini`: `board_build.partitions = partitions_16mb.csv` |
 
-**Partition-Datei prüfen (`partitions_16mb.csv`):**
+**Check the partition file (`partitions_16mb.csv`):**
 ```csv
 # Name,   Type, SubType, Offset,  Size,     Flags
 nvs,      data, nvs,     0x9000,  0x6000,
 phy_init, data, phy,     0xf000,  0x1000,
-factory,  app,  factory, 0x10000, 0x300000,  ← 3 MB App
-storage,  data, fat,     0x310000,0xCF0000,  ← ~13 MB FATFS
+factory,  app,  factory, 0x10000, 0x300000,  <- 3 MB app
+storage,  data, fat,     0x310000,0xCF0000,  <- ~13 MB FATFS
 ```
 
-### Board wird nicht erkannt
+### Board Not Detected
 
 ```bash
-# USB-Gerät prüfen
+# Check the USB device
 pio device list
 
-# Auf Linux:
+# On Linux:
 lsusb | grep -i esp
-# oder
+# or
 ls /dev/tty*
 ```
 
-| Lösung | Befehl |
-|--------|--------|
-| Anderes USB-Kabel/Port testen | – |
-| BOOT+RST-Sequenz wiederholen | Siehe oben |
-| Treiber installieren (Windows) | [CP210x USB-UART Treiber](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers) |
-| Berechtigungen (Linux) | `sudo usermod -a -G dialout $USER` (Neuanmeldung nötig) |
+| Solution | Command |
+|----------|---------|
+| Try another USB cable/port | – |
+| Repeat the BOOT+RST sequence | See above |
+| Install drivers (Windows) | [CP210x USB-UART driver](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers) |
+| Permissions (Linux) | `sudo usermod -a -G dialout $USER` (re-login required) |
 
-## Serieller Monitor
+## Serial Monitor
 
-### Nach Upload kein Serial-Monitor
+### No Serial Monitor After Upload
 
 ```bash
-# CDC on Boot muss aktiviert sein (in platformio.ini):
+# CDC on boot must be enabled (in platformio.ini):
 build_flags =
   -D ARDUINO_USB_CDC_ON_BOOT=1
 
-# Monitor starten:
+# Start the monitor:
 pio device monitor
-# oder mit Baudrate:
+# or with baud rate:
 pio device monitor -b 115200
 ```
 
-### Monitor zeigt nur Kauderwelsch
+### Monitor Shows Only Gibberish
 
-| Ursache | Lösung |
-|---------|--------|
-| Falsche Baudrate | `monitor_speed = 115200` in `platformio.ini` prüfen |
-| Anderer Port | `pio device list` zeigt verfügbare Ports |
+| Cause | Solution |
+|-------|----------|
+| Wrong baud rate | Check `monitor_speed = 115200` in `platformio.ini` |
+| Wrong port | `pio device list` shows available ports |
 
-## Speicher-Probleme
+## Memory Problems
 
 ### Guru Meditation Error / Crash
 
-| Ursache | Lösung |
-|---------|--------|
-| Stack Overflow | Große lokale Variablen als `static` oder Member deklarieren |
-| Null-Pointer | Immer auf `nullptr` prüfen |
-| PSRAM nicht initialisiert | `board_build.arduino.memory_type = qio_opi` in `platformio.ini` |
+| Cause | Solution |
+|-------|----------|
+| Stack overflow | Declare large local variables as `static` or members |
+| Null pointer | Always check for `nullptr` |
+| PSRAM not initialized | `board_build.arduino.memory_type = qio_opi` in `platformio.ini` |
 
-**Debug-Ausgabe aktivieren:**
+**Enable debug output:**
 ```ini
-; In platformio.ini für mehr Debug-Info:
+; In platformio.ini for more debug info:
 build_flags =
   -D CORE_DEBUG_LEVEL=5  ; 0=none, 5=verbose
 ```
 
-### Framebuffer-Allokation schlägt fehl
+### Framebuffer Allocation Fails
 
 ```cpp
-// Prüfen ob genügend PSRAM frei ist:
+// Check whether enough PSRAM is free:
 Serial.printf("Free PSRAM: %d bytes\n", ESP.getFreePsram());
 Serial.printf("Free Heap: %d bytes\n", ESP.getFreeHeap());
 
-// Framebuffer-Größe reduzieren oder auf PSRAM auslagern:
+// Reduce the framebuffer size or move to PSRAM:
 TFT_eSprite fb_{&gfx.tft()};
-fb_.setColorDepth(8);  // 8-bit statt 16-bit (spart 50% Speicher)
-fb_.createSprite(170, 160);  // Kleineren Bereich
+fb_.setColorDepth(8);  // 8-bit instead of 16-bit (saves 50% memory)
+fb_.createSprite(170, 160);  // smaller area
 ```
 
-## Performance-Probleme
+## Performance Problems
 
-### Niedrige Framerate / Ruckeln
+### Low Frame Rate / Stuttering
 
-| Ursache | Lösung |
-|---------|--------|
-| Zu viel in `draw()` | Logik nach `update()` verschieben |
-| Direkt auf Display zeichnen | Framebuffer (`TFT_eSprite`) nutzen |
-| Zu große Sprites | Sprite-Größe reduzieren |
-| `delay()` in Game-Loop | Niemals `delay()` in `update()`/`draw()` verwenden! |
+| Cause | Solution |
+|-------|----------|
+| Too much in `draw()` | Move logic into `update()` |
+| Drawing directly to the display | Use a framebuffer (`TFT_eSprite`) |
+| Sprites too large | Reduce sprite size |
+| `delay()` in the game loop | Never use `delay()` in `update()`/`draw()`! |
 
-### Flackernde Animation
+### Flickering Animation
 
 ```cpp
-// ❌ Schlecht: Direkt auf Display (flackert beim Löschen)
+// ❌ Bad: directly to the display (flickers when clearing)
 tft.fillScreen(TFT_BLACK);
 tft.fillCircle(x, y, 20, TFT_RED);
 
-// ✅ Gut: Framebuffer (flackerfrei)
+// ✅ Good: framebuffer (flicker-free)
 fb_.fillScreen(TFT_BLACK);
 fb_.fillCircle(x, y, 20, TFT_RED);
-fb_.pushSprite(0, 0);  // Einmalig pushen
+fb_.pushSprite(0, 0);  // push once
 ```
 
-## Netzwerk/WiFi (zukünftig)
+## Network/WiFi (Future)
 
-| Problem | Hinweis |
-|---------|---------|
-| WiFi funktioniert nicht | Noch nicht implementiert – siehe [Erweiterungsideen](https://github.com/lxndrJ/TDisplayS3_Adventure#erweiterungsideen) |
-| Bluetooth | Noch nicht implementiert |
+| Problem | Note |
+|---------|------|
+| WiFi does not work | Not implemented yet - see [Ideas for the Future](https://github.com/lxndrJ/TDisplayS3_Adventure#ideas-for-the-future) |
+| Bluetooth | Not implemented yet |
 
-## Debug-Checkliste
+## Debug Checklist
 
-Wenn nichts funktioniert, systematisch prüfen:
+If nothing works, check systematically:
 
 ```bash
-# 1. Build erfolgreich?
+# 1. Build successful?
 pio run
 
-# 2. Upload erfolgreich?
+# 2. Upload successful?
 pio run -t upload
 
-# 3. Serial-Monitor aktiv?
+# 3. Serial monitor active?
 pio device monitor
 
-# 4. Richtiges Board ausgewählt?
+# 4. Correct board selected?
 pio run -e t_display_s3
 
-# 5. USB-Verbindung OK?
+# 5. USB connection OK?
 pio device list
 
-# 6. Code-Version aktuell?
+# 6. Code up to date?
 git pull origin main
 pio pkg update
 ```
 
-## Hilfe bekommen
+## Getting Help
 
-- **GitHub Issues:** [Probleme melden](https://github.com/lxndrJ/TDisplayS3_Adventure/issues)
-- **GitHub Discussions:** [Fragen stellen](https://github.com/lxndrJ/TDisplayS3_Adventure/discussions)
-- **Wiki:** [Weitere Dokumentation](Home)
-- **LilyGo T-Display-S3:** [Offizielles Repo](https://github.com/Xinyuan-LilyGO/T-Display-S3)
-- **TFT_eSPI Issues:** [Display-Probleme](https://github.com/Bodmer/TFT_eSPI/issues)
+- **GitHub Issues:** [Report problems](https://github.com/lxndrJ/TDisplayS3_Adventure/issues)
+- **GitHub Discussions:** [Ask questions](https://github.com/lxndrJ/TDisplayS3_Adventure/discussions)
+- **Wiki:** [More documentation](Home.html)
+- **LilyGo T-Display-S3:** [Official repo](https://github.com/Xinyuan-LilyGO/T-Display-S3)
+- **TFT_eSPI Issues:** [Display problems](https://github.com/Bodmer/TFT_eSPI/issues)
+
+---
+
+[← Wiki Home](Home.html) · [Docs Home](/TDisplayS3_Adventure/)

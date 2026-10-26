@@ -1,0 +1,56 @@
+# Jekyll configuration for GitHub Pages
+# Site: https://lxndrJ.github.io/TDisplayS3_Adventure/
+
+title: TDisplayS3 Adventure
+tagline: Modular mini-game platform for the LilyGo T-Display-S3 (ESP32-S3)
+description: >-
+  A modular mini-game engine and game collection for the LilyGo T-Display-S3
+  (ESP32-S3, 320x170 ST7789 display, 2 buttons). Eldoria, Neon Run,
+  Neon Shard, Chip Slide, Neon Dash. PlatformIO + Arduino + TFT_eSPI.
+
+url: "https://lxndrJ.github.io"
+baseurl: "/TDisplayS3_Adventure"   # repo name = project Pages subpath
+
+# Theme: use the default Primer-adjacent minima-like look shipped with Pages.
+# (No remote theme dependency = no extra build time, works with the
+#  GitHub Pages-supported plugin set.)
+theme: minima
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Plugins supported by GitHub Pages
+plugins:
+  - jekyll-sitemap      # auto-generates /sitemap.xml for Google
+  - jekyll-seo-tag      # <title>, meta description, Open Graph, JSON-LD
+  - jekyll-feed         # /feed.xml RSS feed
+
+# SEO defaults applied to every page unless overridden in front-matter
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: "default"
+      author: "lxndrJ"
+
+# Collections are not needed; pages live in docs/wiki/ with front-matter.
+
+# Exclude repo-only files from the built site
+exclude:
+  - "../README.md"
+  - "../platformio.ini"
+  - "../partitions_16mb.csv"
+  - "../src/"
+  - "../include/"
+  - "../tools/"
+  - "../assets/"
+  - "../.github/"
+  - "../TDisplayS3_Adventure/"
+  - "../.pio/"
+  - "../.git/"
+  - "../.vscode/"
+
+# Default permalinks: each page renders to <name>.html
+# Internal links between wiki pages use the .html extension.

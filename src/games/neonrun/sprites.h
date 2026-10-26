@@ -5,29 +5,29 @@
 #include <TFT_eSPI.h>
 #include "core/display.h"
 
-// Zentrale Farbpalette (RGB565). Jedes Theme waehlt seine eigenen Farben.
+// Central color palette (RGB565). Each theme picks its own colors.
 struct NeonPalette {
-  uint16_t bgTop;        // Himmel
-  uint16_t bgMid;        // Strassenstreifen
-  uint16_t bgBottom;     // Strassen-Basis
-  uint16_t star;         // Sterne
-  uint16_t horizon;      // Horizont-Linie
-  uint16_t player;       // Spieler
-  uint16_t playerGlow;   // Spieler-Glow
-  uint16_t obstacle;     // Firewall-Balken / Drohne
-  uint16_t obstacleDark; // Balken-Schatten
-  uint16_t coin;         // Datenchip
-  uint16_t coinDark;     // Chip-Kontur
+  uint16_t bgTop;        // sky
+  uint16_t bgMid;        // road stripes
+  uint16_t bgBottom;     // road base
+  uint16_t star;         // stars
+  uint16_t horizon;      // horizon line
+  uint16_t player;       // player
+  uint16_t playerGlow;   // player glow
+  uint16_t obstacle;     // firewall bar / drone
+  uint16_t obstacleDark; // bar shadow
+  uint16_t coin;         // data chip
+  uint16_t coinDark;     // chip outline
   uint16_t text;
   uint16_t textDim;
 };
 
-// Austauschbare Grafik-Ebene. Spiele zeichnen ausschliesslich ueber dieses
-// Interface - und zwar in den Framebuffer (TFT_eSprite), nicht direkt auf
-// das Panel: Nur ein pushSprite() pro Frame verhindert Flackern.
-// Das Standard-Theme zeichnet Vektorgrafik (Dreiecke/Rechtecke);
-// ein Bitmap-Theme (z. B. PROGMEM-Sprite-Arrays) implementiert dieselben
-// Methoden und laesst sich ohne Aenderung am Spiel einklinken.
+// Swappable graphics layer. Games draw exclusively through this
+// interface - into the framebuffer (TFT_eSprite), not directly onto
+// the panel: only one pushSprite() per frame prevents flicker.
+// The standard theme draws vector graphics (triangles/rectangles);
+// a bitmap theme (e.g. PROGMEM sprite arrays) implements the same
+// methods and plugs into the game without changes.
 class SpriteRenderer {
 public:
   virtual ~SpriteRenderer() = default;
@@ -40,7 +40,7 @@ public:
   virtual void drawCoin(TFT_eSprite& fb, int16_t x, int16_t y, uint32_t t) = 0;
 };
 
-// Standard-Theme: Neon-Cyberpunk als Vektorgrafik.
+// Standard theme: neon cyberpunk as vector graphics.
 class NeonVectorTheme : public SpriteRenderer {
 public:
   const NeonPalette& palette() const override { return pal_; }
@@ -53,24 +53,24 @@ public:
 
 private:
   NeonPalette pal_ = {
-    0x0841,  // bgTop        - Nachthimmel (dunkles Blau)
-    0x1082,  // bgMid        - Strassenstreifen
-    0x2104,  // bgBottom     - Strasse (tiefes Blau-Violett)
-    0xC618,  // star         - Sterne (hellgrau)
-    0xF81F,  // horizon      - Neon-Magenta
-    0x07FF,  // player       - Neon-Cyan
-    0x0780,  // playerGlow   - Cyan-Glow
-    0xF81F,  // obstacle     - Neon-Magenta
-    0x8010,  // obstacleDark - dunkles Magenta
-    0xFFE0,  // coin         - Neon-Gelb
-    0x8400,  // coinDark     - dunkles Gelb
+    0x0841,  // bgTop        - night sky (dark blue)
+    0x1082,  // bgMid        - road stripes
+    0x2104,  // bgBottom     - road (deep blue-violet)
+    0xC618,  // star         - stars (light grey)
+    0xF81F,  // horizon      - neon magenta
+    0x07FF,  // player       - neon cyan
+    0x0780,  // playerGlow   - cyan glow
+    0xF81F,  // obstacle     - neon magenta
+    0x8010,  // obstacleDark - dark magenta
+    0xFFE0,  // coin         - neon yellow
+    0x8400,  // coinDark     - dark yellow
     0xFFFF,  // text
     0x7BEF,  // textDim
   };
 };
 
-// Globaler Renderer. Hier kann zur Laufzeit ein anderes Theme eingeklinkt
-// werden, z. B. in init(): gSprites = &meinBitmapTheme;
+// Global renderer. A different theme can be plugged in at runtime,
+// e.g. in init(): gSprites = &myBitmapTheme;
 extern NeonVectorTheme neonVectorTheme;
 extern SpriteRenderer* gSprites;
 

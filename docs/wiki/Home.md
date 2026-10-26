@@ -1,68 +1,80 @@
+---
+layout: default
+title: "Wiki Home"
+permalink: /wiki/
+description: "TDisplayS3 Adventure wiki: documentation for the modular mini-game engine for the LilyGo T-Display-S3 (ESP32-S3). Quickstart, game development, API reference, board support, troubleshooting."
+---
+
 # TDisplayS3 Adventure Wiki
 
-Willkommen im Wiki des **TDisplayS3 Adventure** Projekts – ein modulares Spiele-Framework für das LilyGo T-Display-S3 (ESP32-S3).
+Welcome to the wiki of the **TDisplayS3 Adventure** project – a modular game framework for the LilyGo T-Display-S3 (ESP32-S3).
 
-## Inhalt
+## Contents
 
-- [🏠 Home](Home) – Diese Seite
-- [🚀 Schnellstart: Neue Spielideen umsetzen](Schnellstart-Spielideen) – **3 Schritte zum ersten Spiel**
-- [🎮 Spielentwicklung](Spielentwicklung) – Game-Interface, Input, Display, Best Practices
-- [📚 API-Referenz](API-Referenz) – Alle Klassen, Methoden und Konstanten
-- [🖥️ Board-Support](Board-Support) – Neues Board hinzufügen
-- [🔧 Troubleshooting](Troubleshooting) – Häufige Probleme & Lösungen
+- [🏠 Home](Home.html) – this page
+- [🚀 Quickstart: Turn game ideas into reality](Schnellstart-Spielideen.html) – **3 steps to your first game**
+- [🎮 Game Development](Spielentwicklung.html) – Game interface, input, display, best practices
+- [📖 API Reference](API-Referenz.html) – All classes, methods and constants
+- [🖥️ Board Support](Board-Support.html) – Add a new board
+- [🔧 Troubleshooting](Troubleshooting.html) – Common problems & solutions
 
-## Projekt
+## Project
 
 - **Repository:** [lxndrJ/TDisplayS3_Adventure](https://github.com/lxndrJ/TDisplayS3_Adventure)
-- **Hardware:** LilyGo T-Display-S3 (ESP32-S3, 320×170 Display, 2 Taster)
+- **Live docs (GitHub Pages):** [lxndrJ.github.io/TDisplayS3_Adventure](https://lxndrJ.github.io/TDisplayS3_Adventure/)
+- **Hardware:** LilyGo T-Display-S3 (ESP32-S3, 320×170 display, 2 buttons)
 - **Framework:** PlatformIO + Arduino + TFT_eSPI
 
-## Module
+## Modules
 
-Das Projekt ist als **modulare Mini-Game-Engine** aufgebaut:
+The project is built as a **modular mini-game engine**:
 
 ```
 src/
-├── core/          Engine (board-unabhängig)
-│   ├── game.h     Game-Interface
-│   ├── engine.*   Launcher-Loop
-│   ├── input.*    Taster-Eingaben
-│   ├── display.*  Display-Wrapper
-│   └── buttons.h  Taster-Entprellung
-├── boards/        Board-spezifische Konfiguration
+├── core/          Engine (board-independent)
+│   ├── game.h     Game interface
+│   ├── engine.*   Launcher loop
+│   ├── input.*    Button input
+│   ├── display.*  Display wrapper
+│   └── buttons.h  Button debouncing
+├── boards/        Board-specific configuration
 │   └── board_tdisplay_s3.h
-└── games/         Die Spiele
-    ├── games.h      Game-Registry
-    ├── eldoria/     Text-Adventure (Fantasy)
-    ├── neonrun/     Action-Runner (Cyberpunk)
-    │   └── sprites.*  Austauschbare Grafik-Themes
-    ├── neonshard/   Point-and-Click (Cyberpunk)
-    ├── chipslide/   Schiebepuzzle (15 Bauteile)
-    └── neondash/    Jump'n'Run (Cyberpunk)
+└── games/         The games
+    ├── games.h      Game registry
+    ├── eldoria/     Text adventure (fantasy)
+    ├── neonrun/     Action runner (cyberpunk)
+    │   └── sprites.*  Swappable graphics themes
+    ├── neonshard/   Point-and-click (cyberpunk)
+    ├── chipslide/   Sliding puzzle (15 components)
+    └── neondash/    Jump'n'run (cyberpunk)
 ```
 
-## Schnell-Links
+## Quick Links
 
-| Ich möchte... | Seite |
-|---------------|-------|
-| Mein erstes Spiel erstellen | [Schnellstart](Schnellstart-Spielideen) |
-| Die Engine verstehen | [Spielentwicklung](Spielentwicklung) |
-| Eine Funktion nachschlagen | [API-Referenz](API-Referenz) |
-| Ein neues Board anbinden | [Board-Support](Board-Support) |
-| Ein Problem lösen | [Troubleshooting](Troubleshooting) |
+| I want to... | Page |
+|--------------|------|
+| Create my first game | [Quickstart](Schnellstart-Spielideen.html) |
+| Understand the engine | [Game Development](Spielentwicklung.html) |
+| Look up a function | [API Reference](API-Referenz.html) |
+| Add a new board | [Board Support](Board-Support.html) |
+| Fix a problem | [Troubleshooting](Troubleshooting.html) |
 
-## Aktuell vorhandene Spiele
+## Available Games
 
-| Spiel | Genre | Besonderheiten |
-|-------|-------|----------------|
-| **Eldoria** | Text-Adventure | Szenen, Inventar, Kampf-Würfel, mehrere Enden |
-| **Neon Run** | Action/Runner | 3 Spuren, Firewall ausweichen, Chips sammeln, Sprite-Themes |
-| **Neon Shard** | Point-and-Click | Comic-Geschichte mit verzweigten Dialogen und 2 Enden |
-| **Chip Slide** | Schiebepuzzle | 15 Halbleiter-Bauteile sortieren, prozedurale Symbole, flüssige Gleit-Animation |
-| **Neon Dash** | Jump'n'Run | Ein-Tasten-Sprung über Hindernisse, Tempo steigt kontinuierlich, Datenchip-Bonus |
+| Game | Genre | Highlights |
+|------|-------|-----------|
+| **Eldoria** | Text adventure | Scenes, inventory, combat dice, multiple endings |
+| **Neon Run** | Action/runner | 3 lanes, dodge firewalls, collect chips, sprite themes |
+| **Neon Shard** | Point-and-click | Comic story with branching dialogs and 2 endings |
+| **Chip Slide** | Sliding puzzle | Sort 15 semiconductor components, procedural symbols, smooth slide animation |
+| **Neon Dash** | Jump'n'run | One-button jump over obstacles, pace rises continuously, data chip bonus |
 
-## Hilfe
+## Help
 
-- **Fragen?** → [GitHub Discussions](https://github.com/lxndrJ/TDisplayS3_Adventure/discussions)
-- **Bug melden** → [GitHub Issues](https://github.com/lxndrJ/TDisplayS3_Adventure/issues)
-- **Projekt-Repository** → [lxndrJ/TDisplayS3_Adventure](https://github.com/lxndrJ/TDisplayS3_Adventure)
+- **Questions?** → [GitHub Discussions](https://github.com/lxndrJ/TDisplayS3_Adventure/discussions)
+- **Report a bug** → [GitHub Issues](https://github.com/lxndrJ/TDisplayS3_Adventure/issues)
+- **Project repository** → [lxndrJ/TDisplayS3_Adventure](https://github.com/lxndrJ/TDisplayS3_Adventure)
+
+---
+
+[← Back to Docs Home](/TDisplayS3_Adventure/)

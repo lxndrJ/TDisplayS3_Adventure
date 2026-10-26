@@ -5,9 +5,9 @@
 #include "core/display.h"
 #include "sprites.h"
 
-// Neon Run - Cyberpunk-Geschicklichkeits-Spiel ohne Text.
-// Du steuerst einen Läufer auf drei Spuren durch die Neonstadt:
-// Firewall-Balken ausweichen, Datenchips sammeln, Drohnen meiden.
+// Neon Run - cyberpunk skill game without text.
+// You steer a runner across three lanes through the neon city:
+// dodge firewall bars, collect data chips, avoid drones.
 class NeonRunGame : public Game {
 public:
   const char* name() const override { return "Neon Run"; }
@@ -18,9 +18,9 @@ public:
   enum Phase : uint8_t { PH_TITLE, PH_RUN, PH_GAMEOVER, PH_WIN };
 
   struct Entity {
-    float    x = 0, y = 0;    // Bildschirm-Position
+    float    x = 0, y = 0;    // screen position
     uint8_t  lane = 1;       // 0..2
-    uint8_t  kind = 0;       // 0 = Chip, 1 = Drohne
+    uint8_t  kind = 0;       // 0 = chip, 1 = drone
     bool     alive = false;
   };
 
@@ -28,20 +28,20 @@ public:
   static constexpr int16_t PLAYER_Y      = 262;
   static constexpr float   PLAYER_SPEED  = 90.0f;   // px/s pro Spurwechsel
   static constexpr float   WORLD_SPEED   = 130.0f;  // px/s Scroll
-  static constexpr uint16_t INVULN_MS    = 1400;    // Blinzel-Frames nach Treffer
+  static constexpr uint16_t INVULN_MS    = 1400;    // blink frames after a hit
   static constexpr uint16_t MAX_HP       = 3;
-  static constexpr uint16_t WIN_SCORE    = 25;      // gesammelte Chips zum Sieg
+  static constexpr uint16_t WIN_SCORE    = 25;      // collected chips to win
   static constexpr uint8_t  MAX_ENTITIES = 8;
   static constexpr uint32_t SPAWN_MS     = 620;     // Basis-Spawn-Intervall
   static constexpr uint32_t BAR_CYCLE    = 900;     // Abstand Firewall-Balken (Scroll-px)
-  static constexpr int16_t  BAR_TOP      = -20;     // Start-Y des Balkens
-  static constexpr int16_t  BAR_TRAVEL   = 380;     // Strecke des Balkens
+  static constexpr int16_t  BAR_TOP      = -20;     // bar start Y
+  static constexpr int16_t  BAR_TRAVEL   = 380;     // bar travel distance
 
   void startRun();
   void endRun(bool won);
   void spawnEntity();
   void hurt();
-  // Alle draw*-Helfer malen in den Framebuffer; render() pusht einmal pro Frame.
+  // All draw* helpers render into the framebuffer; render() pushes once per frame.
   void drawHud(TFT_eSprite& fb);
   void drawWorld(TFT_eSprite& fb);
   void drawOverlay(TFT_eSprite& fb, const char* title, const char* sub);
@@ -62,9 +62,9 @@ public:
   bool     barActive_  = false;
   Entity   ents_[MAX_ENTITIES];
 
-  // Vollbild-Framebuffer (170x320x16 Bit ~106 KB, auf dem S3 im PSRAM).
-  // Erst der einzelne pushSprite() pro Frame macht die 60-FPS-Animation
-  // flackerfrei - direkt auf das Panel gemalt flackert alles beim Loeschen.
+  // Full-screen framebuffer (170x320x16 bit ~106 KB, in PSRAM on the S3).
+  // Only the single pushSprite() per frame makes the 60 FPS animation
+  // flicker-free - drawing directly to the panel flickers on every clear.
   TFT_eSprite fb_{&gfx.tft()};
 };
 

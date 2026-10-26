@@ -1,4 +1,4 @@
-"""Quick-Test des PNG-Imports in gen_neonshard_art.py (nicht Teil des Builds)."""
+"""Quick test of the PNG import in gen_neonshard_art.py (not part of the build)."""
 import importlib.util
 import os
 import struct
@@ -19,7 +19,7 @@ def write_png(path, w, h, pix_fn):
     raw = b""
     for y in range(h):
         orig = bytes(v for x in range(w) for v in pix_fn(x, y))
-        # Sub-Filter korrekt anwenden: byte[i] = orig[i] - orig[i-bpp]
+        # apply the Sub filter correctly: byte[i] = orig[i] - orig[i-bpp]
         line = bytearray(orig)
         for i in range(bpp, len(line)):
             line[i] = (line[i] - orig[i - bpp]) & 0xFF
@@ -30,7 +30,7 @@ def write_png(path, w, h, pix_fn):
            + chunk(b"IEND", b""))
     open(path, "wb").write(png)
 
-# RGB-Verlauf mit Filter 1 (Sub), skaliert 16x8 -> 320x170
+# RGB gradient with filter 1 (Sub), scaled 16x8 -> 320x170
 write_png(os.path.join(gen.ASSET_DIR, "__test.png"), 16, 8,
           lambda x, y: (x * 16, y * 32, 128))
 cv = gen.png_canvas("__test")
@@ -39,7 +39,7 @@ assert cv.px[0][0] == (0.0, 0.0, 128.0), cv.px[0][0]
 assert cv.px[169][319] == (240.0, 224.0, 128.0), cv.px[169][319]
 print("RGB-Filter1: OK", cv.px[0][0], cv.px[169][319])
 
-# Graustufen + Paletten-Bild
+# Grayscale + palette image
 def write_png_ct(path, w, h, ct, bd, extra, raw_fn):
     ihdr = struct.pack(">IIBBBBB", w, h, bd, ct, 0, 0, 0)
     raw = b""

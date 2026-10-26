@@ -5,15 +5,15 @@
 #include "core/game.h"
 #include "core/display.h"
 
-// NEON DASH - Cyberpunk-Jump'n'Run im Portrait-Modus (170x320).
-// Ein Runner rast durch die Neonstadt: Firewall-Staemme und schwebende
-// Drohnen kommen von rechts, ein Tastendruck = Sprung. Das Tempo steigt
-// kontinuierlich, die Distanz (Meter) ist der Score.
+// NEON DASH - cyberpunk jump'n'run in portrait mode (170x320).
+// A runner races through the neon city: firewall pillars and floating
+// drones approach from the right, one button press = jump. The pace rises
+// continuously; the distance (meters) is the score.
 //
 // Steuerung:
-//   A oder B kurz = springen (einziger Spiel-Button)
-//   B lang        = zurueck zum Menue
-//   Titel/Game-Over: beliebiger Druck = (neu) starten
+//   A or B short = jump (the only gameplay button)
+//   B long        = back to the menu
+//   Title/Game-Over: any press = (re)start
 class NeonDashGame : public Game {
 public:
   const char* name() const override { return "Neon Dash"; }
@@ -25,8 +25,8 @@ public:
 
   struct Obstacle {
     float   x = 0;        // linke Kante
-    int16_t y = 0;        // Oberkante (wird pro Frame gesetzt)
-    uint8_t kind = 0;     // 0 = Firewall-Staemme, 1 = schwebende Drohne
+    int16_t y = 0;        // top edge (set every frame)
+    uint8_t kind = 0;     // 0 = firewall pillar, 1 = floating drone
     uint8_t h = 0;        // Hoehe in px
     bool    alive = false;
   };
@@ -38,15 +38,15 @@ public:
   static constexpr uint8_t  MAX_OBS   = 8;
   static constexpr uint8_t  MAX_CHIPS = 4;
 
-  static constexpr int16_t GROUND_Y   = 272;  // Oberkante Bodenlinie
-  static constexpr int16_t PLAYER_X   = 36;   // feste Spieler-Spur
+  static constexpr int16_t GROUND_Y   = 272;  // top edge of the ground line
+  static constexpr int16_t PLAYER_X   = 36;   // fixed player lane
   static constexpr int16_t PLAYER_W   = 16;
   static constexpr int16_t PLAYER_H   = 16;
 
   static constexpr float GRAVITY      = 1500.0f;  // px/s^2
   static constexpr float JUMP_V       = -460.0f;  // px/s
   static constexpr float SPEED_START  = 150.0f;   // px/s
-  static constexpr float SPEED_RAMP   = 2.6f;     // px/s pro Sekunde
+  static constexpr float SPEED_RAMP   = 2.6f;     // px/s per second
   static constexpr float SPEED_MAX    = 470.0f;   // px/s
   static constexpr uint16_t SCORE_CHIP = 25;      // Bonus pro Datenchip
 
@@ -60,8 +60,8 @@ public:
   void drawOverlay(TFT_eSprite& fb, const char* title, const char* sub);
 
   Phase    phase_     = PH_TITLE;
-  // Spieler-Physik
-  float    py_        = 0;      // Oberkante Spieler-Box
+  // player physics
+  float    py_        = 0;      // top edge of the player box
   float    vy_        = 0;      // vertikale Geschwindigkeit
   bool     onGround_  = true;
   // Welt
@@ -69,14 +69,14 @@ public:
   float    distance_  = 0;      // Akkumulierte Strecke in px
   uint32_t runMs_     = 0;
   uint32_t scroll_    = 0;      // Boden-Markierungen (Parallax)
-  uint16_t score_     = 0;      // Meter + Chip-Bonus
-  uint16_t chipBonus_ = 0;      // gesammelte Chip-Boni (ueberlebt Frames)
-  uint16_t best_      = 0;      // Highscore (nur RAM)
-  float    spawnIn_   = 0;      // px bis zum naechsten Hindernis
+  uint16_t score_     = 0;      // meters + chip bonus
+  uint16_t chipBonus_ = 0;      // collected chip bonuses (survives frames)
+  uint16_t best_      = 0;      // highscore (RAM only)
+  float    spawnIn_   = 0;      // px until the next obstacle
   Obstacle obs_[MAX_OBS];
   Chip     chips_[MAX_CHIPS];
 
-  // Vollbild-Framebuffer (170x320x16 Bit ~106 KB, auf dem S3 im PSRAM)
+  // Full-screen framebuffer (170x320x16 bit ~106 KB, in PSRAM on the S3)
   TFT_eSprite fb_{&gfx.tft()};
 };
 

@@ -1,32 +1,38 @@
-# 📚 API-Referenz
+---
+layout: page
+title: "API Reference"
+description: "Complete reference of all TDisplayS3 Adventure engine classes and functions: Game interface, Engine, Input, Display, Board config, Game registry, SpriteRenderer and TFT_eSPI."
+---
 
-Vollständige Referenz aller Engine-Klassen und -Funktionen.
+# 📖 API Reference
 
-## Game-Interface (`src/core/game.h`)
+Complete reference of all engine classes and functions.
+
+## Game Interface (`src/core/game.h`)
 
 ```cpp
 class Game {
 public:
   virtual ~Game() = default;
 
-  // Name des Spiels (für Menü/Launcher)
+  // Name of the game (for the menu/launcher)
   virtual const char* name() const = 0;
 
-  // Einmalig beim Spielstart aufgerufen
+  // Called once when the game starts
   virtual void init() = 0;
 
-  // Wird jeden Frame (~60 FPS) aufgerufen
-  // @param in    Aktueller Input-Status
-  // @param dtMs  Zeit seit letztem Frame in Millisekunden
+  // Called every frame (~60 FPS)
+  // @param in    Current input state
+  // @param dtMs  Time since the last frame in milliseconds
   virtual void update(const InputState& in, uint32_t dtMs) = 0;
 
-  // Zeichnet das Spiel auf gfx.tft()
+  // Draws the game to gfx.tft()
   virtual void draw() = 0;
 
-  // Optional: Aufräumen vor Spielwechsel
+  // Optional: cleanup before switching games
   virtual void quit() {}
 
-  // Auf true setzen, um zum Launcher zurückzukehren
+  // Set to true to return to the launcher
   bool wantsMenu = false;
 };
 ```
@@ -36,23 +42,24 @@ public:
 ```cpp
 class Engine {
 public:
-  // Startet das angegebene Spiel
+  // Starts the given game (nullptr = show the menu)
   void begin(Game* game);
 
-  // Hauptschleife – in Arduino loop() aufrufen
+  // Main loop - call from Arduino loop()
   void loop();
 };
 
-extern Engine engine;  // Globale Instanz
+extern Engine engine;  // Global instance
 ```
 
-**Verwendung in `main.cpp`:**
+**Usage in `main.cpp`:**
 ```cpp
 #include "core/engine.h"
 #include "games/games.h"
 
 void setup() {
-  engine.begin(makeGame(BOOT_GAME));
+  engine.begin(nullptr);   // nullptr = launcher menu
+  // engine.begin(makeGame(2));  // boot directly into a game (for testing)
 }
 
 void loop() {
@@ -60,9 +67,12 @@ void loop() {
 }
 ```
 
+The engine runs a launcher menu when no game is active:
+**A/B short** = select, **B long** = start the selected game.
+
 ## Input (`src/core/input.h`)
 
-### Key-Enum
+### Key Enum
 
 ```cpp
 enum class Key : uint8_t { A, B, KeyCount };
@@ -73,10 +83,10 @@ enum class Key : uint8_t { A, B, KeyCount };
 
 ```cpp
 struct InputState {
-  bool     down[2];         // true während Tastendruck
-  bool     pressed[2];      // true nur im Frame des Loslassens (kurz)
-  bool     longPressed[2];  // true einmalig nach langer Haltezeit
-  uint32_t holdMs[2];       // Haltezeit in ms (0 = nicht gedrückt)
+  bool     down[2];         // true while the button is held
+  bool     pressed[2];      // true only in the frame of the release (short)
+  bool     longPressed[2];  // true once after a long hold
+  uint32_t holdMs[2];       // hold time in ms (0 = not pressed)
 };
 ```
 
@@ -85,29 +95,29 @@ struct InputState {
 ```cpp
 class InputManager {
 public:
-  void init();                      // Einmalig aufrufen
-  void update(InputState& s);       // Jeden Frame aufrufen
+  void init();                      // call once
+  void update(InputState& s);       // call every frame
 };
 
-extern InputManager input;  // Globale Instanz
+extern InputManager input;  // Global instance
 ```
 
 ### ButtonTracker (`src/core/buttons.h`)
 
 ```cpp
 enum class BtnEvent : uint8_t {
-  None,   // Kein Ereignis
-  Short,  // Kurzer Tastendruck (Loslassen vor longMs)
-  Long    // Langer Tastendruck (longMs erreicht)
+  None,   // No event
+  Short,  // Short press (released before longMs)
+  Long    // Long press (longMs reached)
 };
 
 class ButtonTracker {
 public:
   ButtonTracker(uint8_t pin, uint32_t longMs, uint32_t debounceMs = 30);
 
-  BtnEvent update();        // Jeden Frame aufrufen
-  bool     isDown() const;  // true während gedrückt
-  uint32_t heldMs() const;  // Haltezeit in ms
+  BtnEvent update();        // call every frame
+  bool     isDown() const;  // true while held
+  uint32_t heldMs() const;  // hold time in ms
 };
 ```
 
@@ -116,74 +126,74 @@ public:
 ```cpp
 class Display {
 public:
-  void init();                    // Display initialisieren
-  TFT_eSPI& tft();                // Zugriff auf TFT_eSPI-Objekt
+  void init();                    // initialize the display
+  TFT_eSPI& tft();                // access the TFT_eSPI object
 
-  static constexpr int16_t width();   // Display-Breite (170)
-  static constexpr int16_t height();  // Display-Höhe (320)
+  static constexpr int16_t width();   // display width (170)
+  static constexpr int16_t height();  // display height (320)
 };
 
-extern Display gfx;  // Globale Instanz
+extern Display gfx;  // Global instance
 ```
 
-**Beispiel:**
+**Example:**
 ```cpp
 #include "core/display.h"
 
 auto& tft = gfx.tft();
 tft.fillScreen(TFT_BLACK);
-tft.drawString("Hallo", 10, 10, 2);
+tft.drawString("Hello", 10, 10, 2);
 ```
 
-## Board-Konfiguration (`src/boards/board_*.h`)
+## Board Configuration (`src/boards/board_*.h`)
 
-Alle Boards definieren diese Konstanten im `board`-Namespace:
+All boards define these constants in the `board` namespace:
 
 ```cpp
 namespace board {
-  // Taster-Pins
-  constexpr uint8_t PIN_BTN_A;       // Taster A (z.B. BOOT)
-  constexpr uint8_t PIN_BTN_B;       // Taster B
-  constexpr uint8_t PIN_POWER_ON;    // Power-Hold (muss HIGH)
-  constexpr bool    HAS_POWER_HOLD;  // true wenn Power-Hold existiert
+  // Button pins
+  constexpr uint8_t PIN_BTN_A;       // Button A (e.g. BOOT)
+  constexpr uint8_t PIN_BTN_B;       // Button B
+  constexpr uint8_t PIN_POWER_ON;    // Power-hold (must be HIGH)
+  constexpr bool    HAS_POWER_HOLD;  // true if a power-hold pin exists
 
   // Timing
-  constexpr uint32_t LONG_A_MS;      // ms bis Long für A
-  constexpr uint32_t LONG_B_MS;      // ms bis Long für B
-  constexpr uint32_t DEBOUNCE_MS;    // Entprellzeit
+  constexpr uint32_t LONG_A_MS;      // ms until Long for A
+  constexpr uint32_t LONG_B_MS;      // ms until Long for B
+  constexpr uint32_t DEBOUNCE_MS;    // debounce time
 
   // Display
   constexpr uint8_t  TFT_ROTATION;   // 0-3
-  constexpr int16_t  SCR_W;          // Breite in Sketch-Ausrichtung
-  constexpr int16_t  SCR_H;          // Höhe in Sketch-Ausrichtung
+  constexpr int16_t  SCR_W;          // width in sketch orientation
+  constexpr int16_t  SCR_H;          // height in sketch orientation
 }
 ```
 
-## Game-Registry (`src/games/games.h`)
+## Game Registry (`src/games/games.h`)
 
 ```cpp
-// Spiel erstellen
+// Create a game
 Game* makeGame(uint8_t index);
 
-// Anzahl registrierter Spiele
+// Number of registered games
 constexpr uint8_t GAME_COUNT;
-
-// Index des Spiels, das beim Booten startet
-constexpr uint8_t BOOT_GAME;
 ```
+
+There is no `BOOT_GAME` constant. To boot directly into a game
+(skipping the menu), call `engine.begin(makeGame(N))` in `main.cpp`.
 
 ## SpriteRenderer (`src/games/neonrun/sprites.h`)
 
-Für austauschbare Grafik-Themes:
+For swappable graphics themes:
 
 ```cpp
 struct NeonPalette {
-  uint16_t bgTop, bgMid, bgBottom;   // Hintergrund
-  uint16_t star, horizon;            // Dekoration
-  uint16_t player, playerGlow;       // Spieler
-  uint16_t obstacle, obstacleDark;   // Hindernisse
-  uint16_t coin, coinDark;           // Sammelobjekte
-  uint16_t text, textDim;            // Text
+  uint16_t bgTop, bgMid, bgBottom;   // background
+  uint16_t star, horizon;            // decoration
+  uint16_t player, playerGlow;       // player
+  uint16_t obstacle, obstacleDark;   // obstacles
+  uint16_t coin, coinDark;           // collectibles
+  uint16_t text, textDim;            // text
 };
 
 class SpriteRenderer {
@@ -198,32 +208,32 @@ public:
   virtual void drawCoin(TFT_eSprite& fb, int16_t x, int16_t y, uint32_t t) = 0;
 };
 
-extern SpriteRenderer* gSprites;           // Aktives Theme
-extern NeonVectorTheme neonVectorTheme;    // Standard-Theme
+extern SpriteRenderer* gSprites;           // active theme
+extern NeonVectorTheme neonVectorTheme;    // default theme
 ```
 
-## TFT_eSPI Referenz (Auszug)
+## TFT_eSPI Reference (Excerpt)
 
-### Farben (RGB565)
+### Colors (RGB565)
 
-| Konstante | Wert | Farbe |
-|-----------|------|-------|
-| `TFT_BLACK` | 0x0000 | Schwarz |
-| `TFT_WHITE` | 0xFFFF | Weiß |
-| `TFT_RED` | 0xF800 | Rot |
-| `TFT_GREEN` | 0x07E0 | Grün |
-| `TFT_BLUE` | 0x001F | Blau |
-| `TFT_YELLOW` | 0xFFE0 | Gelb |
-| `TFT_MAGENTA` | 0xF81F | Magenta |
-| `TFT_CYAN` | 0x07FF | Cyan |
-| `TFT_ORANGE` | 0xFD20 | Orange |
-| `TFT_GRAY` / `TFT_DARKGRAY` | 0x7BEF / 0x39E7 | Grau |
-| `TFT_LIGHTGRAY` | 0xC618 | Hellgrau |
+| Constant | Value | Color |
+|----------|-------|-------|
+| `TFT_BLACK` | 0x0000 | black |
+| `TFT_WHITE` | 0xFFFF | white |
+| `TFT_RED` | 0xF800 | red |
+| `TFT_GREEN` | 0x07E0 | green |
+| `TFT_BLUE` | 0x001F | blue |
+| `TFT_YELLOW` | 0xFFE0 | yellow |
+| `TFT_MAGENTA` | 0xF81F | magenta |
+| `TFT_CYAN` | 0x07FF | cyan |
+| `TFT_ORANGE` | 0xFD20 | orange |
+| `TFT_GRAY` / `TFT_DARKGRAY` | 0x7BEF / 0x39E7 | grey |
+| `TFT_LIGHTGRAY` | 0xC618 | light grey |
 
-### Text-Datums (Ausrichtung)
+### Text Datums (Alignment)
 
 ```cpp
-tft.setTextDatum(TL_DATUM);  // Top-Left (Standard)
+tft.setTextDatum(TL_DATUM);  // Top-Left (default)
 tft.setTextDatum(TC_DATUM);  // Top-Center
 tft.setTextDatum(TR_DATUM);  // Top-Right
 tft.setTextDatum(ML_DATUM);  // Middle-Left
@@ -234,16 +244,16 @@ tft.setTextDatum(BC_DATUM);  // Bottom-Center
 tft.setTextDatum(BR_DATUM);  // Bottom-Right
 ```
 
-### Wichtige Methoden
+### Important Methods
 
 ```cpp
 TFT_eSPI tft;
 
-// Initialisierung
+// Init
 tft.init();
 tft.setRotation(0);  // 0-3
 
-// Bildschirm
+// Screen
 tft.fillScreen(color);
 
 // Text
@@ -253,7 +263,7 @@ tft.drawString(str, x, y, font);  // font: 1-8
 tft.drawNumber(num, x, y, font);
 tft.drawFloat(num, decimals, x, y, font);
 
-// Formen
+// Shapes
 tft.drawPixel(x, y, color);
 tft.drawLine(x1, y1, x2, y2, color);
 tft.drawRect(x, y, w, h, color);
@@ -270,7 +280,7 @@ tft.pushImage(x, y, w, h, data);           // RGB565
 tft.pushImage(x, y, w, h, data, transparent);
 tft.drawBitmap(x, y, data, w, h, fg, bg);  // 1-bit
 
-// Messung
+// Measurement
 tft.textWidth(str, font);
 tft.fontHeight(font);
 ```
@@ -280,45 +290,45 @@ tft.fontHeight(font);
 ```cpp
 TFT_eSprite spr{&tft};
 
-spr.setColorDepth(16);           // 8 oder 16 Bit
-spr.createSprite(w, h);          // Speicher allozieren
-spr.deleteSprite();              // Freigeben
+spr.setColorDepth(16);           // 8 or 16 bit
+spr.createSprite(w, h);          // allocate memory
+spr.deleteSprite();              // free
 
-// Gleiche Zeichen-Methoden wie TFT_eSPI
+// Same drawing methods as TFT_eSPI
 spr.fillSprite(color);
 spr.drawString(...);
 // ...
 
-spr.pushSprite(x, y);            // Auf Display ausgeben
+spr.pushSprite(x, y);            // output to display
 spr.pushSprite(x, y, transparent);
 ```
 
-## Arduino/ESP32 Funktionen
+## Arduino/ESP32 Functions
 
-### Zeit
+### Time
 
 ```cpp
-millis();           // ms seit Boot (uint32_t, läuft nach ~49 Tagen über)
-micros();           // µs seit Boot
-delay(ms);          // Blockiert (in Game-Loop vermeiden!)
+millis();           // ms since boot (uint32_t, wraps after ~49 days)
+micros();           // µs since boot
+delay(ms);          // blocks (avoid in the game loop!)
 delayMicroseconds(us);
 ```
 
-### Zufall
+### Random
 
 ```cpp
-randomSeed(seed);   // Wird von Engine gesetzt (esp_random())
-random(max);        // 0 bis max-1
-random(min, max);   // min bis max-1
+randomSeed(seed);   // set by the engine (esp_random())
+random(max);        // 0 to max-1
+random(min, max);   // min to max-1
 ```
 
-### Speicher
+### Memory
 
 ```cpp
-ESP.getFreeHeap();      // Freier Heap (interner RAM)
-ESP.getFreePsram();     // Freier PSRAM
-ESP.getHeapSize();      // Gesamt-Heap
-ESP.getPsramSize();     // Gesamt-PSRAM
+ESP.getFreeHeap();      // free heap (internal RAM)
+ESP.getFreePsram();     // free PSRAM
+ESP.getHeapSize();      // total heap
+ESP.getPsramSize();     // total PSRAM
 ```
 
 ### GPIO
@@ -331,35 +341,39 @@ digitalWrite(pin, HIGH/LOW);
 digitalRead(pin);
 ```
 
-## Konstanten-Referenz
+## Constants Reference
 
 ### Display (T-Display-S3)
 
-| Konstante | Wert |
-|-----------|------|
-| `gfx.width()` | 170 (Portrait) |
-| `gfx.height()` | 320 (Portrait) |
-| `board::TFT_ROTATION` | 0 (Portrait) |
+| Constant | Value |
+|----------|-------|
+| `gfx.width()` | 170 (portrait) |
+| `gfx.height()` | 320 (portrait) |
+| `board::TFT_ROTATION` | 0 (portrait) |
 
 ### Timing
 
-| Konstante | Wert | Bedeutung |
-|-----------|------|-----------|
-| `board::LONG_A_MS` | 1200 ms | Long-Press Taster A |
-| `board::LONG_B_MS` | 700 ms | Long-Press Taster B |
-| `board::DEBOUNCE_MS` | 30 ms | Entprellzeit |
-| `Engine::FRAME_MS` | 16 ms | ~60 FPS Ziel-Framerate |
+| Constant | Value | Meaning |
+|----------|-------|---------|
+| `board::LONG_A_MS` | 1200 ms | long press for button A |
+| `board::LONG_B_MS` | 700 ms | long press for button B |
+| `board::DEBOUNCE_MS` | 30 ms | debounce time |
+| `Engine::FRAME_MS` | 16 ms | ~60 FPS target frame rate |
 
 ### Pins (T-Display-S3)
 
-| Konstante | GPIO | Funktion |
-|-----------|------|----------|
-| `board::PIN_BTN_A` | 0 | BOOT-Taster |
-| `board::PIN_BTN_B` | 14 | Zweiter Taster |
-| `board::PIN_POWER_ON` | 15 | Power-Hold (HIGH) |
+| Constant | GPIO | Function |
+|----------|------|----------|
+| `board::PIN_BTN_A` | 0 | BOOT button |
+| `board::PIN_BTN_B` | 14 | second button |
+| `board::PIN_POWER_ON` | 15 | power-hold (HIGH) |
 
-## Weiterführende Links
+## Further Links
 
-- [TFT_eSPI volle Dokumentation](https://github.com/Bodmer/TFT_eSPI)
+- [TFT_eSPI full documentation](https://github.com/Bodmer/TFT_eSPI)
 - [ESP32 Arduino Core API](https://github.com/espressif/arduino-esp32)
-- [Projekt-Repository](https://github.com/lxndrJ/TDisplayS3_Adventure)
+- [Project Repository](https://github.com/lxndrJ/TDisplayS3_Adventure)
+
+---
+
+[← Wiki Home](Home.html) · [Docs Home](/TDisplayS3_Adventure/)

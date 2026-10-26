@@ -3,13 +3,13 @@
 
 #include <Arduino.h>
 
-// Pro Board genau eine Header-Datei in src/boards/ anlegen und hier einbinden.
-// Spiele und Engine duerfen ausschliesslich diese Konstanten verwenden,
-// niemals direkte GPIO-Nummern.
+// Create exactly one header file per board in src/boards/ and include it here.
+// Games and engine may only use these constants,
+// never direct GPIO numbers.
 #if defined(BOARD_TDISPLAY_S3)
   #include "boards/board_tdisplay_s3.h"
 #else
-  #error "Kein Board gewaehlt - in platformio.ini ein -D BOARD_<NAME> setzen"
+  #error "No board selected - set a -D BOARD_<NAME> in platformio.ini"
 #endif
 
 #endif

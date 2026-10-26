@@ -1,231 +1,247 @@
-# TDisplayS3 Adventure – Mini-Game-Plattform für das LilyGo T-Display-S3
+# TDisplayS3 Adventure – Mini-Game Platform for the LilyGo T-Display-S3
 
-Eine Sammlung von Spielen für das **LilyGo T-Display-S3** (ESP32-S3, 320×170 Display,
-2 Taster), aufgebaut als **modulare Mini-Game-Engine**: Spiele kennen keine GPIOs
-und keine Display-Treiber, sondern nur die Schnittstellen in `src/core/`.
-Weitere Boards lassen sich durch eine einzelne Datei in `src/boards/` und einen
-Eintrag in `platformio.ini` anbinden.
+A collection of games for the **LilyGo T-Display-S3** (ESP32-S3, 320×170 display,
+2 buttons), built as a **modular mini-game engine**: games know neither GPIOs
+nor display drivers, only the interfaces in `src/core/`. Additional boards can
+be added via a single file in `src/boards/` and an entry in `platformio.ini`.
 
-Nach dem Flashen startet ein **Launcher-Menü**; dort wird das gewünschte Spiel
-ausgewählt. Jedes Spiel läuft komplett über die **zwei Taster** des Boards
-(**A = BOOT = GPIO0** und **B = frei belegbar = GPIO14**, beide aktiv LOW).
+After flashing, a **launcher menu** starts; pick the game you want to play. Every
+game is controlled entirely with the board's **two buttons**
+(**A = BOOT = GPIO0** and **B = free = GPIO14**, both active LOW).
 
-## Enthaltene Spiele
+**Live documentation:** [lxndrJ.github.io/TDisplayS3_Adventure](https://lxndrJ.github.io/TDisplayS3_Adventure/)
 
-| Spiel | Genre | Kurzbeschreibung |
+### Documentation (GitHub Pages)
+
+| Page | URL |
+|------|-----|
+| Wiki Home | [lxndrJ.github.io/TDisplayS3_Adventure/wiki/](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/Home.html) |
+| Quickstart: Write Your Own Game | [Quickstart](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/Schnellstart-Spielideen.html) |
+| Game Development Guide | [Game Development](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/Spielentwicklung.html) |
+| API Reference | [API Reference](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/API-Referenz.html) |
+| Board Support | [Board Support](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/Board-Support.html) |
+| Troubleshooting | [Troubleshooting](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/Troubleshooting.html) |
+
+## Included Games
+
+| Game | Genre | Short description |
 |---|---|---|
-| **Eldoria** | Text-Adventure (Fantasy) | Die gestohlene **Mondkrone** des Drachen Morgath zurückholen – mit Inventar, Kampf-Würfeln und mehreren Enden (20–40 Min.) |
-| **Neon Run** | Action/Runner (Cyberpunk) | Auf 3 Spuren durch die Neonstadt laufen: Firewall-Balken ausweichen, Datenchips sammeln, Drohnen meiden |
-| **Neon Shard** | Point-and-Click (Cyberpunk) | Comic-Geschichte: Courier Vex findet einen Datensplitter mit einer freien KI – frei werden oder verkaufen? 2 Enden |
-| **Chip Slide** | Schiebepuzzle | 15 Halbleiter-Bauteile (Widerstand, Diode, LED, IC …) auf den Bauplan sortieren – flüssige Gleit-Animation, Halten = weiterschieben |
-| **Neon Dash** | Jump'n'Run (Cyberpunk) | Ein Tastendruck = Sprung über Firewall-Staemme und schwebende Drohnen – das Tempo steigt kontinuierlich, Datenchips als Bonus |
+| **Eldoria** | Text adventure (fantasy) | Recover the stolen **Moon Crown** of the dragon Morgath – with inventory, combat dice and multiple endings (20–40 min) |
+| **Neon Run** | Action/runner (cyberpunk) | Run across 3 lanes through the neon city: dodge firewall bars, collect data chips, avoid drones |
+| **Neon Shard** | Point-and-click (cyberpunk) | Comic story: courier Vex finds a data shard with a free AI – set it free or sell it? 2 endings |
+| **Chip Slide** | Sliding puzzle | Sort 15 semiconductor components (resistor, diode, LED, IC …) onto the blueprint – smooth slide animation, hold to keep sliding |
+| **Neon Dash** | Jump'n'run (cyberpunk) | One button = jump over firewall pillars and floating drones – the pace keeps rising, data chips as bonus |
 
-## Projektstruktur
+## Project Structure
 
 ```
-include/tft_setup.h          TFT_eSPI-Setup für das Board (kein Library-Eingriff nötig)
-partitions_16mb.csv          16 MB Flash: 3 MB App + ~13 MB FATFS
-platformio.ini               Build-Konfiguration (ein env pro Board)
+include/tft_setup.h          TFT_eSPI setup for the board (no library edits needed)
+partitions_16mb.csv          16 MB flash: 3 MB app + ~13 MB FATFS
+platformio.ini               Build configuration (one env per board)
 src/
-├── main.cpp                 Einstiegspunkt: startet den Launcher (Menü)
-├── core/                    Die Engine (board-unabhängig)
-│   ├── board_config.h       Bindet das aktive Board ein (aus platformio.ini)
-│   ├── buttons.h            Taster mit Entprellung + Short/Long-Erkennung
-│   ├── input.h/.cpp         Logische Tasten (Key::A / Key::B) -> InputState
-│   ├── display.h/.cpp       Display-Wrapper um TFT_eSPI (gfx)
-│   ├── game.h               Game-Interface: init / update / draw / quit
-│   └── engine.h/.cpp        Launcher-Loop (startet Spiel, wechselt bei wantsMenu)
+├── main.cpp                 Entry point: starts the launcher (menu)
+├── core/                    The engine (board-independent)
+│   ├── board_config.h       Includes the active board (from platformio.ini)
+│   ├── buttons.h            Button debouncing + short/long detection
+│   ├── input.h/.cpp         Logical keys (Key::A / Key::B) -> InputState
+│   ├── display.h/.cpp       Display wrapper around TFT_eSPI (gfx)
+│   ├── game.h               Game interface: init / update / draw / quit
+│   └── engine.h/.cpp        Launcher loop (starts game, switches on wantsMenu)
 ├── boards/
-│   └── board_tdisplay_s3.h  Alle GPIOs/Pins/Display-Geometrie des Boards
+│   └── board_tdisplay_s3.h  All GPIOs/pins/display geometry of the board
 └── games/
-    ├── games.h              Game-Registry (neue Spiele hier eintragen)
+    ├── games.h              Game registry (register new games here)
     ├── eldoria/             Eldoria (eldoria.h/.cpp)
     ├── neonrun/             Neon Run (neonrun.h/.cpp + sprites.h/.cpp)
-    │   └── sprites.h/.cpp   Austauschbare Grafik: NeonPalette + SpriteRenderer
+    │   └── sprites.h/.cpp   Swappable graphics: NeonPalette + SpriteRenderer
     ├── neonshard/           Neon Shard (neonshard.h/.cpp + art.h/.cpp)
-    ├── chipslide/           Chip Slide – Halbleiter-Schiebepuzzle
-    └── neondash/            Neon Dash – Cyberpunk-Jump'n'Run
+    ├── chipslide/           Chip Slide – semiconductor sliding puzzle
+    └── neondash/            Neon Dash – cyberpunk jump'n'run
 ```
 
-## Bedienung
+## Controls
 
-### Im Launcher-Menü (immer gleich)
+### In the launcher menu (always the same)
 
-| Aktion | Taster |
+| Action | Button |
 |---|---|
-| Vorheriges Spiel | **A (GPIO0) kurz** |
-| Nächstes Spiel | **B (GPIO14) kurz** |
-| Spiel starten | **B (GPIO14) lang halten (~0,7 s)** |
+| Previous game | **A (GPIO0) short** |
+| Next game | **B (GPIO14) short** |
+| Start game | **B (GPIO14) long (~0.7 s)** |
 
-### In den Spielen
+### In the games
 
-| Spiel | Steuerung |
+| Game | Controls |
 |---|---|
-| **Eldoria** | A kurz = hoch / vorherige Option, B kurz = runter / nächste Option, B lang = OK / Würfeln / Fliehen / Neustart, A lang = Inventar öffnen |
-| **Neon Run** | A kurz = Spur nach links, B kurz = Spur nach rechts (an Titel/Game-Over/Sieg: beliebiger Druck startet), B lang = zurück zum Menü |
-| **Neon Shard** | A kurz = vorheriges Ziel, B kurz = nächstes Ziel, B lang = Aktion / Dialog weiter, A lang = Dialog schneller Vorlauf |
-| **Chip Slide** | A kurz = Schiebe-Richtung wechseln (Pfeil im HUD), B kurz = Stein in Pfeilrichtung schieben, B halten = automatisch weiterschieben, A lang = zurück zum Menü |
-| **Neon Dash** | A oder B kurz = springen (Titel/Game-Over: beliebiger Druck startet/neustartet), B lang = zurück zum Menü |
+| **Eldoria** | A short = up / previous option, B short = down / next option, B long = OK / roll / flee / restart, A long = open inventory |
+| **Neon Run** | A short = lane left, B short = lane right (on title/game-over/win: any press starts), A long = restart, B long = back to menu |
+| **Neon Shard** | A short = previous target, B short = next target, B long = action / continue dialog, A long = fast-forward dialog |
+| **Chip Slide** | A short = change slide direction (arrow in the HUD), B short = slide tile in arrow direction, B hold = keep sliding automatically, A long = back to menu |
+| **Neon Dash** | A or B short = jump (on title/game-over: any press starts/restarts), B long = back to menu |
 
-> ⚠️ **Achtung:** GPIO0 ist der BOOT-Taster. Zum **Flashen** weiterhin:
-> BOOT halten → RST drücken → loslassen → Upload starten.
+> ⚠️ **Note:** GPIO0 is the BOOT button. To **flash**, keep using:
+> hold BOOT → press RST → release → start upload.
 
-## Neues Spiel hinzufügen
+## Adding a New Game
 
-1. `src/games/<name>/<name>.h/.cpp` anlegen, `class <Name>Game : public Game`
-   implementieren (`init`, `update(const InputState&, uint32_t)`, `draw`).
-2. In `src/games/games.h` einbinden und in `makeGame()` eintragen.
-3. Optional in `platformio.ini` ein zweites `env:` für ein anderes Board anlegen.
+1. Create `src/games/<name>/<name>.h/.cpp`, implement `class <Name>Game : public Game`
+   (`init`, `update(const InputState&, uint32_t)`, `draw`).
+2. Include it in `src/games/games.h` and add it to `makeGame()`.
+3. Optionally add a second `env:` in `platformio.ini` for another board.
 
-Details siehe [Wiki: Spielentwicklung](docs/wiki/Spielentwicklung.md) und
-[Wiki: Schnellstart](docs/wiki/Schnellstart-Spielideen.md).
+See [Game Development](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/Spielentwicklung.html)
+and [Quickstart](https://lxndrJ.github.io/TDisplayS3_Adventure/wiki/Schnellstart-Spielideen.html)
+for details.
 
-## Grafik modular austauschen (Sprite-Themes)
+## Swapping Graphics Modularly (Sprite Themes)
 
-Neon Run zeichnet nicht direkt, sondern über `SpriteRenderer`
-(`src/games/neonrun/sprites.h`). Ein Theme implementiert nur:
+Neon Run does not draw directly, but through `SpriteRenderer`
+(`src/games/neonrun/sprites.h`). A theme implements only:
 
-| Methode | Inhalt |
+| Method | Content |
 |---|---|
-| `palette()` | `NeonPalette` (alle Spielfarben als RGB565) |
-| `drawBackground()` | Himmel, Sterne, Strasse (scroll-abhängig) |
-| `drawPlayer()` | Spielfigur |
-| `drawBarObstacle()` | Firewall-Balken mit Lücke |
-| `drawDrone()` / `drawCoin()` | Gegner / Sammelobjekt |
+| `palette()` | `NeonPalette` (all game colors as RGB565) |
+| `drawBackground()` | Sky, stars, road (scroll-dependent) |
+| `drawPlayer()` | Player figure |
+| `drawBarObstacle()` | Firewall bar with a gap |
+| `drawDrone()` / `drawCoin()` | Enemy / collectible |
 
-`NeonVectorTheme` ist das Standard-Theme (reine Vektorgrafik, kein Flash-Verbrauch).
-Ein Bitmap-Theme (z. B. `PROGMEM`-Sprite-Arrays via `tft.pushImage()`) implementiert
-dieselben Methoden und wird in `init()` des Spiels aktiviert:
+`NeonVectorTheme` is the standard theme (pure vector graphics, no flash usage).
+A bitmap theme (e.g. `PROGMEM` sprite arrays via `tft.pushImage()`) implements
+the same methods and is activated in the game's `init()`:
 
 ```cpp
-gSprites = &meinBitmapTheme;   // in NeonRunGame::init()
+gSprites = &myBitmapTheme;   // in NeonRunGame::init()
 ```
 
-Spiel-Logik, Kollisionen und Steuerung bleiben dabei unangetastet.
+Game logic, collisions and controls stay untouched.
 
-## Neues Board unterstützen
+## Adding a New Board
 
-1. `src/boards/board_<name>.h` anlegen (Pins, `LONG_A_MS`/`LONG_B_MS`,
+1. Create `src/boards/board_<name>.h` (pins, `LONG_A_MS`/`LONG_B_MS`,
    `SCR_W`/`SCR_H`, `TFT_ROTATION`).
-2. In `src/core/board_config.h` einbinden.
-3. In `platformio.ini` ein `[env:<name>]` mit `-D BOARD_<NAME>` anlegen.
+2. Include it in `src/core/board_config.h`.
+3. Add an `[env:<name>]` with `-D BOARD_<NAME>` in `platformio.ini`.
 
 ## Build & Flash (PlatformIO)
 
-Voraussetzung: [PlatformIO](https://platformio.org/) (VS Code Extension oder CLI).
+Requires [PlatformIO](https://platformio.org/) (VS Code extension or CLI).
 
 ```bash
-pio run                 # baut für das Default-Board (env:t_display_s3)
-pio run -t upload       # baut und flasht (BOOT+RST-Sequenz beachten)
-pio device monitor      # serieller Monitor (115200 Baud)
+pio run                 # build for the default board (env:t_display_s3)
+pio run -t upload       # build and flash (mind the BOOT+RST sequence)
+pio device monitor      # serial monitor (115200 baud)
 ```
 
-Die TFT_eSPI-Konfiguration liegt in `include/tft_setup.h` (Setup206,
-ST7789 8-bit parallel). `TFT_eSPI.h` findet sie automatisch über den
-PlatformIO-Include-Pfad – die Library selbst muss **nicht** bearbeitet werden.
+The TFT_eSPI configuration lives in `include/tft_setup.h` (Setup206,
+ST7789 8-bit parallel). `TFT_eSPI.h` finds it automatically via the
+PlatformIO include path – the library itself must **not** be edited.
 
-**Wichtig für das T-Display-S3:** `include/tft_setup.h` enthält zusätzlich
-`#define USE_HSPI_PORT` – das ist der kritische Fix aus der LilyGo-gepflegten
-TFT_eSPI, ohne den das 8-bit-Parallel-Display auf dem S3 schwarz bleibt
-(siehe [TFT_eSPI issue #3329](https://github.com/Bodmer/TFT_eSPI/issues/3329)).
-Wir pinnen TFT_eSPI auf **2.5.43** – neuere Versionen haben auf diesem Board
-bekannte Probleme (LilyGo-Wiki).
+**Important for the T-Display-S3:** `include/tft_setup.h` additionally contains
+`#define USE_HSPI_PORT` – this is the critical fix from LilyGo's TFT_eSPI fork;
+without it the 8-bit parallel display on the S3 stays black
+(see [TFT_eSPI issue #3329](https://github.com/Bodmer/TFT_eSPI/issues/3329)).
+We pin TFT_eSPI to **2.5.43** – newer versions have known problems on this
+board (LilyGo wiki).
 
-## Board-Einstellungen (automatisch via platformio.ini)
+## Board Settings (automatic via platformio.ini)
 
 - **Board:** `esp32-s3-devkitc-1` (ESP32-S3, 240 MHz)
-- **Flash:** 16 MB, QIO, `partitions_16mb.csv` (3 MB App / ~13 MB FATFS)
-- **PSRAM:** 8 MB Octal (`qio_opi`) – eingeschaltet
-- **USB CDC On Boot:** aktiviert (`ARDUINO_USB_CDC_ON_BOOT=1`)
+- **Flash:** 16 MB, QIO, `partitions_16mb.csv` (3 MB app / ~13 MB FATFS)
+- **PSRAM:** 8 MB octal (`qio_opi`) – enabled
+- **USB CDC on boot:** enabled (`ARDUINO_USB_CDC_ON_BOOT=1`)
 
-## Verifizierte Hardware-Pins (aus dem LilyGo-Repo)
+## Verified Hardware Pins (from the LilyGo repo)
 
-| Funktion | Pin |
+| Function | Pin |
 |---|---|
 | TFT ST7789 (8-bit parallel) | CS=6, DC=7, WR=8, RD=9, RST=5, BL=38, D0–D7=39,40,41,42,45,46,47,48 |
-| Taster A (BOOT) | GPIO0 (aktiv LOW) |
-| Taster B (frei) | GPIO14 (aktiv LOW) |
-| Power-Hold (muss HIGH sein!) | GPIO15 |
-| Batterie-ADC | GPIO4 (ungenutzt) |
+| Button A (BOOT) | GPIO0 (active LOW) |
+| Button B (free) | GPIO14 (active LOW) |
+| Power-hold (must stay HIGH!) | GPIO15 |
+| Battery ADC | GPIO4 (unused) |
 
-## Spielprinzipien
+## Gameplay
 
-### Eldoria (Text-Adventure)
+### Eldoria (text adventure)
 
-- **3 Lebenspunkte** (HP-Herzen oben links), **10 Gold** Startkapital
-- **Kampf:** Kurzer Druck auf A oder B würfelt einen W6. Mit der **Kampfaxt**
-  (Markt, 8 Gold) gibt es +1 auf den Wurf. Troll: Treffer bei ≥ 4, Drache: ≥ 5.
-- **Inventar:** Gegenstände werden automatisch geprüft (z. B. Seil an der
-  Gletscherspalte, Amulett am Elfentor, Schlüssel am Turm, Apfel beim Troll)
-- **Schnellster Siegweg:** Dorf → Markt (Axt kaufen) → Wald → Aelindril
-  (Amulett) → Gletscherspalte (Seil) → Brücke (Troll besiegen) → Elfentor →
-  Höhle → Drachen wecken → Kampf gewinnen → Krone → Thronsaal
-- **Geheimer Weg:** Höhle → Krone stehlen (hinter dem Goldberg) → fliehen
-  (eigenes Sieg-Ende, ohne den Drachen zu besiegen)
-- **Elfen-Endweg:** Amulett + Aelindril als Flag nutzen, um Morgath
-  einschlafen zu lassen (im Inventar sichtbar)
+- **3 hit points** (HP hearts top left), **10 gold** starting capital
+- **Combat:** A short press on A or B rolls a W6. The **battle axe**
+  (market, 8 gold) gives +1 to the roll. Troll: hit at ≥ 4, dragon: ≥ 5.
+- **Inventory:** items are checked automatically (e.g. rope at the glacier
+  gap, amulet at the elven gate, key at the tower, apple at the troll)
+- **Fastest win path:** Village → Market (buy axe) → Forest → Aelindril
+  (amulet) → Glacier gap (rope) → Bridge (beat the troll) → Elven gate →
+  Cave → wake the dragon → win the fight → crown → throne hall
+- **Secret path:** Cave → steal the crown (behind the gold mound) → flee
+  (own victory ending, without beating the dragon)
+- **Elven ending:** use amulet + Aelindril as a flag to lull Morgath to sleep
+  (visible in the inventory)
 
-**Story-Übersicht (alle Szenen):**
+**Story overview (all scenes):**
 
-`Titel → Zwergenhall → Wald → Markt / Berge → Aelindril → Brunnen / Rätsel →
-Gletscherspalte → Umweg → Brücke (Troll) → Elfentor → Elfenhain → Höhle →
-Seitengang → Turm → Kampf (Drache) → Thronsaal / Game Over / Sieg-Flucht`
+`Title → Dwarvenhall → Forest → Market / Mountains → Aelindril → Well / Riddle →
+Glacier gap → Detour → Bridge (troll) → Elven gate → Elven court → Cave →
+Side passage → Tower → Fight (dragon) → Throne hall / Game Over / Victory-flee`
 
-### Neon Run (Action/Runner)
+### Neon Run (action/runner)
 
-- 3 Spuren, seitlich scrollende Neonstadt
-- **Firewall-Balken** mit Lücke ausweichen (3 Treffer = Game Over, blinkende
-  Unverwundbarkeit danach)
-- **Datenchips** sammeln – bei 25 Chips ist der Run gewonnen (Bestzeit wird
-  als Highscore gehalten)
-- **Drohnen** meiden; Grafik über austauschbare Sprite-Themes (Vektor oder Bitmap)
+- 3 lanes, side-scrolling neon city
+- **Firewall bars** with a gap to dodge (3 hits = game over, blinking
+  invulnerability afterwards)
+- **Data chips** to collect – at 25 chips the run is won (best score is kept)
+- **Drones** to avoid; graphics via swappable sprite themes (vector or bitmap)
 
-### Neon Shard (Point-and-Click)
+### Neon Shard (point-and-click)
 
-- Comic-Geschichte in 6 Szenen (Gasse, Bar, U-Bahn, Helix-Turm, 2 Enden)
-- Ziel-Icons per A/B anwählen, mit **B lang** interagieren
-- Dialoge mit verzweigten Entscheidungen (Splitter behalten/verkaufen,
-  Agentin Chen ablehnen oder bestechen)
-- Die Szenengrafik liegt RLE-kodiert vor (Generator: `tools/gen_neonshard_art.py`)
+- Comic story across 6 scenes (alley, bar, subway, Helix tower, 2 endings)
+- Select target icons with A/B, interact with **B long**
+- Dialogs with branching decisions (keep/sell the shard, refuse or bribe
+  agent Chen)
+- Scene art is stored RLE-encoded (generator: `tools/gen_neonshard_art.py`)
 
-### Neon Dash (Jump'n'Run)
+### Chip Slide (sliding puzzle)
 
-- Fester Spieler links, Hindernisse kommen von rechts: **Firewall-Staemme** (16–36 px hoch) und **schwebende Drohnen** (sinusförmig, tief genug zum Treffen, hoch genug zum Drüber-Springen)
-- **Ein Button**: A oder B kurz = Sprung (physikalisch mit Schwerkraft, Sprunghöhe ~70 px, kein Doppel-Sprung)
-- **Tempo steigt kontinuierlich**: 150 px/s → 470 px/s (+2,6 px/s pro Sekunde); der Spawn-Abstand schrumpft entsprechend, bleibt aber fair (> 200 px)
-- **Datenchips** schweben über hohen Staemmen – Einsammeln gibt +25 m Bonus
-- Score = gelaufene Meter + Chip-Bonus; Highscore (nur RAM) wird gehalten
-- HUD: Speed-Bar, aktuelle Meter, Highscore; Steuerungshinweis unten
+- 4×4 field with 15 components + 1 gap; goal is the **blueprint** (miniature in the HUD)
+- All 15 symbols (R, D, LED, TR, IC, C, BAT, L, Q, SW, RLY, F, ANT, SPK, GND)
+  are drawn procedurally – no bitmap usage
+- The shuffled state is created by random gap moves (always solvable)
+- Correctly placed components glow **green**; the finished circuit is
+  celebrated with a pulsing frame
+- Move counter and progress (x/15) in the HUD; **hold B** to keep sliding
+  until the direction or the board no longer allows it
 
-### Chip Slide (Schiebepuzzle)
+### Neon Dash (jump'n'run)
 
-- 4×4-Feld mit 15 Bauteilen + 1 Lücke; Ziel ist der **Bauplan** (Miniatur im HUD)
-- Alle 15 Symbole (R, D, LED, TR, IC, C, BAT, L, Q, SW, RLY, F, ANT, SPK, GND)
-  werden prozedural gezeichnet – kein Bitmap-Verbrauch
-- Der gemischte Zustand entsteht durch Zufallszüge der Lücke (immer lösbar)
-- Richtig platzierte Bauteile leuchten **grün**; fertige Schaltung wird mit
-  pulsierendem Rahmen gefeiert
-- Zug-Zähler und Fortschritt (x/15) im HUD; **B halten** schiebt automatisch
-  weiter, bis die Richtung oder das Spielfeld es nicht mehr hergibt
+- Fixed player on the left, obstacles approach from the right: **firewall
+  pillars** (16–36 px tall) and **floating drones** (sinusoidal, low enough to
+  hit, high enough to jump over)
+- **One button**: A or B short = jump (physics-based with gravity, ~70 px jump
+  height, no double jump)
+- **Gets faster continuously**: 150 px/s → 470 px/s (+2.6 px/s per second);
+  spawn distances shrink accordingly but stay fair (> 200 px)
+- **Data chips** float above tall pillars – collecting one gives +25 m bonus
+- Score = meters run + chip bonus; highscore (RAM only) is kept
+- HUD: speed bar, current meters, highscore; control hint at the bottom
 
 ## Troubleshooting
 
-| Problem | Lösung |
+| Problem | Solution |
 |---|---|
-| Schwarzer Screen, Backlight an, keine Grafik | `USE_HSPI_PORT` in `include/tft_setup.h` prüfen; TFT_eSPI **nicht** auf > 2.5.43 updaten (TFT_eSPI#3329) |
-| Schwarzer Screen, Backlight aus | Power-Hold GPIO15 wird in `Engine::begin()` vor `gfx.init()` gesetzt – Reihenfolge nicht ändern |
-| Weißer Screen | `TFT_INVERSION_ON` in `include/tft_setup.h` prüfen |
-| Build-Fehler in TFT_eSPI | `pio pkg update` ausführen; TFT_eSPI ist auf 2.5.43 gepinnt |
-| Board wird nicht erkannt | Anderes USB-Kabel/Port testen; BOOT+RST-Sequenz wiederholen |
-| Taster reagieren nicht / komisch | Beide Taster sind aktiv LOW – in `buttons.h` bereits berücksichtigt |
-| „Sketch too big" | Partition Scheme in `platformio.ini` (`partitions_16mb.csv`) prüfen |
-| Nach Upload kein Serial-Monitor | `pio device monitor` nutzen; CDC on Boot ist in `platformio.ini` gesetzt |
+| Black screen, backlight on, no graphics | Check `USE_HSPI_PORT` in `include/tft_setup.h`; do **not** update TFT_eSPI beyond 2.5.43 (TFT_eSPI#3329) |
+| Black screen, backlight off | Power-hold GPIO15 is set in `Engine::begin()` before `gfx.init()` – do not change the order |
+| White screen | Check `TFT_INVERSION_ON` in `include/tft_setup.h` |
+| Build errors in TFT_eSPI | Run `pio pkg update`; TFT_eSPI is pinned to 2.5.43 |
+| Board not detected | Try another USB cable/port; repeat the BOOT+RST sequence |
+| Buttons not responding / erratic | Both buttons are active LOW – already handled in `buttons.h` |
+| "Sketch too big" | Check the partition scheme in `platformio.ini` (`partitions_16mb.csv`) |
+| No serial monitor after upload | Use `pio device monitor`; CDC on boot is set in `platformio.ini` |
 
-## Erweiterungsideen
+## Ideas for the Future
 
-- Grafisches Spielmenü im Launcher (`Engine` + `wantsMenu` ist vorbereitet)
-- Speichern/Laden via Preferences (NVS) – z. B. Highscores, Eldoria-Spielstand
-- Soundeffekte über I2S/PCM5102 (z. B. Würfel-Sound, Fanfare beim Sieg)
-- Beschleuniger-Steuerung (Tilt) für Chip Slide – Game-Interface ist vorbereitet
-- Farbige Hintergründe pro Biom in Eldoria (Wald grün, Berg grau, Höhle schwarz)
-- Weitere Spiele in `src/games/` – Engine und Board-Layer sind wiederverwendbar
+- Graphical game menu in the launcher (`Engine` + `wantsMenu` is ready)
+- Save/load via Preferences (NVS) – e.g. highscores, Eldoria save state
+- Sound effects via I2S/PCM5102 (e.g. dice sound, victory fanfare)
+- Accelerometer (tilt) control for Chip Slide – the game interface is ready
+- Colored backgrounds per biome in Eldoria (forest green, mountain grey, cave black)
+- More games in `src/games/` – engine and board layer are reusable

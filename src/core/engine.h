@@ -7,16 +7,16 @@
 #include "game.h"
 #include "games/games.h"
 
-// Launcher: zeigt das Spielmenue und startet das gewaehlte Spiel. Ein Spiel
-// setzt wantsMenu, um dorthin zurueckzukehren (B lang ist die Konvention).
-// Spiele duerfen in init() eine eigene Rotation setzen (z. B. Landscape);
-// die Engine stellt vor jedem Start und im Menue die Portrait-Rotation
-// des Boards wieder her.
+// Launcher: shows the game menu and starts the selected game. A game
+// sets wantsMenu to return here (B long is the convention).
+// Games may set their own rotation in init() (e.g. landscape);
+// the engine restores the board's portrait rotation before each start
+// and in the menu.
 class Engine {
 public:
   void begin(Game* boot) {
-    // Power-Hold VOR dem Display-Init: ohne HIGH auf GPIO15 bleibt das
-    // Panel beim T-Display-S3 stromlos (schwarzer Screen, Backlight aus).
+    // Power-hold BEFORE display init: without HIGH on GPIO15 the
+    // panel on the T-Display-S3 stays unpowered (black screen, backlight off).
     boardPowerOn();
     gfx.init();
     input.init();
@@ -47,8 +47,8 @@ public:
       menuDraw();
     }
 
-    // Frame-Takt (~60 FPS): ohne Begrenzung rendert die Engine so schnell
-    // wie der Bus es hergibt - Animationen flackern, dt wird unsauber.
+    // Frame pacing (~60 FPS): without a cap the engine renders as fast
+    // as the bus allows - animations flicker, dt becomes erratic.
     uint32_t used = millis() - now;
     if (used < FRAME_MS) delay(FRAME_MS - used);
   }
@@ -60,7 +60,7 @@ private:
     if constexpr (board::HAS_POWER_HOLD) {
       pinMode(board::PIN_POWER_ON, OUTPUT);
       digitalWrite(board::PIN_POWER_ON, HIGH);
-      delay(10);  // Panel-Strom stabilisieren lassen
+      delay(10);  // let the panel power stabilize
     }
   }
 
@@ -90,7 +90,7 @@ private:
     tft.setTextColor(0x07FF);  // Neon-Cyan
     tft.drawString("T-Display S3", 6, 8);
     tft.setTextColor(0x7BEF);
-    tft.drawString("Spiele", 6, 26);
+    tft.drawString("Games", 6, 26);
     tft.drawFastHLine(0, 44, gfx.width(), 0x8010);
     for (uint8_t i = 0; i < GAME_COUNT; i++) {
       bool sel = (i == menuSel_);
@@ -101,7 +101,7 @@ private:
     }
     tft.setTextFont(1);
     tft.setTextColor(0x7BEF);
-    tft.drawString("A/B: waehlen | B lang: Start", 6, gfx.height() - 12);
+    tft.drawString("A/B: select | B long: Start", 6, gfx.height() - 12);
   }
 
   Game*    active_  = nullptr;

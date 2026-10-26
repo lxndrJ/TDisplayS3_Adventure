@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="{{ page.lang | default: site.lang | default: 'en' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ site.title }} - {{ site.tagline }}</title>
+  <meta name="description" content="{{ page.description | default: site.description | escape }}">
+  <link rel="canonical" href="{{ page.url | absolute_url }}">
+  <link rel="sitemap" type="application/xml" href="{{ '/sitemap.xml' | absolute_url }}">
+  <link rel="alternate" type="application/rss+xml" title="{{ site.title }} RSS" href="{{ '/feed.xml' | absolute_url }}">
+  <link rel="stylesheet" href="{{ '/assets/css/style.css' | relative_url }}">
+  {% seo %}
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="site-title" href="{{ '/' | relative_url }}">{{ site.title }}</a>
+      <span class="site-tagline">{{ site.tagline }}</span>
+      <nav class="site-nav">
+        <a href="{{ '/wiki/Home.html' | relative_url }}">Wiki</a>
+        <a href="{{ '/wiki/Schnellstart-Spielideen.html' | relative_url }}">Quickstart</a>
+        <a href="{{ '/wiki/Spielentwicklung.html' | relative_url }}">Game Dev</a>
+        <a href="{{ '/wiki/API-Referenz.html' | relative_url }}">API</a>
+        <a href="{{ '/wiki/Board-Support.html' | relative_url }}">Boards</a>
+        <a href="{{ '/wiki/Troubleshooting.html' | relative_url }}">Help</a>
+        <a href="https://github.com/lxndrJ/TDisplayS3_Adventure">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page-content wrap">
+    <section class="hero">
+      <h1>{{ site.title }}</h1>
+      <p class="lead">{{ site.description }}</p>
+      <p class="cta">
+        <a class="btn" href="https://github.com/lxndrJ/TDisplayS3_Adventure">View on GitHub</a>
+        <a class="btn btn-secondary" href="{{ '/wiki/Schnellstart-Spielideen.html' | relative_url }}">Quickstart: Write Your Own Game</a>
+      </p>
+    </section>
+
+    <section class="games">
+      <h2>Included Games</h2>
+      <div class="game-grid">
+        <div class="game-card">
+          <h3>Eldoria</h3>
+          <span class="genre">Text adventure (fantasy)</span>
+          <p>Recover the stolen <strong>Moon Crown</strong> of the dragon Morgath - with inventory, combat dice and multiple endings (20-40 min).</p>
+        </div>
+        <div class="game-card">
+          <h3>Neon Run</h3>
+          <span class="genre">Action/runner (cyberpunk)</span>
+          <p>Run across 3 lanes through the neon city: dodge firewall bars, collect data chips, avoid drones.</p>
+        </div>
+        <div class="game-card">
+          <h3>Neon Shard</h3>
+          <span class="genre">Point-and-click (cyberpunk)</span>
+          <p>Comic story: courier Vex finds a data shard with a free AI - set it free or sell it? 2 endings.</p>
+        </div>
+        <div class="game-card">
+          <h3>Chip Slide</h3>
+          <span class="genre">Sliding puzzle</span>
+          <p>Sort 15 semiconductor components (resistor, diode, LED, IC ...) onto the blueprint - smooth slide animation, hold to keep sliding.</p>
+        </div>
+        <div class="game-card">
+          <h3>Neon Dash</h3>
+          <span class="genre">Jump'n'run (cyberpunk)</span>
+          <p>One button = jump over firewall pillars and floating drones - the pace keeps rising, data chips as bonus.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="docs">
+      <h2>Documentation</h2>
+      <ul class="doc-list">
+        <li><a href="{{ '/wiki/Schnellstart-Spielideen.html' | relative_url }}">Quickstart: Turn Game Ideas into Reality</a> - 3 steps to your first game</li>
+        <li><a href="{{ '/wiki/Spielentwicklung.html' | relative_url }}">Game Development</a> - Game interface, input, display, best practices</li>
+        <li><a href="{{ '/wiki/API-Referenz.html' | relative_url }}">API Reference</a> - All classes, methods and constants</li>
+        <li><a href="{{ '/wiki/Board-Support.html' | relative_url }}">Board Support</a> - Add a new board</li>
+        <li><a href="{{ '/wiki/Troubleshooting.html' | relative_url }}">Troubleshooting</a> - Common problems &amp; solutions</li>
+        <li><a href="{{ '/wiki/Home.html' | relative_url }}">Wiki Home</a> - Full table of contents</li>
+        <li><a href="{{ '/SEO-SETUP.html' | relative_url }}">SEO &amp; Pages Setup</a> - Activate GitHub Pages + Google indexing (maintainer)</li>
+      </ul>
+    </section>
+
+    <section class="about">
+      <h2>About the Project</h2>
+      <p>
+        TDisplayS3 Adventure is a <strong>modular mini-game engine</strong> for the
+        <a href="https://github.com/Xinyuan-LilyGO/T-Display-S3">LilyGo T-Display-S3</a>
+        (ESP32-S3, 320x170 ST7789 display, 2 buttons: A=BOOT=GPIO0, B=GPIO14, both active LOW).
+        Games know neither GPIOs nor display drivers - only the interfaces in
+        <code>src/core/</code>. Additional boards can be added via a single file in
+        <code>src/boards/</code> and an entry in <code>platformio.ini</code>.
+      </p>
+      <p>
+        Stack: <strong>PlatformIO</strong> + <strong>Arduino</strong> +
+        <strong>TFT_eSPI 2.5.43</strong> (pinned). All games render into a PSRAM
+        framebuffer (<code>TFT_eSprite</code>) and push once per frame - flicker-free
+        at ~60 FPS. The engine runs a launcher menu; every game is controlled
+        entirely with the board's two buttons.
+      </p>
+      <p>
+        <strong>Hardware:</strong> 16 MB flash (3 MB app + ~13 MB FATFS), 8 MB octal
+        PSRAM (<code>qio_opi</code>), USB CDC on boot. Build &amp; flash:
+      </p>
+      <pre><code>pio run -t upload      # build and flash
+pio device monitor     # serial monitor (115200 baud)</code></pre>
+    </section>
+  </main>
+
+  <footer class="site-footer wrap">
+    <p>
+      {{ site.title }} &middot;
+      <a href="https://github.com/lxndrJ/TDisplayS3_Adventure">GitHub</a> &middot;
+      LilyGo T-Display-S3 (ESP32-S3) &middot;
+      PlatformIO + TFT_eSPI
+    </p>
+  </footer>
+</body>
+</html>
