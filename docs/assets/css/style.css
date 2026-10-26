@@ -1,5 +1,7 @@
 ---
-# Front-matter required for Jekyll to process this file
+# layout: none prevents Jekyll from wrapping this CSS in an HTML page.
+# Without this, the browser receives text/html for the stylesheet and ignores it.
+layout: none
 ---
 
 /* TDisplayS3 Adventure - cyberpunk-ish docs theme */
