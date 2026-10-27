@@ -33,6 +33,7 @@ game is controlled entirely with the board's **two buttons**
 | **Neon Dash** | Jump'n'run (cyberpunk) | One button = jump over firewall pillars and floating drones – the pace keeps rising, data chips as bonus |
 | **Neon Roll** | Marble puzzle (cyberpunk) | Kick a glowing ball through neon mazes into the goal socket – impulse + friction physics, 8 themed levels |
 | **Sakura** | Tamagotchi (zen) | Grow a cherry tree from seed to fruit — water, fertilize, prune, harvest cherries across fast-passing decades |
+| **Sprout** | Farming sim (cozy) | Tend an 8×4 top-down farm: dig, plant, water daily, harvest ripe crops for gold — in Super-Retro-World pixel style |
 
 ## Project Structure
 
@@ -60,7 +61,8 @@ src/
     ├── chipslide/           Chip Slide – semiconductor sliding puzzle
     ├── neondash/            Neon Dash – cyberpunk jump'n'run
     ├── neonroll/            Neon Roll – neon marble puzzle
-    └── sakura/              Sakura – Tamagotchi cherry tree
+    ├── sakura/              Sakura – Tamagotchi cherry tree
+    └── farm/                Sprout – top-down farming sim (art.h/.cpp)
 ```
 
 ## Controls
@@ -84,6 +86,7 @@ src/
 | **Neon Dash** | A or B short = jump (on title/game-over: any press starts/restarts), B long = back to menu |
 | **Neon Roll** | A short/hold = kick ball in arrow direction, B short = rotate direction 90°, A long = back to menu |
 | **Sakura** | A short = cycle action (Water/Fertilize/Prune/Harvest), B short = perform action, A long = back to menu |
+| **Sprout** | Hold A = walk in facing direction, A short = turn, B short = act on plot (dig/plant/water/harvest/clear), B long = back to menu |
 
 > ⚠️ **Note:** GPIO0 is the BOOT button. To **flash**, keep using:
 > hold BOOT → press RST → release → start upload.
@@ -257,6 +260,16 @@ Side passage → Tower → Fight (dragon) → Throne hall / Game Over / Victory-
 - Harvest only works when mature; 1–3 cherries per harvest (+10 pts each), costs 5 vigor
 - Procedural tree rendering per stage: seed in soil → sprout → sapling → blossoming canopy → cherries + fallen petals
 - Wind sway animation, sky gradient, HUD with health bar + 3 stat bars + 4-button action menu
+
+### Sprout (top-down farming sim)
+
+- **8×4 top-down field farm** in landscape mode (320×170), Super-Retro-World-style 16×16 pixel art
+- **Day cycle**: 10 s real time = 1 in-game day; crops grow one stage per watered day
+- **Loop**: dig fallow soil → plant seed → water **every day** (or wait for rain) → harvest ripe crops for +5 gold
+- **Withering**: neglect a crop 2 days in a row and it dries out (clear it with B to reuse the plot)
+- **Rain events** (~1 in 5 days) auto-water all crops
+- Generated sprites (`tools/gen_farm_art.py` → `art.h/.cpp`); drop 16×16 PNGs into `assets/farm/` to override any sprite (e.g. real sprites from the Super Retro World pack)
+- HUD: day counter, gold + best, watering-can icon, rain indicator; side panel with controls, facing direction, plot info and growth-stage legend
 
 ## Troubleshooting
 
