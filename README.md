@@ -32,6 +32,7 @@ game is controlled entirely with the board's **two buttons**
 | **Chip Slide** | Sliding puzzle | Sort 15 semiconductor components (resistor, diode, LED, IC …) onto the blueprint – smooth slide animation, hold to keep sliding |
 | **Neon Dash** | Jump'n'run (cyberpunk) | One button = jump over firewall pillars and floating drones – the pace keeps rising, data chips as bonus |
 | **Neon Roll** | Marble puzzle (cyberpunk) | Kick a glowing ball through neon mazes into the goal socket – impulse + friction physics, 8 themed levels |
+| **Sakura** | Tamagotchi (zen) | Grow a cherry tree from seed to fruit — water, fertilize, prune, harvest cherries across fast-passing decades |
 
 ## Project Structure
 
@@ -58,7 +59,8 @@ src/
     ├── neonshard/           Neon Shard (neonshard.h/.cpp + art.h/.cpp)
     ├── chipslide/           Chip Slide – semiconductor sliding puzzle
     ├── neondash/            Neon Dash – cyberpunk jump'n'run
-    └── neonroll/            Neon Roll – neon marble puzzle
+    ├── neonroll/            Neon Roll – neon marble puzzle
+    └── sakura/              Sakura – Tamagotchi cherry tree
 ```
 
 ## Controls
@@ -81,6 +83,7 @@ src/
 | **Chip Slide** | A short = change slide direction (arrow in the HUD), B short = slide tile in arrow direction, B hold = keep sliding automatically, A long = back to menu |
 | **Neon Dash** | A or B short = jump (on title/game-over: any press starts/restarts), B long = back to menu |
 | **Neon Roll** | A short/hold = kick ball in arrow direction, B short = rotate direction 90°, A long = back to menu |
+| **Sakura** | A short = cycle action (Water/Fertilize/Prune/Harvest), B short = perform action, A long = back to menu |
 
 > ⚠️ **Note:** GPIO0 is the BOOT button. To **flash**, keep using:
 > hold BOOT → press RST → release → start upload.
@@ -243,6 +246,17 @@ Side passage → Tower → Fight (dragon) → Throne hall / Game Over / Victory-
   verified solvable via BFS flood-fill at generation time
 - Trail glow behind the ball, direction ghost arrow shows the next kick
 - HUD: level + theme name, kick counter, direction arrow; best-kick tracking
+
+### Sakura (Tamagotchi cherry tree)
+
+- Grow a cherry tree through 5 stages: **Seed → Sprout → Sapling → Blossoming → Fruiting**
+- **Decades pass quickly** (8 s real time = 1 in-game decade) for fast testing
+- **Care actions**: Water (moisture), Fertilize (nutrients), Prune (vigor), Harvest (cherries → score)
+- 3 care stats (0..100) decay each decade; neglect drains health; health 0 = withered (game over)
+- Occasional rain events auto-water the tree
+- Harvest only works when mature; 1–3 cherries per harvest (+10 pts each), costs 5 vigor
+- Procedural tree rendering per stage: seed in soil → sprout → sapling → blossoming canopy → cherries + fallen petals
+- Wind sway animation, sky gradient, HUD with health bar + 3 stat bars + 4-button action menu
 
 ## Troubleshooting
 
