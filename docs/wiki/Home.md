@@ -46,7 +46,8 @@ src/
     ├── neonshard/   Point-and-click (cyberpunk)
     ├── chipslide/   Sliding puzzle (15 components)
     ├── neondash/    Jump'n'run (cyberpunk)
-    └── neonroll/    Marble puzzle (cyberpunk)
+    ├── neonroll/    Marble puzzle (cyberpunk)
+    └── sakura/      Tamagotchi cherry tree (zen)
 ```
 
 ## Quick Links
@@ -69,6 +70,7 @@ src/
 | **Chip Slide** | Sliding puzzle | Sort 15 semiconductor components, procedural symbols, smooth slide animation |
 | **Neon Dash** | Jump'n'run | One-button jump over obstacles, pace rises continuously, data chip bonus |
 | **Neon Roll** | Marble puzzle | Kick a glowing ball through neon mazes into the goal, impulse + friction physics, 8 themed levels |
+| **Sakura** | Tamagotchi | Grow a cherry tree: water, fertilize, prune, harvest — decades pass fast |
 
 ## Help
 
