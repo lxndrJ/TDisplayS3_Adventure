@@ -31,6 +31,7 @@ game is controlled entirely with the board's **two buttons**
 | **Neon Shard** | Point-and-click (cyberpunk) | Comic story: courier Vex finds a data shard with a free AI – set it free or sell it? 2 endings |
 | **Chip Slide** | Sliding puzzle | Sort 15 semiconductor components (resistor, diode, LED, IC …) onto the blueprint – smooth slide animation, hold to keep sliding |
 | **Neon Dash** | Jump'n'run (cyberpunk) | One button = jump over firewall pillars and floating drones – the pace keeps rising, data chips as bonus |
+| **Neon Roll** | Marble puzzle (cyberpunk) | Kick a glowing ball through neon mazes into the goal socket – impulse + friction physics, 8 themed levels |
 
 ## Project Structure
 
@@ -56,7 +57,8 @@ src/
     │   └── sprites.h/.cpp   Swappable graphics: NeonPalette + SpriteRenderer
     ├── neonshard/           Neon Shard (neonshard.h/.cpp + art.h/.cpp)
     ├── chipslide/           Chip Slide – semiconductor sliding puzzle
-    └── neondash/            Neon Dash – cyberpunk jump'n'run
+    ├── neondash/            Neon Dash – cyberpunk jump'n'run
+    └── neonroll/            Neon Roll – neon marble puzzle
 ```
 
 ## Controls
@@ -78,6 +80,7 @@ src/
 | **Neon Shard** | A short = previous target, B short = next target, B long = action / continue dialog, A long = fast-forward dialog |
 | **Chip Slide** | A short = change slide direction (arrow in the HUD), B short = slide tile in arrow direction, B hold = keep sliding automatically, A long = back to menu |
 | **Neon Dash** | A or B short = jump (on title/game-over: any press starts/restarts), B long = back to menu |
+| **Neon Roll** | A short/hold = kick ball in arrow direction, B short = rotate direction 90°, A long = back to menu |
 
 > ⚠️ **Note:** GPIO0 is the BOOT button. To **flash**, keep using:
 > hold BOOT → press RST → release → start upload.
@@ -223,6 +226,23 @@ Side passage → Tower → Fight (dragon) → Throne hall / Game Over / Victory-
 - **Data chips** float above tall pillars – collecting one gives +25 m bonus
 - Score = meters run + chip bonus; highscore (RAM only) is kept
 - HUD: speed bar, current meters, highscore; control hint at the bottom
+
+### Neon Roll (marble puzzle)
+
+- Glowing ball rolls through procedurally generated **neon mazes** (10×14 cells)
+- **No full control**: A short/hold = impulse ("kick") in the current direction,
+  B short = rotate direction 90° clockwise
+- Physics: momentum, exponential friction, wall bounce (restitution 0.62),
+  speed cap — the ball glides and ricochets until it rests
+- **Goal capture**: the ball must be slow enough (< 110 px/s) and inside
+  the glowing goal socket — fast balls pass through!
+- **Bumpers** (diamond cells) bounce the ball with extra energy
+- **8 levels** with different graphic themes: Neon Grid (cyan), Magenta Maze,
+  Toxic Green, Solar Flare, Ice Cave, Purple Haze, Laser Red, Gold Rush
+- Wall density and bumper count scale with the level; every level is
+  verified solvable via BFS flood-fill at generation time
+- Trail glow behind the ball, direction ghost arrow shows the next kick
+- HUD: level + theme name, kick counter, direction arrow; best-kick tracking
 
 ## Troubleshooting
 
