@@ -13,6 +13,7 @@
 #include "neondash/neondash.h"
 #include "neonroll/neonroll.h"
 #include "sakura/sakura.h"
+#include "farm/farm.h"
 
 inline Game* makeGame(uint8_t index) {
   static EldoriaGame    eldoria;
@@ -22,6 +23,7 @@ inline Game* makeGame(uint8_t index) {
   static NeonDashGame   neonDash;
   static NeonRollGame   neonRoll;
   static SakuraGame     sakura;
+  static FarmGame       farm;
   switch (index) {
     case 0:  return &eldoria;
     case 1:  return &neonRun;
@@ -30,10 +32,11 @@ inline Game* makeGame(uint8_t index) {
     case 4:  return &neonDash;
     case 5:  return &neonRoll;
     case 6:  return &sakura;
+    case 7:  return &farm;
     default: return nullptr;
   }
 }
 
-inline constexpr uint8_t GAME_COUNT = 7;
+inline constexpr uint8_t GAME_COUNT = 8;
 
 #endif
