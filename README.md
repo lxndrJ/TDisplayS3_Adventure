@@ -34,11 +34,27 @@ game is controlled entirely with the board's **two buttons**
 | **Neon Roll** | Marble puzzle (cyberpunk) | Kick a glowing ball through neon mazes into the goal socket – impulse + friction physics, 8 themed levels |
 | **Sakura** | Tamagotchi (zen) | Grow a cherry tree from seed to fruit — water, fertilize, prune, harvest cherries across fast-passing decades |
 | **Sprout** | Farming sim (cozy) | Tend an 8×4 top-down farm: dig, plant, water daily, harvest ripe crops for gold — in Super-Retro-World pixel style |
+| **Survival** | Survival (zombie, LLM) | Survive 30 days of the apocalypse — a Mistral AI storyteller generates situation, 3 choices and consequences; offline fallback included (needs WiFi + API key, see below) |
+
+### Survival: WiFi + Mistral API setup
+
+Survival is the first game that talks to an LLM. To enable the AI
+storyteller, copy the template and fill in your credentials:
+
+```bash
+cp include/secrets.h.example include/secrets.h
+# edit include/secrets.h: WIFI_SSID, WIFI_PASSWORD, MISTRAL_API_KEY
+```
+
+`include/secrets.h` is gitignored — never commit real credentials.
+Without it the game still runs, using built-in offline scenarios
+(the status bar shows `OFF` instead of `AI`).
 
 ## Project Structure
 
 ```
 include/tft_setup.h          TFT_eSPI setup for the board (no library edits needed)
+include/secrets.h.example    Template for WiFi/API credentials (copy to secrets.h)
 partitions_16mb.csv          16 MB flash: 3 MB app + ~13 MB FATFS
 platformio.ini               Build configuration (one env per board)
 src/
@@ -48,6 +64,7 @@ src/
 │   ├── buttons.h            Button debouncing + short/long detection
 │   ├── input.h/.cpp         Logical keys (Key::A / Key::B) -> InputState
 │   ├── display.h/.cpp       Display wrapper around TFT_eSPI (gfx)
+│   ├── net.h/.cpp           Non-blocking WiFi + Mistral AI client
 │   ├── game.h               Game interface: init / update / draw / quit
 │   └── engine.h/.cpp        Launcher loop (starts game, switches on wantsMenu)
 ├── boards/
@@ -62,7 +79,8 @@ src/
     ├── neondash/            Neon Dash – cyberpunk jump'n'run
     ├── neonroll/            Neon Roll – neon marble puzzle
     ├── sakura/              Sakura – Tamagotchi cherry tree
-    └── farm/                Sprout – top-down farming sim (art.h/.cpp)
+    ├── farm/                Sprout – top-down farming sim (art.h/.cpp)
+    └── survival/            Survival – LLM zombie survival (survival.h/.cpp)
 ```
 
 ## Controls
@@ -87,6 +105,7 @@ src/
 | **Neon Roll** | A short/hold = kick ball in arrow direction, B short = rotate direction 90°, A long = back to menu |
 | **Sakura** | A short = cycle action (Water/Fertilize/Prune/Harvest), B short = perform action, A long = back to menu |
 | **Sprout** | Hold A = walk in facing direction, A short = turn, B short = act on plot (dig/plant/water/harvest/clear), B long = back to menu |
+| **Survival** | A short = previous page/choice, B short = next page/choice, B long = confirm choice / start / restart, A long = back to menu |
 
 > ⚠️ **Note:** GPIO0 is the BOOT button. To **flash**, keep using:
 > hold BOOT → press RST → release → start upload.
