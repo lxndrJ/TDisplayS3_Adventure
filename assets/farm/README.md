@@ -35,3 +35,20 @@ Notes:
 - Alpha is ignored: sprites are drawn opaque (full 16x16 tiles).
 - Keep the Super Retro World palette (earthy greens/browns, saturated
   crop colors) for a consistent look.
+
+## Slicing a Godot TileSet (.tres + spritesheet)
+
+The Super Retro World pack stores its tiles as a Godot TileSet: one big
+spritesheet PNG plus a `.tres` listing every tile as a `Rect2i` region
+inside that sheet. To cut the tiles out individually:
+
+    python3 tools/slice_godot_tiles.py <pack_dir> <out_dir> [filter ...]
+
+Example:
+
+    python3 tools/slice_godot_tiles.py ~/Downloads/super_retro_world out crop
+    # writes out/AtlasTexture_*.png for every tile whose key contains "crop"
+
+Then copy the tiles you want into this directory under the override
+names from the table above and re-run `python3 tools/gen_farm_art.py`.
+Only 16x16 regions are sliced; multi-tile autotile regions are skipped.
