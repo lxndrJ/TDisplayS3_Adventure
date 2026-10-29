@@ -43,6 +43,9 @@ public:
   // true if WiFi is currently connected.
   bool connected() const;
 
+  // WiFi signal strength in dBm, or -100 when not connected.
+  int rssi() const;
+
   // Queue a chat completion. systemPrompt steers the model's behavior,
   // userPrompt carries the current game state. Only one request at a
   // time; returns false when busy or not ready.

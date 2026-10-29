@@ -106,6 +106,15 @@ bool NetClient::connected() const {
 #endif
 }
 
+int NetClient::rssi() const {
+#if NET_HAS_SECRETS
+  if (WiFi.status() != WL_CONNECTED) return -100;
+  return WiFi.RSSI();
+#else
+  return -100;
+#endif
+}
+
 bool NetClient::request(const char* systemPrompt, const char* userPrompt) {
 #if NET_HAS_SECRETS
   if (state_ == State::Busy) return false;
