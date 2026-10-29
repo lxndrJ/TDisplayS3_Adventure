@@ -1,43 +1,32 @@
 #!/bin/bash
 
-# Setup script for OpenCode integration in dev container
+# Writes the OpenCode config for the current user (remoteUser "opencode").
+# Called at container runtime via postCreateCommand, not at image build time.
+# Ollama endpoint comes from OLLAMA_HOST, set in .devcontainer/devcontainer.env
+# (gitignored; copy from devcontainer.env.example).
 
-echo "Setting up OpenCode environment in dev container..."
+set -euo pipefail
 
-# Check if we're inside Docker
-if [ -f /.dockerenv ]; then
-    echo "Running inside Docker container"
-    
-    # Ensure OpenCode is installed or accessible
-    if ! command -v opencode &> /dev/null; then
-        echo "OpenCode CLI not found. Installing..."
-        curl -fsSL https://opencode.ai/install.sh | sh
-    fi
-    
-    # Configure Ollama connection
-    echo "Configuring Ollama connection to 10.99.50.110:11434"
-    
-    # Create OpenCode config directory if it doesn't exist
-    mkdir -p /root/.config/opencode/
-    
-    # Set up basic OpenCode configuration using Ollama at the host IP
-    cat > /root/.config/opencode/opencode.json << EOL
+if [ -z "${OLLAMA_HOST:-}" ]; then
+    echo "ERROR: OLLAMA_HOST is not set." >&2
+    echo "Copy .devcontainer/devcontainer.env.example to devcontainer.env and set it there." >&2
+    exit 1
+fi
+
+mkdir -p "${HOME}/.config/opencode"
+
+cat > "${HOME}/.config/opencode/opencode.json" << EOL
 {
-  "$schema": "https://opencode.ai/config.json",
+  "\$schema": "https://opencode.ai/config.json",
   "providers": {
     "ollama": {
-      "name": "Ollama (10.99.50.110)",
+      "name": "Ollama (${OLLAMA_HOST})",
       "settings": {
-        "baseURL": "http://10.99.50.110:11434/v1"
+        "baseURL": "${OLLAMA_HOST}/v1"
       }
     }
   }
 }
 EOL
 
-    echo "OpenCode environment setup complete."
-else
-    echo "Not inside Docker container. Skipping container-specific setup."
-fi
-
-echo "Setup completed!"
+echo "OpenCode configured for Ollama at ${OLLAMA_HOST}."

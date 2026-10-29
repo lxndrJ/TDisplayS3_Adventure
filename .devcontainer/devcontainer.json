@@ -8,20 +8,11 @@
       "extensions": [
         "ms-vscode.cpptools",
         "ms-vscode.vscode-json",
-        "ms-vscode.powershell",
-        "ms-python.python",
-        "ms-toolsai.jupyter",
+        "platformio.platformio-ide",
         "ms-vscode-remote.remote-containers"
       ]
     }
   },
-  "mounts": [
-    {
-      "type": "bind",
-      "source": "/var/run/docker.sock",
-      "target": "/var/run/docker.sock"
-    }
-  ],
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {
       "installZsh": true,
@@ -31,12 +22,5 @@
   },
   "remoteUser": "opencode",
   "initializeCommand": "echo 'Initializing Dev Container'",
-  "postCreateCommand": "echo 'Dev Container Created'",
-  "forwardPorts": [11434],
-  "portsAttributes": {
-    "11434": {
-      "label": "Ollama API",
-      "onAutoForward": "notify"
-    }
-  }
+  "postCreateCommand": "bash .devcontainer/setup-env.sh && pio pkg install -e t_display_s3"
 }

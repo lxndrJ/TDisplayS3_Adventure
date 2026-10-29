@@ -1,6 +1,6 @@
 FROM ghcr.io/lxndrj/tdisplay-s3-adventure:latest
 
-# Install additional tools and dependencies needed for development
+# Additional tools and dependencies needed for development
 RUN apk add --no-cache \
     git \
     curl \
@@ -8,22 +8,12 @@ RUN apk add --no-cache \
     python3 \
     py3-pip \
     nodejs \
-    npm \
-    && pip3 install --upgrade pip
+    npm
 
-# Set working directory
-WORKDIR /workspace/TDisplayS3_Adventure
+# OpenCode CLI, installed globally via npm so it is available to every user
+# (remoteUser is "opencode", not root)
+RUN npm install -g opencode-ai
 
-# Copy project files into the container
-COPY . .
-
-# Setup environment
-COPY .devcontainer/setup-env.sh .
-RUN chmod +x setup-env.sh
-
-# Run setup script
-RUN ./setup-env.sh
-
-EXPOSE 11434
-
-CMD ["tail", "-f", "/dev/null"]
+# The workspace is bind-mounted at runtime by the devcontainer runtime;
+# no project files are baked into the image.
+WORKDIR /workspaces/TDisplayS3_Adventure

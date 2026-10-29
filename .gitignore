@@ -61,6 +61,7 @@ compile_commands.json
 
 # Secrets (WLAN credentials, API keys) - never commit
 include/secrets.h
+.devcontainer/devcontainer.env
 
 # Python
 __pycache__/
