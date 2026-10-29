@@ -19,16 +19,6 @@
       "configureZshAsDefaultShell": true
     }
   },
-  "runArgs": [
-    "--privileged"
-  ],
-  "mounts": [
-    {
-      "source": "dind-var-lib-docker",
-      "target": "/var/lib/docker",
-      "type": "volume"
-    }
-  ],
   "remoteUser": "opencode",
   "initializeCommand": "echo 'Initializing Dev Container'",
   "postCreateCommand": "bash .devcontainer/setup-env.sh && pio pkg install -e t_display_s3"

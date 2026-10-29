@@ -7,6 +7,20 @@
 
 set -euo pipefail
 
+# devcontainer.env is only applied to the devcontainer CLI process, not
+# injected into the container, so lifecycle commands never see it. Load it
+# ourselves from the bind-mounted workspace. Values already present in the
+# environment win.
+ENV_FILE="$(cd "$(dirname "$0")" && pwd)/devcontainer.env"
+if [ -f "${ENV_FILE}" ]; then
+    while IFS='=' read -r key value; do
+        case "${key}" in ''|\#*) continue ;; esac
+        if [ -z "${!key:-}" ]; then
+            export "${key}=${value}"
+        fi
+    done < "${ENV_FILE}"
+fi
+
 if [ -z "${OLLAMA_HOST:-}" ]; then
     echo "ERROR: OLLAMA_HOST is not set." >&2
     echo "Copy .devcontainer/devcontainer.env.example to devcontainer.env and set it there." >&2
