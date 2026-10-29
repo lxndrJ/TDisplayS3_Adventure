@@ -2,25 +2,24 @@
 #include "core/net.h"
 
 // System prompt: strict output format the device can parse line by line.
-//   S:<situation text, max ~200 chars, no line breaks>
+//   S:<situation text, max ~180 chars, no line breaks>
 //   1:<choice label>
 //   2:<choice label>
 //   3:<choice label>
-//   H:<hp delta for choice 1> S:<score delta 1>
-//   H:<hp delta for choice 2> S:<score delta 2>
-//   H:<hp delta for choice 3> S:<score delta 3>
+//   R1:H<hp delta> P<score delta>
+//   R2:H<hp delta> P<score delta>
+//   R3:H<hp delta> P<score delta>
 static const char* kSystemPrompt =
   "You are the storyteller of a grim zombie survival game on a tiny "
-  "handheld screen (24 chars per line). Reply in EXACTLY this format, "
-  "nothing else:\n"
+  "handheld screen. Reply in EXACTLY this format, nothing else:\n"
   "S:<one short situation, max 180 chars, no newlines>\n"
-  "1:<choice, max 20 chars>\n"
-  "2:<choice, max 20 chars>\n"
-  "3:<choice, max 20 chars>\n"
+  "1:<choice, max 25 chars>\n"
+  "2:<choice, max 25 chars>\n"
+  "3:<choice, max 25 chars>\n"
   "R1:H<signed hp delta> P<signed score delta>\n"
   "R2:H<signed hp delta> P<signed score delta>\n"
   "R3:H<signed hp delta> P<signed score delta>\n"
-  "HP is 0..10, score is survival days x10 plus loot. Be dark, be brief.";
+  "HP is 0..10, score is survival points. Be dark, be brief.";
 
 // Built-in offline scenarios (used when WiFi/API is unavailable).
 struct OfflineTurn {
@@ -52,7 +51,16 @@ static const OfflineTurn kOffline[] = {
 };
 static constexpr uint8_t kOfflineCount = sizeof(kOffline) / sizeof(kOffline[0]);
 
+// Landscape layout constants (rotation 1, 320x170)
+static constexpr int16_t K_STATUS_H   = 26;   // HP bar row height
+static constexpr int16_t K_TEXT_Y     = 32;
+static constexpr int16_t K_LINE_H     = 17;   // Font 2 line height
+static constexpr int16_t K_OPT_Y      = 108;  // first option row
+static constexpr int16_t K_OPT_H      = 19;
+static constexpr int16_t K_FOOTER_Y   = 158;
+
 void SurvivalGame::init() {
+  gfx.tft().setRotation(1);  // landscape
   phase_  = PH_TITLE;
   hp_     = MAX_HP;
   score_  = 0;
@@ -61,10 +69,13 @@ void SurvivalGame::init() {
   page_   = 0;
   dirty_  = true;
   wantsMenu = false;
+  requested_ = false;
   msg_[0] = 0;
+  lastErr_[0] = 0;
   text_[0] = 0;
   optCount_ = 0;
   for (auto& o : opts_) o[0] = 0;
+  titleRefresh_ = 0;  // force first draw
 
   net.begin();
   online_ = net.configured();
@@ -85,13 +96,29 @@ void SurvivalGame::startGame() {
   text_[0] = 0;
   optCount_ = 0;
   for (auto& o : opts_) o[0] = 0;
-  strncpy(msg_, online_ ? "Connecting..." : "Offline mode", sizeof(msg_) - 1);
+  strncpy(msg_, "Starting...", sizeof(msg_) - 1);
   msgUntil_ = millis() + 2000;
-  requestTurn();
+  startRequest();
 }
 
-void SurvivalGame::requestTurn() {
-  if (online_) {
+void SurvivalGame::startRequest() {
+  requested_ = false;
+  wifiWaiting_ = false;
+  // Wait for WiFi (up to ~10 s) before falling back to offline, so a
+  // slow association doesn't silently disable the AI storyteller.
+  if (online_ && !net.connected()) {
+    net.begin();  // no-op when already started
+    if (net.poll() == NetClient::State::WifiConnecting) {
+      phase_ = PH_LOADING;
+      dirty_ = true;
+      strncpy(msg_, "Connecting to WiFi...", sizeof(msg_) - 1);
+      msgUntil_ = millis() + 60000;  // effectively permanent
+      wifiWaiting_ = true;
+      wifiWaitStart_ = millis();
+      return;
+    }
+  }
+  if (online_ && net.connected()) {
     char user[220];
     snprintf(user, sizeof(user),
              "Zombie survival, day %u. HP %d/%d, score %d. The player "
@@ -99,14 +126,15 @@ void SurvivalGame::requestTurn() {
              "with 3 choices and per-choice HP/score deltas.",
              day_, hp_, MAX_HP, score_);
     net.reset();
-    if (!net.request(kSystemPrompt, user)) {
-      // WiFi dropped or busy: degrade to offline mode for this run.
-      online_ = false;
-      offlineTurn();
+    if (net.request(kSystemPrompt, user)) {
+      requested_ = true;
+      return;
     }
-  } else {
-    offlineTurn();
+    // request() refused: remember why, degrade to offline.
+    strncpy(lastErr_, net.error(), sizeof(lastErr_) - 1);
+    online_ = false;
   }
+  offlineTurn();
 }
 
 void SurvivalGame::offlineTurn() {
@@ -125,18 +153,20 @@ void SurvivalGame::offlineTurn() {
   sel_ = 0;
   phase_ = PH_PLAY;
   dirty_ = true;
-  strncpy(msg_, "Offline scenario", sizeof(msg_) - 1);
-  msgUntil_ = millis() + 1500;
+  if (!online_) {
+    strncpy(msg_, lastErr_[0] ? lastErr_ : "Offline scenario",
+            sizeof(msg_) - 1);
+    msgUntil_ = millis() + 1500;
+  }
 }
 
 void SurvivalGame::applyTurn(const char* raw) {
   if (!raw) return;
-  // Parse the strict LLM format.
-  const char* p = raw;
   text_[0] = 0;
   optCount_ = 0;
   for (uint8_t i = 0; i < 3; i++) { opts_[i][0] = 0; llHp_[i] = 0; llScore_[i] = 0; }
 
+  const char* p = raw;
   while (*p) {
     const char* eol = p;
     while (*eol && *eol != '\n') eol++;
@@ -169,6 +199,7 @@ void SurvivalGame::applyTurn(const char* raw) {
 
   // Fallback: if the model produced no usable text, use offline.
   if (text_[0] == 0 || optCount_ == 0) {
+    if (!lastErr_[0]) strncpy(lastErr_, "bad AI reply", sizeof(lastErr_) - 1);
     online_ = false;
     offlineTurn();
     return;
@@ -197,7 +228,7 @@ void SurvivalGame::applyOutcome(int8_t dHp, int16_t dScore) {
   if (score_ < 0) score_ = 0;
   day_++;
 
-  char b[40];
+  char b[48];
   snprintf(b, sizeof(b), "%+d HP  %+d pts", dHp, dScore);
   strncpy(msg_, b, sizeof(msg_) - 1);
   msgUntil_ = millis() + 1500;
@@ -212,10 +243,9 @@ void SurvivalGame::applyOutcome(int8_t dHp, int16_t dScore) {
     dirty_ = true;
     return;
   }
-  // Next turn
   phase_ = PH_LOADING;
   dirty_ = true;
-  requestTurn();
+  startRequest();
 }
 
 int SurvivalGame::wrapText(const char* t, char out[][TXT_W + 1], int maxL) const {
@@ -244,31 +274,52 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
 
   // Poll the network client every frame, whatever the phase.
   NetClient::State ns = net.poll();
-  if (phase_ == PH_LOADING && ns == NetClient::State::Done) {
+  if (requested_ && ns == NetClient::State::Done) {
+    requested_ = false;
     applyTurn(net.response());
-  } else if (phase_ == PH_LOADING && ns == NetClient::State::Error) {
-    // API failed: degrade to offline for the rest of the run.
+  } else if (requested_ && ns == NetClient::State::Error) {
+    requested_ = false;
+    strncpy(lastErr_, net.error(), sizeof(lastErr_) - 1);
     online_ = false;
-    strncpy(msg_, net.error(), sizeof(msg_) - 1);
-    msgUntil_ = millis() + 1500;
-    offlineTurn();
+    if (phase_ == PH_LOADING) offlineTurn();
   }
+  netState_ = ns;
 
   switch (phase_) {
     case PH_TITLE:
+      // Live status refresh on the title screen (every ~500 ms)
+      if (millis() - titleRefresh_ > 500) {
+        titleRefresh_ = millis();
+        dirty_ = true;
+      }
       if (in.pressed[(uint8_t)Key::B] || in.pressed[(uint8_t)Key::A]) {
         startGame();
       }
       break;
 
     case PH_LOADING:
-      if (in.longPressed[(uint8_t)Key::A]) { wantsMenu = true; }
+      if (in.longPressed[(uint8_t)Key::A]) { wantsMenu = true; break; }
+      // While waiting for WiFi, retry startRequest() once connected or
+      // give up to offline mode after a timeout.
+      if (wifiWaiting_) {
+        if (net.connected()) {
+          startRequest();
+        } else if (millis() - wifiWaitStart_ > 10000) {
+          wifiWaiting_ = false;
+          strncpy(lastErr_, "wifi timeout", sizeof(lastErr_) - 1);
+          online_ = false;
+          offlineTurn();
+        } else {
+          dirty_ = true;  // keep the "Connecting..." animation fresh
+        }
+      }
       break;
 
     case PH_PLAY: {
       if (in.longPressed[(uint8_t)Key::A]) { wantsMenu = true; break; }
-      int lines = wrapText(text_, wrapBuf_, 12);
+      int lines = wrapText(text_, wrapBuf_, 8);
       int pages = (lines + TXT_LINES - 1) / TXT_LINES;
+      if (pages < 1) pages = 1;
       if (page_ >= (uint8_t)pages) page_ = pages - 1;
 
       if (in.pressed[(uint8_t)Key::A]) {
@@ -313,41 +364,76 @@ void SurvivalGame::drawStatus() {
   tft.setTextFont(1);
   tft.setTextColor(TFT_WHITE);
   tft.setTextDatum(TL_DATUM);
-  tft.drawString("HP", 6, 2);
+  tft.drawString("HP", 4, 4);
   for (uint8_t i = 0; i < MAX_HP; i++)
-    tft.fillRect(20 + i * 14, 2, 11, 8, i < hp_ ? TFT_RED : TFT_DARKGREY);
+    tft.fillRect(20 + i * 12, 4, 9, 8, i < hp_ ? TFT_RED : TFT_DARKGREY);
   char b[24];
-  snprintf(b, sizeof(b), "Day:%u", day_);
-  tft.drawString(b, 6, 14);
-  snprintf(b, sizeof(b), "Pts:%d", score_);
-  tft.drawString(b, 70, 14);
-  tft.setTextColor(online_ ? 0x07E0 : TFT_ORANGE);
-  tft.drawString(online_ ? "AI" : "OFF", 128, 14);
-  tft.drawFastHLine(0, 24, gfx.width(), TFT_DARKGREY);
+  snprintf(b, sizeof(b), "Day %u", day_);
+  tft.drawString(b, 150, 4);
+  snprintf(b, sizeof(b), "Pts %d", score_);
+  tft.drawString(b, 220, 4);
+  // connection indicator
+  uint16_t connColor;
+  const char* connLabel;
+  if (online_ && net.connected())      { connColor = 0x07E0; connLabel = "AI"; }
+  else if (online_)                    { connColor = TFT_YELLOW; connLabel = "..."; }
+  else                                 { connColor = TFT_ORANGE; connLabel = "OFF"; }
+  tft.setTextColor(connColor);
+  tft.drawString(connLabel, 286, 4);
+  tft.drawFastHLine(0, K_STATUS_H - 2, SCR_W, TFT_DARKGREY);
 }
 
 void SurvivalGame::drawTitle() {
   TFT_eSPI& tft = gfx.tft();
   tft.fillScreen(TFT_BLACK);
   tft.setTextDatum(TL_DATUM);
+
   tft.setTextFont(2);
   tft.setTextColor(TFT_RED);
-  tft.drawString("SURVIVAL", 30, 60);
-  tft.setTextFont(1);
+  tft.drawString("SURVIVAL", 100, 14);
   tft.setTextColor(TFT_LIGHTGREY);
-  const char* lines[] = {
-    "The dead walk. You have",
-    "10 HP and a backpack.",
-    "Survive 30 days.",
-    "",
-    online_ ? "AI storyteller: online" : "AI storyteller: OFFLINE",
-  };
-  for (uint8_t i = 0; i < 5; i++)
-    tft.drawString(lines[i], 20, 110 + i * 18);
+  tft.drawString("Zombie Apocalypse - Day 1", 82, 36);
+
+  tft.setTextFont(1);
+  tft.setTextColor(TFT_WHITE);
+  tft.drawString("The dead walk. You have 10 HP.", 20, 58);
+  tft.drawString("Survive 30 days. Find a way out.", 20, 72);
+
+  // Live connection status block
+  tft.drawFastHLine(0, 92, SCR_W, TFT_DARKGREY);
+  tft.setTextColor(TFT_CYAN);
+  tft.drawString("CONNECTION", 20, 100);
+
+  tft.setTextColor(TFT_LIGHTGREY);
+  uint8_t y = 114;
+  if (!net.configured()) {
+    tft.setTextColor(TFT_ORANGE);
+    tft.drawString("No secrets.h - offline mode", 20, y);
+    tft.setTextColor(TFT_DARKGREY);
+    tft.drawString("Copy include/secrets.h.example to", 20, y + 12);
+    tft.drawString("include/secrets.h and flash again", 20, y + 24);
+  } else {
+    const char* wifiState;
+    uint16_t wifiColor;
+    if (net.connected()) {
+      wifiState = "connected"; wifiColor = 0x07E0;
+    } else {
+      wifiState = (netState_ == NetClient::State::WifiConnecting) ? "connecting..." : "not connected";
+      wifiColor = (netState_ == NetClient::State::WifiConnecting) ? TFT_YELLOW : TFT_RED;
+    }
+    char line[48];
+    snprintf(line, sizeof(line), "WiFi: %s (%d dBm)", wifiState, net.rssi());
+    tft.setTextColor(wifiColor);
+    tft.drawString(line, 20, y);
+
+    tft.setTextColor(net.connected() ? 0x07E0 : TFT_DARKGREY);
+    tft.drawString(net.connected() ? "API:  ready (Mistral)" : "API:  waiting for WiFi", 20, y + 12);
+  }
+
   tft.setTextColor(TFT_YELLOW);
-  tft.drawString("Press A or B to start", 20, 220);
+  tft.drawString("Press A or B to start", 20, 148);
   tft.setTextColor(TFT_DARKGREY);
-  tft.drawString("A long: menu", 20, 300);
+  tft.drawString("A long: menu", 250, 148);
 }
 
 void SurvivalGame::drawLoading() {
@@ -355,18 +441,32 @@ void SurvivalGame::drawLoading() {
   tft.fillScreen(TFT_BLACK);
   drawStatus();
   tft.setTextDatum(TL_DATUM);
+
   tft.setTextFont(2);
   tft.setTextColor(TFT_WHITE);
-  tft.drawString("Day " + String(day_), 6, 60);
+  tft.drawString("Day " + String(day_), 8, 40);
+
   tft.setTextFont(1);
   tft.setTextColor(TFT_LIGHTGREY);
-  // animated dots
   uint8_t dots = (millis() / 400) % 4;
-  String s = online_ ? "The storyteller thinks" : "Loading";
+  String s;
+  if (online_ && net.connected()) {
+    s = "The storyteller thinks";
+  } else if (online_) {
+    s = "Waiting for WiFi";
+  } else {
+    s = "Loading scenario";
+  }
   for (uint8_t i = 0; i < dots; i++) s += '.';
-  tft.drawString(s, 6, 100);
+  tft.drawString(s, 8, 80);
+
+  if (lastErr_[0]) {
+    tft.setTextColor(TFT_ORANGE);
+    tft.drawString(String("Last error: ") + lastErr_, 8, 100);
+  }
+
   tft.setTextColor(TFT_DARKGREY);
-  tft.drawString("A long: menu", 6, 300);
+  tft.drawString("A long: menu", 8, K_FOOTER_Y);
 }
 
 void SurvivalGame::drawPlay() {
@@ -374,44 +474,48 @@ void SurvivalGame::drawPlay() {
   tft.fillScreen(TFT_BLACK);
   drawStatus();
 
-  int lines = wrapText(text_, wrapBuf_, 12);
+  int lines = wrapText(text_, wrapBuf_, 8);
   int pages = (lines + TXT_LINES - 1) / TXT_LINES;
+  if (pages < 1) pages = 1;
   if (page_ >= (uint8_t)pages) page_ = pages - 1;
   int start = page_ * TXT_LINES;
 
-  tft.setTextFont(1);
+  // Situation text, Font 2 (double size, readable in landscape)
+  tft.setTextFont(2);
   tft.setTextColor(TFT_WHITE);
   tft.setTextDatum(TL_DATUM);
   for (uint8_t i = 0; i < TXT_LINES; i++) {
     int li = start + i;
-    tft.drawString(li < lines ? wrapBuf_[li] : "", 6, 32 + i * 14);
+    tft.drawString(li < lines ? wrapBuf_[li] : "", 8, K_TEXT_Y + i * K_LINE_H);
   }
   char pg[8];
   snprintf(pg, sizeof(pg), "%d/%d", page_ + 1, pages);
+  tft.setTextFont(1);
   tft.setTextColor(TFT_DARKGREY);
-  tft.drawString(pg, 150, 32);
+  tft.drawString(pg, SCR_W - 24, K_TEXT_Y);
 
+  // Outcome flash from the previous choice
   if (msg_[0] && millis() < msgUntil_) {
     tft.setTextColor(TFT_YELLOW);
-    tft.drawString(msg_, 6, 122);
+    tft.drawString(msg_, 8, 96);
   }
 
-  tft.drawFastHLine(0, 136, gfx.width(), TFT_DARKGREY);
+  tft.drawFastHLine(0, K_OPT_Y - 4, SCR_W, TFT_DARKGREY);
 
   if (page_ < pages - 1) {
     tft.setTextColor(TFT_LIGHTGREY);
-    tft.drawString("B: next page", 6, 148);
+    tft.drawString("B: next page", 8, K_OPT_Y);
   } else {
     for (uint8_t i = 0; i < optCount_; i++) {
       bool sel = (i == sel_);
       tft.setTextColor(sel ? TFT_YELLOW : TFT_LIGHTGREY);
-      tft.drawString(sel ? "> " : "  ", 6, 148 + i * 18);
-      tft.drawString(opts_[i], 20, 148 + i * 18);
+      tft.drawString(sel ? "> " : "  ", 8, K_OPT_Y + i * K_OPT_H);
+      tft.drawString(opts_[i], 26, K_OPT_Y + i * K_OPT_H);
     }
   }
 
   tft.setTextColor(TFT_DARKGREY);
-  tft.drawString("A/B: select | B long: OK", 6, 300);
+  tft.drawString("A/B: select | B long: OK | A long: menu", 8, K_FOOTER_Y);
 }
 
 void SurvivalGame::drawEnd(bool won) {
@@ -419,20 +523,21 @@ void SurvivalGame::drawEnd(bool won) {
   tft.fillScreen(TFT_BLACK);
   drawStatus();
   tft.setTextDatum(TL_DATUM);
+
   tft.setTextFont(2);
   tft.setTextColor(won ? TFT_GREEN : TFT_RED);
-  tft.drawString(won ? "RESCUED!" : "YOU DIED", 20, 70);
+  tft.drawString(won ? "RESCUED!" : "YOU DIED", 90, 40);
+
   tft.setTextFont(1);
   tft.setTextColor(TFT_WHITE);
   char b[40];
   snprintf(b, sizeof(b), "Survived %u days", day_ - 1);
-  tft.drawString(b, 20, 110);
+  tft.drawString(b, 90, 72);
   snprintf(b, sizeof(b), "Score: %d", score_);
-  tft.drawString(b, 20, 128);
-  tft.setTextColor(TFT_YELLOW);
-  tft.drawString("B long: again", 20, 180);
-  tft.setTextColor(TFT_DARKGREY);
-  tft.drawString("A long: menu", 20, 300);
-}
+  tft.drawString(b, 90, 88);
 
-void SurvivalGame::render() {}
+  tft.setTextColor(TFT_YELLOW);
+  tft.drawString("B long: again", 90, 112);
+  tft.setTextColor(TFT_DARKGREY);
+  tft.drawString("A long: menu", 90, K_FOOTER_Y);
+}
