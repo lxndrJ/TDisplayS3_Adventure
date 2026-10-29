@@ -66,9 +66,11 @@ static void netTask(void* arg) {
     http.end();
   }
 
+  // Hand the finished job over to poll() via the semaphore. poll()
+  // copies the result and deletes the job; the task must NOT free it
+  // itself (it used to, and the game loop then polled a freed/null
+  // g_job while state_ stayed Busy forever - "the storyteller thinks").
   xSemaphoreGive(job->done);
-  delete job;
-  g_job = nullptr;
   vTaskDelete(nullptr);
 }
 
@@ -158,6 +160,27 @@ bool NetClient::request(const char* systemPrompt, const char* userPrompt) {
 
 NetClient::State NetClient::poll() {
 #if NET_HAS_SECRETS
+  // Reap a finished background job exactly once. The semaphore take
+  // doubles as the ownership transfer: after it succeeds, the task is
+  // gone and only poll() touches the job.
+  if (g_job && xSemaphoreTake(g_job->done, 0) == pdTRUE) {
+    if (state_ == State::Busy) {
+      if (g_job->error[0]) {
+        setError(g_job->error);
+      } else {
+        strncpy(response_, g_job->response.c_str(), MAX_RESPONSE - 1);
+        response_[MAX_RESPONSE - 1] = 0;
+        state_ = State::Done;
+      }
+    }
+    // Stale jobs (e.g. a request that finished after reset()) are
+    // simply discarded; their result was never requested again.
+    SemaphoreHandle_t done = g_job->done;
+    delete g_job;
+    g_job = nullptr;
+    vSemaphoreDelete(done);
+  }
+
   switch (state_) {
     case State::WifiConnecting:
       if (WiFi.status() == WL_CONNECTED) {
@@ -166,18 +189,6 @@ NetClient::State NetClient::poll() {
         WiFi.disconnect();
         setError("wifi timeout");
         state_ = State::WifiFailed;
-      }
-      break;
-
-    case State::Busy:
-      if (g_job && xSemaphoreTake(g_job->done, 0) == pdTRUE) {
-        if (g_job->error[0]) {
-          setError(g_job->error);
-        } else {
-          strncpy(response_, g_job->response.c_str(), MAX_RESPONSE - 1);
-          response_[MAX_RESPONSE - 1] = 0;
-          state_ = State::Done;
-        }
       }
       break;
 

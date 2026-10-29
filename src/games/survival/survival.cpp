@@ -2,24 +2,89 @@
 #include "core/net.h"
 
 // System prompt: strict output format the device can parse line by line.
-//   S:<situation text, max ~180 chars, no line breaks>
-//   1:<choice label>
+//   S:<situation text, max ~130 chars, no line breaks>
+//   1:<choice label, max 26 chars>
 //   2:<choice label>
 //   3:<choice label>
 //   R1:H<hp delta> P<score delta>
 //   R2:H<hp delta> P<score delta>
 //   R3:H<hp delta> P<score delta>
-static const char* kSystemPrompt =
+// Font 2 on the device is ASCII-only, so German must avoid umlauts.
+static const char* kSystemPromptEn =
   "You are the storyteller of a grim zombie survival game on a tiny "
   "handheld screen. Reply in EXACTLY this format, nothing else:\n"
-  "S:<one short situation, max 180 chars, no newlines>\n"
-  "1:<choice, max 25 chars>\n"
-  "2:<choice, max 25 chars>\n"
-  "3:<choice, max 25 chars>\n"
+  "S:<one short situation, max 130 chars, no newlines>\n"
+  "1:<choice, max 26 chars>\n"
+  "2:<choice, max 26 chars>\n"
+  "3:<choice, max 26 chars>\n"
   "R1:H<signed hp delta> P<signed score delta>\n"
   "R2:H<signed hp delta> P<signed score delta>\n"
   "R3:H<signed hp delta> P<signed score delta>\n"
-  "HP is 0..10, score is survival points. Be dark, be brief.";
+  "HP is 0..10, score is survival points. The choices are shown very "
+  "big on a 320px screen: keep every choice under 26 characters. "
+  "Be dark, be brief.";
+
+static const char* kSystemPromptDe =
+  "Du bist der Erzaehler eines grimmigen Zombie-Survival-Spiels auf "
+  "einem winzigen Handheld-Bildschirm. Antworte GENAU in diesem "
+  "Format, nichts anderes:\n"
+  "S:<eine kurze Situation, max 130 Zeichen, keine Zeilenumbrueche>\n"
+  "1:<Wahl, max 26 Zeichen>\n"
+  "2:<Wahl, max 26 Zeichen>\n"
+  "3:<Wahl, max 26 Zeichen>\n"
+  "R1:H<signierte HP-Aenderung> P<signierte Punkte-Aenderung>\n"
+  "R2:H<signierte HP-Aenderung> P<signierte Punkte-Aenderung>\n"
+  "R3:H<signierte HP-Aenderung> P<signierte Punkte-Aenderung>\n"
+  "HP ist 0..10, Punkte sind Ueberlebenspunkte. Schreibe DEUTSCH, aber "
+  "NUR ASCII: keine Umlaute, schreibe ae/oe/ue/ss. Die Wahlmoeglichkeiten "
+  "erscheinen sehr gross auf einem 320px-Schirm: jede Wahl unter 26 "
+  "Zeichen. Grimmig, kurz.";
+
+// UI strings, indexed by lang_ (0 = EN, 1 = DE).
+struct UiText {
+  const char* subtitle;
+  const char* intro1, *intro2;
+  const char* start;
+  const char* langHint;
+  const char* thinks, *waitWifi, *offline;
+  const char* hintPage, *hintChoose;
+  const char* hintSelect, *hintMenu;
+  const char* died, *rescued, *survived;
+  const char* scoreLabel, *again;
+  const char* dayLabel, *ptsLabel, *ptsWord;
+  const char* offScenario, *lastErrLabel, *connTitle;
+};
+
+static const UiText kUi[2] = {
+  {   // English
+    "Zombie Apocalypse",
+    "The dead walk. You have 10 HP.",
+    "Survive 30 days. Find a way out.",
+    "Press A or B to start",
+    "B long: Deutsch",
+    "The storyteller thinks", "Waiting for WiFi", "Loading scenario",
+    "B: next page", "B: choose",
+    "A/B: select   B long: OK", "A long: menu",
+    "YOU DIED", "RESCUED!", "Survived %u days",
+    "Score: %d", "B long: again",
+    "Day %u", "Pts %d", "pts",
+    "Offline scenario", "Last error: ", "CONNECTION",
+  },
+  {   // German (ASCII only)
+    "Zombie-Apokalypse",
+    "Die Toten laufen. Du hast 10 HP.",
+    "Ueberlebe 30 Tage. Find einen Ausweg.",
+    "A oder B: Start",
+    "B lang: English",
+    "Der Erzaehler denkt", "Warte auf WLAN", "Lade Szenario",
+    "B: weiter", "B: Auswahl",
+    "A/B: waehlen   B lang: OK", "A lang: Menue",
+    "GESTORBEN", "GERETTET!", "%u Tage ueberlebt",
+    "Punkte: %d", "B lang: Nochmal",
+    "Tag %u", "Pkt %d", "Pkt",
+    "Offline-Szenario", "Letzter Fehler: ", "VERBINDUNG",
+  },
+};
 
 // Built-in offline scenarios (used when WiFi/API is unavailable).
 struct OfflineTurn {
@@ -29,35 +94,72 @@ struct OfflineTurn {
   int16_t score[3];
 };
 
-static const OfflineTurn kOffline[] = {
-  {"Rain drums on the tin roof of the abandoned mall. In the food court a lone zombie shuffles between overturned tables.",
-   {"Search the freezers", "Sneak past", "Climb the shelves"},
+static const OfflineTurn kOfflineEn[] = {
+  {"Rain hammers the dead mall. A lone zombie drifts between the tables.",
+   {"Loot fridge", "Sneak past", "Climb up"},
    {0, 0, -1}, {30, 10, 10}},
-  {"A bitten survivor begs at the mall entrance. Behind him, three zombies wake up and turn.",
-   {"Give him a medkit", "Run, leave him", "Shoot the zombies"},
+  {"A bitten man begs at the gate. Behind him three zombies turn.",
+   {"Give medkit", "Leave him", "Shoot"},
    {1, -2, -1}, {40, 20, 10}},
-  {"Night falls. Your flashlight flickers over a dark corridor. Somewhere a generator hums.",
-   {"Follow the hum", "Hide in a shop", "Rush the exit"},
-   {20, 0, -2}, {10, 10, 0}},
-  {"You find a police car. Keys are in the ignition. The tank is half full.",
-   {"Hotwire and drive", "Loot the trunk", "Walk on foot"},
-   {20, 0, 0}, {10, 20, -10}},
-  {"A horde moans beyond the parking garage gate. The gate is half open.",
-   {"Sprint through", "Climb the ramp", "Wait it out"},
+  {"Night. Your flashlight dies. A generator hums in the dark.",
+   {"Follow hum", "Hide", "Rush exit"},
+   {2, 0, -2}, {10, 10, 0}},
+  {"A police car. Keys inside, half a tank of gas.",
+   {"Drive it", "Loot it", "Walk on"},
+   {2, 0, 0}, {10, 20, -10}},
+  {"A horde moans beyond the half-open gate.",
+   {"Sprint", "Climb", "Wait"},
    {-2, -1, 0}, {10, 0, 10}},
-  {"Dawn. A helicopter passes far away. On the roof you spot a flare gun.",
-   {"Fire the flare", "Save it", "Signal and wait"},
+  {"Dawn. A far helicopter. A flare gun at your feet.",
+   {"Fire flare", "Save it", "Signal"},
    {0, 0, 1}, {30, 10, 20}},
 };
-static constexpr uint8_t kOfflineCount = sizeof(kOffline) / sizeof(kOffline[0]);
 
-// Landscape layout constants (rotation 1, 320x170)
-static constexpr int16_t K_STATUS_H   = 26;   // HP bar row height
-static constexpr int16_t K_TEXT_Y     = 32;
-static constexpr int16_t K_LINE_H     = 17;   // Font 2 line height
-static constexpr int16_t K_OPT_Y      = 108;  // first option row
-static constexpr int16_t K_OPT_H      = 19;
-static constexpr int16_t K_FOOTER_Y   = 158;
+static const OfflineTurn kOfflineDe[] = {
+  {"Regen trommelt auf das tote Einkaufszentrum. Ein einzelner Zombie "
+   "treibt zwischen den Tischen.",
+   {"Kuehlschrank", "Schleichen", "Klettern"},
+   {0, 0, -1}, {30, 10, 10}},
+  {"Ein Gebissener fleht am Tor. Hinter ihm drehen sich drei Zombies um.",
+   {"Verband", "Ihn lassen", "Schiessen"},
+   {1, -2, -1}, {40, 20, 10}},
+  {"Nacht. Deine Lampe stirbt. Ein Generator brummt in der Dunkelheit.",
+   {"Folgen", "Verstecken", "Rennen"},
+   {2, 0, -2}, {10, 10, 0}},
+  {"Ein Streifenwagen. Der Schluessel steckt, halber Tank.",
+   {"Fahren", "Kofferraum", "Zu Fuss"},
+   {2, 0, 0}, {10, 20, -10}},
+  {"Eine Horde stoehnt hinter dem halboffenen Tor.",
+   {"Sprint", "Klettern", "Warten"},
+   {-2, -1, 0}, {10, 0, 10}},
+  {"Morgengrauen. Ein ferner Helikopter. Eine Signalpistole liegt vor dir.",
+   {"Signal", "Sparen", "Winken"},
+   {0, 0, 1}, {30, 10, 20}},
+};
+
+// Palette: soft night tones instead of harsh white on black.
+// All story text is a pale sickly green, unselected choices are dim,
+// the selection is warm amber.
+static constexpr uint16_t K_COL_BG     = 0x861;   // near-black green tint
+static constexpr uint16_t K_COL_TEXT   = 0x964D;  // pale zombie green
+static constexpr uint16_t K_COL_DIM    = 0x640B;  // dim green (unselected)
+static constexpr uint16_t K_COL_SELECT = TFT_ORANGE;  // amber selection
+static constexpr uint16_t K_COL_BLOOD  = 0xC943;  // muted blood red
+static constexpr uint16_t K_COL_SAFE   = 0x5E4B;  // muted rescue green
+
+// Landscape layout constants (rotation 1, 320x170).
+// Story text and choices are drawn 1.5x: Font 2 (16px) into a line
+// sprite, block-scaled by 3/2 -> 24px lines, 320px = 213 sprite px.
+static constexpr int16_t K_SCALE_NUM   = 3;    // 1.5x = 3/2
+static constexpr int16_t K_SCALE_DEN   = 2;
+static constexpr int16_t K_SPR_W       = 213;  // 320 / 1.5
+static constexpr int16_t K_SPR_H       = 16;   // Font 2 line height
+static constexpr int16_t K_STATUS_H   = 24;   // status row height
+static constexpr int16_t K_TEXT_Y     = 28;   // first big text line
+static constexpr int16_t K_TEXT_LH     = 24;   // 16 * 1.5
+static constexpr int16_t K_OPT_Y      = 34;   // first choice row
+static constexpr int16_t K_OPT_H      = 24;
+static constexpr int16_t K_FOOTER_Y   = 160;  // bottom hint row (Font 1)
 
 void SurvivalGame::init() {
   gfx.tft().setRotation(1);  // landscape
@@ -67,6 +169,7 @@ void SurvivalGame::init() {
   day_    = 1;
   sel_    = 0;
   page_   = 0;
+  choosing_ = false;
   dirty_  = true;
   wantsMenu = false;
   requested_ = false;
@@ -92,6 +195,7 @@ void SurvivalGame::startGame() {
   day_ = 1;
   sel_ = 0;
   page_ = 0;
+  choosing_ = false;
   dirty_ = true;
   text_[0] = 0;
   optCount_ = 0;
@@ -119,14 +223,26 @@ void SurvivalGame::startRequest() {
     }
   }
   if (online_ && net.connected()) {
-    char user[220];
-    snprintf(user, sizeof(user),
-             "Zombie survival, day %u. HP %d/%d, score %d. The player "
-             "just survived the last situation. Write the next situation "
-             "with 3 choices and per-choice HP/score deltas.",
-             day_, hp_, MAX_HP, score_);
+    const char* sys = (lang_ == 1) ? kSystemPromptDe : kSystemPromptEn;
+    char user[240];
+    if (lang_ == 1) {
+      snprintf(user, sizeof(user),
+               "Zombie-Survival, Tag %u. HP %d/%d, Punkte %d. Der Spieler "
+               "hat die letzte Situation ueberlebt. Schreibe die naechste "
+               "kurze Situation (max 130 Zeichen, nur ASCII, keine "
+               "Umlaute) mit 3 Wahlmoeglichkeiten (max 26 Zeichen) und "
+               "HP-/Punkte-Aenderungen pro Wahl.",
+               day_, hp_, MAX_HP, score_);
+    } else {
+      snprintf(user, sizeof(user),
+               "Zombie survival, day %u. HP %d/%d, score %d. The player "
+               "just survived the last situation. Write the next short "
+               "situation (max 130 chars) with 3 choices (max 26 chars "
+               "each) and per-choice HP/score deltas.",
+               day_, hp_, MAX_HP, score_);
+    }
     net.reset();
-    if (net.request(kSystemPrompt, user)) {
+    if (net.request(sys, user)) {
       requested_ = true;
       return;
     }
@@ -138,7 +254,9 @@ void SurvivalGame::startRequest() {
 }
 
 void SurvivalGame::offlineTurn() {
-  const OfflineTurn& t = kOffline[offlineIdx_ % kOfflineCount];
+  const OfflineTurn* table = (lang_ == 1) ? kOfflineDe : kOfflineEn;
+  constexpr uint8_t count = sizeof(kOfflineEn) / sizeof(kOfflineEn[0]);
+  const OfflineTurn& t = table[offlineIdx_ % count];
   offlineIdx_++;
   strncpy(text_, t.text, MAX_TEXT - 1);
   text_[MAX_TEXT - 1] = 0;
@@ -151,10 +269,11 @@ void SurvivalGame::offlineTurn() {
   }
   page_ = 0;
   sel_ = 0;
+  choosing_ = false;
   phase_ = PH_PLAY;
   dirty_ = true;
   if (!online_) {
-    strncpy(msg_, lastErr_[0] ? lastErr_ : "Offline scenario",
+    strncpy(msg_, lastErr_[0] ? lastErr_ : kUi[lang_].offScenario,
             sizeof(msg_) - 1);
     msgUntil_ = millis() + 1500;
   }
@@ -186,8 +305,9 @@ void SurvivalGame::applyTurn(const char* raw) {
       if (idx + 1 > optCount_) optCount_ = idx + 1;
     } else if (len >= 3 && p[0] == 'R' && p[1] >= '1' && p[1] <= '3') {
       uint8_t idx = p[1] - '1';
+      // Tolerate both "R1:H..." and "R1 H...".
       const char* q = p + 2;
-      while (*q == ' ') q++;
+      while (*q == ' ' || *q == ':') q++;
       if (*q == 'H') {
         llHp_[idx] = (int8_t)atoi(q + 1);
         const char* sp = strchr(q, 'P');
@@ -206,6 +326,7 @@ void SurvivalGame::applyTurn(const char* raw) {
   }
   page_ = 0;
   sel_ = 0;
+  choosing_ = false;
   phase_ = PH_PLAY;
   dirty_ = true;
 }
@@ -229,7 +350,7 @@ void SurvivalGame::applyOutcome(int8_t dHp, int16_t dScore) {
   day_++;
 
   char b[48];
-  snprintf(b, sizeof(b), "%+d HP  %+d pts", dHp, dScore);
+  snprintf(b, sizeof(b), "%+d HP  %+d %s", dHp, dScore, kUi[lang_].ptsWord);
   strncpy(msg_, b, sizeof(msg_) - 1);
   msgUntil_ = millis() + 1500;
 
@@ -258,7 +379,11 @@ int SurvivalGame::wrapText(const char* t, char out[][TXT_W + 1], int maxL) const
       if (*p == ' ') lastSpace = i;
       out[n][i++] = *p++;
     }
-    if (*p && i == TXT_W && lastSpace > 0) {
+    if (i == TXT_W && *p == ' ') {
+      // Line fits exactly; the space starts the next line's first word.
+      out[n][i] = 0;
+      p++;
+    } else if (*p && i == TXT_W && lastSpace > 0) {
       out[n][lastSpace] = 0;
       p = start + lastSpace + 1;
     } else {
@@ -292,6 +417,12 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
         titleRefresh_ = millis();
         dirty_ = true;
       }
+      // B long toggles the language (English <-> German).
+      if (in.longPressed[(uint8_t)Key::B]) {
+        lang_ = (lang_ == 1) ? 0 : 1;
+        dirty_ = true;
+        break;
+      }
       if (in.pressed[(uint8_t)Key::B] || in.pressed[(uint8_t)Key::A]) {
         startGame();
       }
@@ -312,27 +443,38 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
         } else {
           dirty_ = true;  // keep the "Connecting..." animation fresh
         }
+      } else if (millis() - titleRefresh_ > 250) {
+        // Animate the "storyteller thinks..." dots while a request runs.
+        titleRefresh_ = millis();
+        dirty_ = true;
       }
       break;
 
     case PH_PLAY: {
       if (in.longPressed[(uint8_t)Key::A]) { wantsMenu = true; break; }
-      int lines = wrapText(text_, wrapBuf_, 8);
+      int lines = wrapText(text_, wrapBuf_, MAX_WRAP_LINES);
       int pages = (lines + TXT_LINES - 1) / TXT_LINES;
       if (pages < 1) pages = 1;
       if (page_ >= (uint8_t)pages) page_ = pages - 1;
 
-      if (in.pressed[(uint8_t)Key::A]) {
-        if (page_ > 0) { page_--; dirty_ = true; }
-        else if (optCount_ > 0) { sel_ = (sel_ + optCount_ - 1) % optCount_; dirty_ = true; }
-      }
-      if (in.pressed[(uint8_t)Key::B]) {
-        if (page_ < pages - 1) { page_++; dirty_ = true; }
-        else if (optCount_ > 0) { sel_ = (sel_ + 1) % optCount_; dirty_ = true; }
-      }
       if (in.longPressed[(uint8_t)Key::B]) {
-        if (page_ < pages - 1) { page_++; dirty_ = true; }
+        if (!choosing_) { choosing_ = true; sel_ = 0; dirty_ = true; }
         else choose(sel_);
+        break;
+      }
+      if (choosing_) {
+        if (in.pressed[(uint8_t)Key::A] && optCount_ > 0) {
+          sel_ = (sel_ + optCount_ - 1) % optCount_; dirty_ = true;
+        }
+        if (in.pressed[(uint8_t)Key::B] && optCount_ > 0) {
+          sel_ = (sel_ + 1) % optCount_; dirty_ = true;
+        }
+      } else {
+        if (in.pressed[(uint8_t)Key::A] && page_ > 0) { page_--; dirty_ = true; }
+        if (in.pressed[(uint8_t)Key::B]) {
+          if (page_ < pages - 1) { page_++; dirty_ = true; }
+          else { choosing_ = true; sel_ = 0; dirty_ = true; }
+        }
       }
       break;
     }
@@ -359,19 +501,51 @@ void SurvivalGame::draw() {
   }
 }
 
+int16_t SurvivalGame::drawBigText(const char* s, int16_t x, int16_t y, uint16_t color) {
+  if (!s || !s[0]) return x;
+  TFT_eSPI& tft = gfx.tft();
+  // Line sprite holding one Font 2 line; scaled up 3/2 on push.
+  // Created on first use, kept for the whole game (~7 KB).
+  static TFT_eSprite spr(&gfx.tft());
+  if (!spr.created()) spr.createSprite(K_SPR_W, K_SPR_H);
+
+  int16_t w = tft.textWidth(s, 2);         // width in Font 2 pixels
+  if (w > K_SPR_W) w = K_SPR_W;
+  const int16_t dstH = K_SPR_H * K_SCALE_NUM / K_SCALE_DEN;  // 24
+  const int16_t dstW = w * K_SCALE_NUM / K_SCALE_DEN;
+  if (x < 0) x = (SCR_W - dstW) / 2;       // negative x = center
+  if (x < 0) x = 0;
+
+  spr.fillSprite(K_COL_BG);  // same tint as fillScreen: seamless push
+  spr.setTextFont(2);
+  spr.setTextColor(color);
+  spr.setTextDatum(TL_DATUM);
+  spr.drawString(s, 0, 0);
+
+  static uint16_t row[SCR_W];
+  for (int16_t dy = 0; dy < dstH; dy++) {
+    const int16_t sy = dy * K_SCALE_DEN / K_SCALE_NUM;
+    for (int16_t dx = 0; dx < dstW; dx++)
+      row[dx] = spr.readPixel(dx * K_SCALE_DEN / K_SCALE_NUM, sy);
+    tft.pushImage(x, y + dy, dstW, 1, row);
+  }
+  return x;
+}
+
 void SurvivalGame::drawStatus() {
   TFT_eSPI& tft = gfx.tft();
-  tft.setTextFont(1);
-  tft.setTextColor(TFT_WHITE);
+  const UiText& ui = kUi[lang_];
+  tft.setTextFont(2);
+  tft.setTextColor(K_COL_TEXT);
   tft.setTextDatum(TL_DATUM);
   tft.drawString("HP", 4, 4);
   for (uint8_t i = 0; i < MAX_HP; i++)
-    tft.fillRect(20 + i * 12, 4, 9, 8, i < hp_ ? TFT_RED : TFT_DARKGREY);
+    tft.fillRect(30 + i * 13, 6, 11, 12, i < hp_ ? TFT_RED : TFT_DARKGREY);
   char b[24];
-  snprintf(b, sizeof(b), "Day %u", day_);
+  snprintf(b, sizeof(b), ui.dayLabel, day_);
   tft.drawString(b, 150, 4);
-  snprintf(b, sizeof(b), "Pts %d", score_);
-  tft.drawString(b, 220, 4);
+  snprintf(b, sizeof(b), ui.ptsLabel, score_);
+  tft.drawString(b, 224, 4);
   // connection indicator
   uint16_t connColor;
   const char* connLabel;
@@ -379,39 +553,40 @@ void SurvivalGame::drawStatus() {
   else if (online_)                    { connColor = TFT_YELLOW; connLabel = "..."; }
   else                                 { connColor = TFT_ORANGE; connLabel = "OFF"; }
   tft.setTextColor(connColor);
-  tft.drawString(connLabel, 286, 4);
+  tft.drawString(connLabel, 296, 4);
   tft.drawFastHLine(0, K_STATUS_H - 2, SCR_W, TFT_DARKGREY);
 }
 
 void SurvivalGame::drawTitle() {
   TFT_eSPI& tft = gfx.tft();
-  tft.fillScreen(TFT_BLACK);
+  const UiText& ui = kUi[lang_];
+  tft.fillScreen(K_COL_BG);
   tft.setTextDatum(TL_DATUM);
 
+  drawBigText("SURVIVAL", -1, 12, K_COL_BLOOD);
+
   tft.setTextFont(2);
-  tft.setTextColor(TFT_RED);
-  tft.drawString("SURVIVAL", 100, 14);
-  tft.setTextColor(TFT_LIGHTGREY);
-  tft.drawString("Zombie Apocalypse - Day 1", 82, 36);
+  tft.setTextColor(K_COL_DIM);
+  tft.drawString(ui.subtitle, (SCR_W - tft.textWidth(ui.subtitle, 2)) / 2, 56);
 
   tft.setTextFont(1);
-  tft.setTextColor(TFT_WHITE);
-  tft.drawString("The dead walk. You have 10 HP.", 20, 58);
-  tft.drawString("Survive 30 days. Find a way out.", 20, 72);
+  tft.setTextColor(K_COL_TEXT);
+  tft.drawString(ui.intro1, 20, 76);
+  tft.drawString(ui.intro2, 20, 88);
 
   // Live connection status block
-  tft.drawFastHLine(0, 92, SCR_W, TFT_DARKGREY);
+  tft.drawFastHLine(0, 100, SCR_W, TFT_DARKGREY);
   tft.setTextColor(TFT_CYAN);
-  tft.drawString("CONNECTION", 20, 100);
+  tft.drawString(ui.connTitle, 20, 106);
 
-  tft.setTextColor(TFT_LIGHTGREY);
-  uint8_t y = 114;
+  tft.setTextColor(K_COL_TEXT);
+  uint8_t y = 120;
   if (!net.configured()) {
     tft.setTextColor(TFT_ORANGE);
     tft.drawString("No secrets.h - offline mode", 20, y);
     tft.setTextColor(TFT_DARKGREY);
-    tft.drawString("Copy include/secrets.h.example to", 20, y + 12);
-    tft.drawString("include/secrets.h and flash again", 20, y + 24);
+    tft.drawString("Copy include/secrets.h.example to", 20, y + 10);
+    tft.drawString("include/secrets.h and flash again", 20, y + 20);
   } else {
     const char* wifiState;
     uint16_t wifiColor;
@@ -427,117 +602,138 @@ void SurvivalGame::drawTitle() {
     tft.drawString(line, 20, y);
 
     tft.setTextColor(net.connected() ? 0x07E0 : TFT_DARKGREY);
-    tft.drawString(net.connected() ? "API:  ready (Mistral)" : "API:  waiting for WiFi", 20, y + 12);
+    tft.drawString(net.connected() ? "API:  ready (Mistral)" : "API:  waiting for WiFi", 20, y + 10);
   }
 
+  tft.setTextFont(2);
   tft.setTextColor(TFT_YELLOW);
-  tft.drawString("Press A or B to start", 20, 148);
+  tft.drawString(ui.start, 20, 140);
+  tft.setTextFont(1);
+  tft.setTextColor(TFT_ORANGE);
+  tft.drawString(ui.langHint, 20, 146);
   tft.setTextColor(TFT_DARKGREY);
-  tft.drawString("A long: menu", 250, 148);
+  tft.drawString(ui.hintMenu, 250, 146);
 }
 
 void SurvivalGame::drawLoading() {
   TFT_eSPI& tft = gfx.tft();
-  tft.fillScreen(TFT_BLACK);
+  const UiText& ui = kUi[lang_];
+  tft.fillScreen(K_COL_BG);
   drawStatus();
   tft.setTextDatum(TL_DATUM);
 
-  tft.setTextFont(2);
-  tft.setTextColor(TFT_WHITE);
-  tft.drawString("Day " + String(day_), 8, 40);
+  char day[12];
+  snprintf(day, sizeof(day), ui.dayLabel, day_);
+  drawBigText(day, -1, 44, K_COL_TEXT);
 
-  tft.setTextFont(1);
-  tft.setTextColor(TFT_LIGHTGREY);
+  tft.setTextFont(2);
+  tft.setTextColor(K_COL_TEXT);
   uint8_t dots = (millis() / 400) % 4;
   String s;
   if (online_ && net.connected()) {
-    s = "The storyteller thinks";
+    s = ui.thinks;
   } else if (online_) {
-    s = "Waiting for WiFi";
+    s = ui.waitWifi;
   } else {
-    s = "Loading scenario";
+    s = ui.offline;
   }
   for (uint8_t i = 0; i < dots; i++) s += '.';
-  tft.drawString(s, 8, 80);
+  tft.drawString(s, (SCR_W - tft.textWidth(s.c_str(), 2)) / 2, 104);
 
   if (lastErr_[0]) {
+    tft.setTextFont(1);
     tft.setTextColor(TFT_ORANGE);
-    tft.drawString(String("Last error: ") + lastErr_, 8, 100);
+    tft.drawString(String(ui.lastErrLabel) + lastErr_, 8, 126);
   }
 
+  tft.setTextFont(1);
   tft.setTextColor(TFT_DARKGREY);
-  tft.drawString("A long: menu", 8, K_FOOTER_Y);
+  tft.drawString(ui.hintMenu, 8, K_FOOTER_Y);
 }
 
 void SurvivalGame::drawPlay() {
   TFT_eSPI& tft = gfx.tft();
-  tft.fillScreen(TFT_BLACK);
+  const UiText& ui = kUi[lang_];
+  tft.fillScreen(K_COL_BG);
   drawStatus();
-
-  int lines = wrapText(text_, wrapBuf_, 8);
-  int pages = (lines + TXT_LINES - 1) / TXT_LINES;
-  if (pages < 1) pages = 1;
-  if (page_ >= (uint8_t)pages) page_ = pages - 1;
-  int start = page_ * TXT_LINES;
-
-  // Situation text, Font 2 (double size, readable in landscape)
-  tft.setTextFont(2);
-  tft.setTextColor(TFT_WHITE);
   tft.setTextDatum(TL_DATUM);
-  for (uint8_t i = 0; i < TXT_LINES; i++) {
-    int li = start + i;
-    tft.drawString(li < lines ? wrapBuf_[li] : "", 8, K_TEXT_Y + i * K_LINE_H);
-  }
-  char pg[8];
-  snprintf(pg, sizeof(pg), "%d/%d", page_ + 1, pages);
-  tft.setTextFont(1);
-  tft.setTextColor(TFT_DARKGREY);
-  tft.drawString(pg, SCR_W - 24, K_TEXT_Y);
 
-  // Outcome flash from the previous choice
-  if (msg_[0] && millis() < msgUntil_) {
-    tft.setTextColor(TFT_YELLOW);
-    tft.drawString(msg_, 8, 96);
-  }
+  if (!choosing_) {
+    // Situation text, 2x big (32px lines), four lines fill the screen.
+    int lines = wrapText(text_, wrapBuf_, MAX_WRAP_LINES);
+    int pages = (lines + TXT_LINES - 1) / TXT_LINES;
+    if (pages < 1) pages = 1;
+    if (page_ >= (uint8_t)pages) page_ = pages - 1;
+    int start = page_ * TXT_LINES;
 
-  tft.drawFastHLine(0, K_OPT_Y - 4, SCR_W, TFT_DARKGREY);
+    for (uint8_t i = 0; i < TXT_LINES; i++) {
+      int li = start + i;
+      if (li < lines)
+        drawBigText(wrapBuf_[li], -1, K_TEXT_Y + i * K_TEXT_LH, K_COL_TEXT);
+    }
 
-  if (page_ < pages - 1) {
-    tft.setTextColor(TFT_LIGHTGREY);
-    tft.drawString("B: next page", 8, K_OPT_Y);
+    tft.setTextFont(1);
+    // Footer: outcome flash or controls hint, plus page indicator
+    if (msg_[0] && millis() < msgUntil_) {
+      tft.setTextColor(TFT_YELLOW);
+      tft.drawString(msg_, 4, K_FOOTER_Y);
+    } else {
+      tft.setTextColor(K_COL_DIM);
+      tft.drawString(page_ < pages - 1 ? ui.hintPage : ui.hintChoose,
+                     4, K_FOOTER_Y);
+    }
+    char pg[10];
+    snprintf(pg, sizeof(pg), "%d/%d", page_ + 1, pages);
+    tft.setTextColor(TFT_DARKGREY);
+    tft.drawString(pg, SCR_W - 26, K_FOOTER_Y);
   } else {
+    // Choice screen: one option per 24px row, 1.5x big, centered.
     for (uint8_t i = 0; i < optCount_; i++) {
       bool sel = (i == sel_);
-      tft.setTextColor(sel ? TFT_YELLOW : TFT_LIGHTGREY);
-      tft.drawString(sel ? "> " : "  ", 8, K_OPT_Y + i * K_OPT_H);
-      tft.drawString(opts_[i], 26, K_OPT_Y + i * K_OPT_H);
+      int16_t y = K_OPT_Y + i * (K_OPT_H + 8);
+      int16_t tx = drawBigText(opts_[i], -1, y, sel ? K_COL_SELECT : K_COL_DIM);
+      if (sel) {
+        tft.setTextFont(1);
+        tft.setTextColor(K_COL_SELECT);
+        tft.drawString(">", tx - 18, y + 8);
+      }
     }
+    tft.setTextFont(1);
+    tft.setTextColor(K_COL_DIM);
+    tft.drawString(ui.hintSelect, 4, K_FOOTER_Y);
+    tft.setTextColor(TFT_DARKGREY);
+    tft.drawString(ui.hintMenu, SCR_W - 76, K_FOOTER_Y);
   }
-
-  tft.setTextColor(TFT_DARKGREY);
-  tft.drawString("A/B: select | B long: OK | A long: menu", 8, K_FOOTER_Y);
 }
 
 void SurvivalGame::drawEnd(bool won) {
   TFT_eSPI& tft = gfx.tft();
-  tft.fillScreen(TFT_BLACK);
+  const UiText& ui = kUi[lang_];
+  tft.fillScreen(K_COL_BG);
   drawStatus();
   tft.setTextDatum(TL_DATUM);
 
-  tft.setTextFont(2);
-  tft.setTextColor(won ? TFT_GREEN : TFT_RED);
-  tft.drawString(won ? "RESCUED!" : "YOU DIED", 90, 40);
+  const char* head = won ? ui.rescued : ui.died;
+  drawBigText(head, -1, 40, won ? K_COL_SAFE : K_COL_BLOOD);
 
-  tft.setTextFont(1);
-  tft.setTextColor(TFT_WHITE);
+  tft.setTextFont(2);
+  tft.setTextColor(K_COL_TEXT);
   char b[40];
-  snprintf(b, sizeof(b), "Survived %u days", day_ - 1);
-  tft.drawString(b, 90, 72);
-  snprintf(b, sizeof(b), "Score: %d", score_);
-  tft.drawString(b, 90, 88);
+  int16_t x;
+  snprintf(b, sizeof(b), ui.survived, day_ - 1);
+  x = (SCR_W - tft.textWidth(b, 2)) / 2;
+  if (x < 0) x = 0;
+  tft.drawString(b, x, 96);
+  snprintf(b, sizeof(b), ui.scoreLabel, score_);
+  x = (SCR_W - tft.textWidth(b, 2)) / 2;
+  if (x < 0) x = 0;
+  tft.drawString(b, x, 116);
 
   tft.setTextColor(TFT_YELLOW);
-  tft.drawString("B long: again", 90, 112);
+  x = (SCR_W - tft.textWidth(ui.again, 2)) / 2;
+  if (x < 0) x = 0;
+  tft.drawString(ui.again, x, 136);
+  tft.setTextFont(1);
   tft.setTextColor(TFT_DARKGREY);
-  tft.drawString("A long: menu", 90, K_FOOTER_Y);
+  tft.drawString(ui.hintMenu, 90, K_FOOTER_Y);
 }

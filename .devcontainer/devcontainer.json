@@ -1,0 +1,42 @@
+{
+  "name": "TDisplayS3_Adventure - OpenCode Dev",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.vscode-json",
+        "ms-vscode.powershell",
+        "ms-python.python",
+        "ms-toolsai.jupyter",
+        "ms-vscode-remote.remote-containers"
+      ]
+    }
+  },
+  "mounts": [
+    {
+      "type": "bind",
+      "source": "/var/run/docker.sock",
+      "target": "/var/run/docker.sock"
+    }
+  ],
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "remoteUser": "opencode",
+  "initializeCommand": "echo 'Initializing Dev Container'",
+  "postCreateCommand": "echo 'Dev Container Created'",
+  "forwardPorts": [11434],
+  "portsAttributes": {
+    "11434": {
+      "label": "Ollama API",
+      "onAutoForward": "notify"
+    }
+  }
+}
