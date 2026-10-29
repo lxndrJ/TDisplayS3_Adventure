@@ -59,6 +59,9 @@ dkms.conf
 .vscode/
 compile_commands.json
 
+# Secrets (WLAN credentials, API keys) - never commit
+include/secrets.h
+
 # Python
 __pycache__/
 *.pyc
