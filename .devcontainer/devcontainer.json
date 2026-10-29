@@ -6,10 +6,8 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        "ms-vscode.cpptools",
-        "ms-vscode.vscode-json",
-        "platformio.platformio-ide",
-        "ms-vscode-remote.remote-containers"
+        "LordImmaculate.platformio-ide",
+        "llvm-vs-code-extensions.vscode-clangd"
       ]
     }
   },
