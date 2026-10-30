@@ -11,15 +11,19 @@
 //   R3:H<hp delta> P<score delta>
 static const char* kSystemPrompt =
   "You are the storyteller of a grim zombie survival game on a tiny "
-  "handheld screen. Reply in EXACTLY this format, nothing else:\n"
-  "S:<one short situation, max 180 chars, no newlines>\n"
-  "1:<choice, max 25 chars>\n"
-  "2:<choice, max 25 chars>\n"
-  "3:<choice, max 25 chars>\n"
+  "handheld screen. The player is shown ONLY your situation text and 3 "
+  "choices, so the story must be self-contained each turn, but it must "
+  "also continue logically from the history given in the user message. "
+  "Reply in EXACTLY this format, nothing else:\n"
+  "S:<one situation, 120-180 chars, no newlines, continue the story>\n"
+  "1:<choice, max 3 words>\n"
+  "2:<choice, max 3 words>\n"
+  "3:<choice, max 3 words>\n"
   "R1:H<signed hp delta> P<signed score delta>\n"
   "R2:H<signed hp delta> P<signed score delta>\n"
   "R3:H<signed hp delta> P<signed score delta>\n"
-  "HP is 0..10, score is survival points. Be dark, be brief.";
+  "HP is 0..10, score is survival points. Consequences must fit the "
+  "chosen option. Be dark, be brief. Never break the format.";
 
 // Built-in offline scenarios (used when WiFi/API is unavailable).
 struct OfflineTurn {
@@ -70,6 +74,11 @@ void SurvivalGame::init() {
   dirty_  = true;
   wantsMenu = false;
   requested_ = false;
+  errCount_ = 0;
+  parseFails_ = 0;
+  retryPending_ = false;
+  histCount_ = 0;
+  for (auto& h : hist_) h[0] = 0;
   msg_[0] = 0;
   lastErr_[0] = 0;
   text_[0] = 0;
@@ -93,6 +102,11 @@ void SurvivalGame::startGame() {
   sel_ = 0;
   page_ = 0;
   dirty_ = true;
+  errCount_ = 0;
+  parseFails_ = 0;
+  retryPending_ = false;
+  histCount_ = 0;
+  for (auto& h : hist_) h[0] = 0;
   text_[0] = 0;
   optCount_ = 0;
   for (auto& o : opts_) o[0] = 0;
@@ -119,12 +133,21 @@ void SurvivalGame::startRequest() {
     }
   }
   if (online_ && net.connected()) {
-    char user[220];
-    snprintf(user, sizeof(user),
-             "Zombie survival, day %u. HP %d/%d, score %d. The player "
-             "just survived the last situation. Write the next situation "
-             "with 3 choices and per-choice HP/score deltas.",
+    // Build the user prompt: current state + short history of the last
+    // rounds, so the LLM continues the story instead of starting fresh.
+    char user[640];
+    int off = snprintf(user, sizeof(user),
+             "Zombie survival, day %u. HP %d/%d, score %d.\n",
              day_, hp_, MAX_HP, score_);
+    if (histCount_ > 0) {
+      off += snprintf(user + off, sizeof(user) - off, "History:\n");
+      for (uint8_t i = 0; i < histCount_ && off < (int)sizeof(user) - HIST_LEN - 8; i++) {
+        off += snprintf(user + off, sizeof(user) - off, "- %s\n", hist_[i]);
+      }
+    }
+    snprintf(user + off, sizeof(user) - off,
+             "Write the next situation with 3 choices and per-choice "
+             "HP/score deltas. Continue the story.");
     net.reset();
     if (net.request(kSystemPrompt, user)) {
       requested_ = true;
@@ -135,6 +158,20 @@ void SurvivalGame::startRequest() {
     online_ = false;
   }
   offlineTurn();
+}
+
+void SurvivalGame::addHistory(const char* chosenLabel, int8_t dHp, int16_t dScore) {
+  if (histCount_ < HISTORY) {
+    snprintf(hist_[histCount_], HIST_LEN, "Day %u: chose '%s' (%+d HP, %+d pts)",
+             day_, chosenLabel ? chosenLabel : "?", dHp, dScore);
+    histCount_++;
+  } else {
+    // shift left, drop the oldest entry
+    for (uint8_t i = 0; i < HISTORY - 1; i++)
+      strncpy(hist_[i], hist_[i + 1], HIST_LEN);
+    snprintf(hist_[HISTORY - 1], HIST_LEN, "Day %u: chose '%s' (%+d HP, %+d pts)",
+             day_, chosenLabel ? chosenLabel : "?", dHp, dScore);
+  }
 }
 
 void SurvivalGame::offlineTurn() {
@@ -184,10 +221,11 @@ void SurvivalGame::applyTurn(const char* raw) {
       memcpy(opts_[idx], p + 2, n);
       opts_[idx][n] = 0;
       if (idx + 1 > optCount_) optCount_ = idx + 1;
-    } else if (len >= 3 && p[0] == 'R' && p[1] >= '1' && p[1] <= '3') {
+    } else if (len >= 3 && p[0] == 'R' && p[1] >= '1' && p[1] <= '3'
+               && (p[2] == ':' || p[2] == ' ')) {
       uint8_t idx = p[1] - '1';
       const char* q = p + 2;
-      while (*q == ' ') q++;
+      while (*q == ' ' || *q == ':') q++;
       if (*q == 'H') {
         llHp_[idx] = (int8_t)atoi(q + 1);
         const char* sp = strchr(q, 'P');
@@ -197,13 +235,24 @@ void SurvivalGame::applyTurn(const char* raw) {
     p = (*eol == '\n') ? eol + 1 : eol;
   }
 
-  // Fallback: if the model produced no usable text, use offline.
+  // Fallback: if the model produced no usable text, retry once, then
+  // degrade to offline — a single bad reply must not end the AI run.
   if (text_[0] == 0 || optCount_ == 0) {
+    parseFails_++;
+    if (online_ && parseFails_ <= 1) {
+      strncpy(lastErr_, "bad AI reply, retry", sizeof(lastErr_) - 1);
+      retryPending_ = true;
+      retryAt_ = millis() + 800;
+      phase_ = PH_LOADING;
+      dirty_ = true;
+      return;
+    }
     if (!lastErr_[0]) strncpy(lastErr_, "bad AI reply", sizeof(lastErr_) - 1);
     online_ = false;
     offlineTurn();
     return;
   }
+  parseFails_ = 0;
   page_ = 0;
   sel_ = 0;
   phase_ = PH_PLAY;
@@ -213,15 +262,17 @@ void SurvivalGame::applyTurn(const char* raw) {
 void SurvivalGame::choose(uint8_t idx) {
   if (idx >= optCount_) return;
   int8_t dHp; int16_t dScore;
+  const char* label;
   if (online_) {
-    dHp = llHp_[idx]; dScore = llScore_[idx];
+    dHp = llHp_[idx]; dScore = llScore_[idx]; label = opts_[idx];
   } else {
-    dHp = offHp_[idx]; dScore = offScore_[idx];
+    dHp = offHp_[idx]; dScore = offScore_[idx]; label = opts_[idx];
   }
-  applyOutcome(dHp, dScore);
+  applyOutcome(dHp, dScore, label);
 }
 
-void SurvivalGame::applyOutcome(int8_t dHp, int16_t dScore) {
+void SurvivalGame::applyOutcome(int8_t dHp, int16_t dScore, const char* chosenLabel) {
+  addHistory(chosenLabel, dHp, dScore);
   hp_ += dHp;
   if (hp_ > MAX_HP) hp_ = MAX_HP;
   score_ += dScore;
@@ -276,14 +327,31 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
   NetClient::State ns = net.poll();
   if (requested_ && ns == NetClient::State::Done) {
     requested_ = false;
+    errCount_ = 0;
     applyTurn(net.response());
   } else if (requested_ && ns == NetClient::State::Error) {
     requested_ = false;
     strncpy(lastErr_, net.error(), sizeof(lastErr_) - 1);
-    online_ = false;
-    if (phase_ == PH_LOADING) offlineTurn();
+    // Retry transient API errors (429/5xx/timeout) up to 2 times before
+    // giving up on the AI for this run — one failed call must not turn
+    // the whole game offline.
+    errCount_++;
+    if (online_ && errCount_ <= 2) {
+      retryPending_ = true;
+      retryAt_ = millis() + 1200 * errCount_;  // simple backoff
+      dirty_ = true;
+    } else {
+      online_ = false;
+      if (phase_ == PH_LOADING) offlineTurn();
+    }
   }
   netState_ = ns;
+
+  // Fire a pending retry (API error or unparseable reply).
+  if (retryPending_ && millis() >= retryAt_) {
+    retryPending_ = false;
+    startRequest();
+  }
 
   switch (phase_) {
     case PH_TITLE:

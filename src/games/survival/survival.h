@@ -37,8 +37,10 @@ public:
   static constexpr uint8_t MAX_CHOICES = 3;
   static constexpr uint8_t TXT_W       = 38;  // chars per wrapped line (Font 2)
   static constexpr uint8_t TXT_LINES   = 4;   // text lines per page
-  static constexpr uint8_t OPT_LEN     = 30;  // max chars per choice label
+  static constexpr uint8_t OPT_LEN     = 20;  // max chars per choice (max 3 words)
   static constexpr size_t  MAX_TEXT    = 400; // situation text cap
+  static constexpr uint8_t HISTORY     = 3;   // last rounds sent back to the LLM
+  static constexpr size_t  HIST_LEN    = 170; // chars per history entry
 
   // Landscape geometry (rotation 1). gfx.width()/height() are static
   // portrait values, so the game uses its own constants.
@@ -49,7 +51,8 @@ public:
   void startRequest();
   void applyTurn(const char* raw);
   void choose(uint8_t idx);
-  void applyOutcome(int8_t dHp, int16_t dScore);
+  void applyOutcome(int8_t dHp, int16_t dScore, const char* chosenLabel);
+  void addHistory(const char* chosenLabel, int8_t dHp, int16_t dScore);
   void offlineTurn();
 
   int  wrapText(const char* t, char out[][TXT_W + 1], int maxL) const;
@@ -74,6 +77,14 @@ public:
   uint32_t titleRefresh_ = 0;   // title screen redraw timer (live status)
   uint32_t wifiWaitStart_ = 0;  // when the WiFi wait began (loading phase)
   bool     wifiWaiting_  = false; // loading phase is waiting for WiFi
+  // error handling: retry a failed API call instead of going offline forever
+  uint8_t  errCount_     = 0;
+  uint8_t  parseFails_   = 0;
+  bool     retryPending_ = false;
+  uint32_t retryAt_      = 0;
+  // short story memory sent back to the LLM so the tale stays coherent
+  char     hist_[HISTORY][HIST_LEN];
+  uint8_t  histCount_    = 0;
 
   char text_[MAX_TEXT] = "";
   char opts_[MAX_CHOICES][OPT_LEN + 1] = {{0},{0},{0}};
