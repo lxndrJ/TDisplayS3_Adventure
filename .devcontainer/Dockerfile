@@ -28,7 +28,7 @@ RUN python3 -m venv /opt/platformio \
 
 # OpenCode CLI, installed globally via npm so it is available to every user
 # (remoteUser is "opencode", not root)
-RUN npm install -g opencode-ai
+RUN npm install -g @opencode/cli
 
 # Non-root user expected by devcontainer.json "remoteUser".
 # The common-utils feature installs zsh and configures it as default shell.
