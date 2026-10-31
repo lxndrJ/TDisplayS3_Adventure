@@ -179,18 +179,16 @@ static constexpr uint16_t K_COL_SELECT = TFT_ORANGE;  // amber selection
 static constexpr uint16_t K_COL_BLOOD  = 0xC943;  // muted blood red
 static constexpr uint16_t K_COL_SAFE   = 0x5E4B;  // muted rescue green
 
-// Landscape layout constants (rotation 1, 320x170).
-// Story text and choices are drawn 1.5x: Font 2 (16px) into a line
-// sprite, block-scaled by 3/2 -> 24px lines, 320px = 213 sprite px.
-static constexpr int16_t K_SCALE_NUM   = 3;    // 1.5x = 3/2
-static constexpr int16_t K_SCALE_DEN   = 2;
-static constexpr int16_t K_SPR_W       = 213;  // 320 / 1.5
-static constexpr int16_t K_SPR_H       = 16;   // Font 2 line height
+// Landscape layout constants (rotation 1, 320x170). All text is drawn
+// with the TFT's native font renderer (integer setTextSize) - no manual
+// pixel scaling, so glyphs stay crisp.
+// Font 2 at size 1 = 16px line height (story text), size 2 = 32px
+// (choices). Status row and footer use Font 2 / Font 1.
 static constexpr int16_t K_STATUS_H   = 24;   // status row height
-static constexpr int16_t K_TEXT_Y     = 28;   // first big text line
-static constexpr int16_t K_TEXT_LH     = 24;   // 16 * 1.5
-static constexpr int16_t K_OPT_Y      = 34;   // first choice row
-static constexpr int16_t K_OPT_H      = 24;
+static constexpr int16_t K_TEXT_Y     = 30;   // first story line
+static constexpr int16_t K_TEXT_LH    = 17;   // Font 2 size 1 + 1px gap
+static constexpr int16_t K_OPT_Y      = 40;   // first choice row
+static constexpr int16_t K_OPT_H      = 34;   // Font 2 size 2 + gap
 static constexpr int16_t K_FOOTER_Y   = 160;  // bottom hint row (Font 1)
 
 void SurvivalGame::init() {
@@ -531,26 +529,37 @@ void SurvivalGame::applyOutcome(int8_t dHp, int16_t dScore) {
   startRequest();
 }
 
-int SurvivalGame::wrapText(const char* t, char out[][TXT_W + 1], int maxL) const {
+// Pixel-accurate word wrap: a line is broken at the last space that
+// still fits maxW at the given font/size (measured with textWidth).
+int SurvivalGame::wrapText(const char* t, uint8_t font, uint8_t size,
+                           int16_t maxW, char out[][LINE_LEN + 1], int maxL) const {
+  TFT_eSPI& tft = gfx.tft();
+  tft.setTextFont(font);
+  tft.setTextSize(size);
   int n = 0;
   const char* p = t;
   while (*p && n < maxL) {
     const char* start = p;
-    int i = 0, lastSpace = -1;
-    while (*p && i < TXT_W) {
-      if (*p == ' ') lastSpace = i;
-      out[n][i++] = *p++;
+    int i = 0, lastSpace = -1, w = 0;
+    while (p[i] && i < LINE_LEN) {
+      char tmp[2] = {p[i], 0};
+      int cw = tft.textWidth(tmp, font);
+      if (w + cw > maxW) break;
+      w += cw;
+      if (p[i] == ' ') lastSpace = i;
+      i++;
     }
-    if (i == TXT_W && *p == ' ') {
-      // Line fits exactly; the space starts the next line's first word.
-      out[n][i] = 0;
-      p++;
-    } else if (*p && i == TXT_W && lastSpace > 0) {
-      out[n][lastSpace] = 0;
+    int cut;
+    if (p[i] && lastSpace > 0) {
+      cut = lastSpace;              // break at the last fitting space
       p = start + lastSpace + 1;
     } else {
-      out[n][i] = 0;
+      cut = i;                      // hard break (long word / full line)
+      p = start + i;
     }
+    if (cut > LINE_LEN) cut = LINE_LEN;
+    memcpy(out[n], start, cut);
+    out[n][cut] = 0;
     n++;
   }
   return n;
@@ -622,7 +631,7 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
 
     case PH_PLAY: {
       if (in.longPressed[(uint8_t)Key::A]) { wantsMenu = true; break; }
-      int lines = wrapText(text_, wrapBuf_, MAX_WRAP_LINES);
+      int lines = wrapText(text_, 2, 1, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
       int pages = (lines + TXT_LINES - 1) / TXT_LINES;
       if (pages < 1) pages = 1;
       if (page_ >= (uint8_t)pages) page_ = pages - 1;
@@ -671,34 +680,19 @@ void SurvivalGame::draw() {
   }
 }
 
-int16_t SurvivalGame::drawBigText(const char* s, int16_t x, int16_t y, uint16_t color) {
+int16_t SurvivalGame::drawText(const char* s, int16_t x, int16_t y,
+                               uint8_t font, uint8_t size, uint16_t color) {
   if (!s || !s[0]) return x;
   TFT_eSPI& tft = gfx.tft();
-  // Line sprite holding one Font 2 line; scaled up 3/2 on push.
-  // Created on first use, kept for the whole game (~7 KB).
-  static TFT_eSprite spr(&gfx.tft());
-  if (!spr.created()) spr.createSprite(K_SPR_W, K_SPR_H);
-
-  int16_t w = tft.textWidth(s, 2);         // width in Font 2 pixels
-  if (w > K_SPR_W) w = K_SPR_W;
-  const int16_t dstH = K_SPR_H * K_SCALE_NUM / K_SCALE_DEN;  // 24
-  const int16_t dstW = w * K_SCALE_NUM / K_SCALE_DEN;
-  if (x < 0) x = (SCR_W - dstW) / 2;       // negative x = center
+  tft.setTextFont(font);
+  tft.setTextSize(size);
+  tft.setTextColor(color);
+  tft.setTextDatum(TL_DATUM);
+  int16_t w = tft.textWidth(s, font);
+  if (x < 0) x = (SCR_W - w) / 2;          // negative x = center
   if (x < 0) x = 0;
-
-  spr.fillSprite(K_COL_BG);  // same tint as fillScreen: seamless push
-  spr.setTextFont(2);
-  spr.setTextColor(color);
-  spr.setTextDatum(TL_DATUM);
-  spr.drawString(s, 0, 0);
-
-  static uint16_t row[SCR_W];
-  for (int16_t dy = 0; dy < dstH; dy++) {
-    const int16_t sy = dy * K_SCALE_DEN / K_SCALE_NUM;
-    for (int16_t dx = 0; dx < dstW; dx++)
-      row[dx] = spr.readPixel(dx * K_SCALE_DEN / K_SCALE_NUM, sy);
-    tft.pushImage(x, y + dy, dstW, 1, row);
-  }
+  tft.drawString(s, x, y, font);
+  tft.setTextSize(1);                       // restore default
   return x;
 }
 
@@ -733,7 +727,7 @@ void SurvivalGame::drawTitle() {
   tft.fillScreen(K_COL_BG);
   tft.setTextDatum(TL_DATUM);
 
-  drawBigText("SURVIVAL", -1, 12, K_COL_BLOOD);
+  drawText("SURVIVAL", -1, 12, 2, 3, K_COL_BLOOD);
 
   tft.setTextFont(2);
   tft.setTextColor(K_COL_DIM);
@@ -794,7 +788,7 @@ void SurvivalGame::drawLoading() {
 
   char day[12];
   snprintf(day, sizeof(day), ui.dayLabel, day_);
-  drawBigText(day, -1, 44, K_COL_TEXT);
+  drawText(day, -1, 44, 2, 2, K_COL_TEXT);
 
   tft.setTextFont(2);
   tft.setTextColor(K_COL_TEXT);
@@ -829,8 +823,8 @@ void SurvivalGame::drawPlay() {
   tft.setTextDatum(TL_DATUM);
 
   if (!choosing_) {
-    // Situation text, 2x big (32px lines), four lines fill the screen.
-    int lines = wrapText(text_, wrapBuf_, MAX_WRAP_LINES);
+    // Story text: native Font 2 at size 1 (16px lines, crisp).
+    int lines = wrapText(text_, 2, 1, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
     int pages = (lines + TXT_LINES - 1) / TXT_LINES;
     if (pages < 1) pages = 1;
     if (page_ >= (uint8_t)pages) page_ = pages - 1;
@@ -839,7 +833,7 @@ void SurvivalGame::drawPlay() {
     for (uint8_t i = 0; i < TXT_LINES; i++) {
       int li = start + i;
       if (li < lines)
-        drawBigText(wrapBuf_[li], -1, K_TEXT_Y + i * K_TEXT_LH, K_COL_TEXT);
+        drawText(wrapBuf_[li], -1, K_TEXT_Y + i * K_TEXT_LH, 2, 1, K_COL_TEXT);
     }
 
     tft.setTextFont(1);
@@ -857,15 +851,18 @@ void SurvivalGame::drawPlay() {
     tft.setTextColor(TFT_DARKGREY);
     tft.drawString(pg, SCR_W - 26, K_FOOTER_Y);
   } else {
-    // Choice screen: one option per 24px row, 1.5x big, centered.
+    // Choice screen: one option per row, Font 2 size 2 (32px) centered;
+    // falls back to size 1 if the label would overflow the width.
     for (uint8_t i = 0; i < optCount_; i++) {
       bool sel = (i == sel_);
-      int16_t y = K_OPT_Y + i * (K_OPT_H + 8);
-      int16_t tx = drawBigText(opts_[i], -1, y, sel ? K_COL_SELECT : K_COL_DIM);
+      int16_t y = K_OPT_Y + i * K_OPT_H;
+      tft.setTextFont(2);
+      uint8_t size = (tft.textWidth(opts_[i], 2) * 2 > SCR_W - 24) ? 1 : 2;
+      int16_t tx = drawText(opts_[i], -1, y, 2, size, sel ? K_COL_SELECT : K_COL_DIM);
       if (sel) {
         tft.setTextFont(1);
         tft.setTextColor(K_COL_SELECT);
-        tft.drawString(">", tx - 18, y + 8);
+        tft.drawString(">", tx - 14, y + (size == 2 ? 12 : 4));
       }
     }
     tft.setTextFont(1);
@@ -884,7 +881,7 @@ void SurvivalGame::drawEnd(bool won) {
   tft.setTextDatum(TL_DATUM);
 
   const char* head = won ? ui.rescued : ui.died;
-  drawBigText(head, -1, 40, won ? K_COL_SAFE : K_COL_BLOOD);
+  drawText(head, -1, 40, 2, 3, won ? K_COL_SAFE : K_COL_BLOOD);
 
   tft.setTextFont(2);
   tft.setTextColor(K_COL_TEXT);
