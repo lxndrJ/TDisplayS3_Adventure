@@ -126,7 +126,7 @@ bool NetClient::request(const char* systemPrompt, const char* userPrompt) {
 
   JsonDocument doc;
   doc["model"] = MISTRAL_MODEL;
-  doc["max_tokens"] = 160;
+  doc["max_tokens"] = 300;
   doc["temperature"] = 0.8;
   JsonArray msgs = doc["messages"].to<JsonArray>();
   JsonObject sys = msgs.add<JsonObject>();

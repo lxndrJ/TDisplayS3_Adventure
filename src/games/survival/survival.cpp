@@ -2,43 +2,54 @@
 #include "core/net.h"
 
 // System prompt: strict output format the device can parse line by line.
-//   S:<situation text, max ~130 chars, no line breaks>
-//   1:<choice label, max 26 chars>
+//   S:<situation text, max ~220 chars, no line breaks>
+//   1:<choice label, max 22 chars = max 3 short words>
 //   2:<choice label>
 //   3:<choice label>
 //   R1:H<hp delta> P<score delta>
 //   R2:H<hp delta> P<score delta>
 //   R3:H<hp delta> P<score delta>
+// The user prompt carries the story so far, so the model must continue
+// the SAME arc (same place, same stakes) instead of inventing a new one.
 // Font 2 on the device is ASCII-only, so German must avoid umlauts.
 static const char* kSystemPromptEn =
   "You are the storyteller of a grim zombie survival game on a tiny "
-  "handheld screen. Reply in EXACTLY this format, nothing else:\n"
-  "S:<one short situation, max 130 chars, no newlines>\n"
-  "1:<choice, max 26 chars>\n"
-  "2:<choice, max 26 chars>\n"
-  "3:<choice, max 26 chars>\n"
+  "handheld screen. The user message contains the story so far. You "
+  "MUST continue that exact story: same location, same characters, "
+  "open threads. Never restart or jump to a new place. Reply in "
+  "EXACTLY this format, nothing else:\n"
+  "S:<situation, max 220 chars, 2-4 sentences, no newlines>\n"
+  "1:<choice, max 22 chars, at most 3 short words>\n"
+  "2:<choice, max 22 chars, at most 3 short words>\n"
+  "3:<choice, max 22 chars, at most 3 short words>\n"
   "R1:H<signed hp delta> P<signed score delta>\n"
   "R2:H<signed hp delta> P<signed score delta>\n"
   "R3:H<signed hp delta> P<signed score delta>\n"
-  "HP is 0..10, score is survival points. The choices are shown very "
-  "big on a 320px screen: keep every choice under 26 characters. "
-  "Be dark, be brief.";
+  "HP is 0..10, score is survival points. Choices are shown very big "
+  "on a 320px screen: every choice at most 3 words and under 22 "
+  "characters. Grim, tense, cinematic. Choices must have real "
+  "consequences (hp/score deltas).";
 
 static const char* kSystemPromptDe =
   "Du bist der Erzaehler eines grimmigen Zombie-Survival-Spiels auf "
-  "einem winzigen Handheld-Bildschirm. Antworte GENAU in diesem "
-  "Format, nichts anderes:\n"
-  "S:<eine kurze Situation, max 130 Zeichen, keine Zeilenumbrueche>\n"
-  "1:<Wahl, max 26 Zeichen>\n"
-  "2:<Wahl, max 26 Zeichen>\n"
-  "3:<Wahl, max 26 Zeichen>\n"
+  "einem winzigen Handheld-Bildschirm. Die User-Nachricht enthaelt die "
+  "bisherige Geschichte. Du MUSST genau diese Geschichte fortsetzen: "
+  "gleicher Ort, gleiche Figuren, offene Handlungsstraenge. Niemals "
+  "neu anfangen oder an einen anderen Ort springen. Antworte GENAU in "
+  "diesem Format, nichts anderes:\n"
+  "S:<Situation, max 220 Zeichen, 2-4 Saetze, keine Zeilenumbrueche>\n"
+  "1:<Wahl, max 22 Zeichen, hoechstens 3 kurze Woerter>\n"
+  "2:<Wahl, max 22 Zeichen, hoechstens 3 kurze Woerter>\n"
+  "3:<Wahl, max 22 Zeichen, hoechstens 3 kurze Woerter>\n"
   "R1:H<signierte HP-Aenderung> P<signierte Punkte-Aenderung>\n"
   "R2:H<signierte HP-Aenderung> P<signierte Punkte-Aenderung>\n"
   "R3:H<signierte HP-Aenderung> P<signierte Punkte-Aenderung>\n"
-  "HP ist 0..10, Punkte sind Ueberlebenspunkte. Schreibe DEUTSCH, aber "
-  "NUR ASCII: keine Umlaute, schreibe ae/oe/ue/ss. Die Wahlmoeglichkeiten "
-  "erscheinen sehr gross auf einem 320px-Schirm: jede Wahl unter 26 "
-  "Zeichen. Grimmig, kurz.";
+  "HP ist 0..10, Punkte sind Ueberlebenspunkte. Schreibe DEUTSCH, "
+  "aber NUR ASCII: keine Umlaute, schreibe ae/oe/ue/ss. Die "
+  "Wahlmoeglichkeiten erscheinen sehr gross auf einem 320px-Schirm: "
+  "jede Wahl hoechstens 3 Woerter und unter 22 Zeichen. Grimmig, "
+  "spannend, filmreif. Wahlen brauchen echte Konsequenzen "
+  "(HP-/Punkte-Aenderungen).";
 
 // UI strings, indexed by lang_ (0 = EN, 1 = DE).
 struct UiText {
@@ -86,55 +97,76 @@ static const UiText kUi[2] = {
   },
 };
 
-// Built-in offline scenarios (used when WiFi/API is unavailable).
+// Built-in offline story (used when WiFi/API is unavailable). The turns
+// form a branching chain (next[choice]) instead of a loose rotation, so
+// offline play tells one connected story: mall -> gate -> night ->
+// police car -> gate horde -> rescue, with branches rejoining.
 struct OfflineTurn {
   const char* text;
   const char* opt[3];
   int8_t  hp[3];
   int16_t score[3];
+  uint8_t next[3];  // index of the follow-up turn per choice (255 = end)
 };
 
 static const OfflineTurn kOfflineEn[] = {
-  {"Rain hammers the dead mall. A lone zombie drifts between the tables.",
-   {"Loot fridge", "Sneak past", "Climb up"},
-   {0, 0, -1}, {30, 10, 10}},
-  {"A bitten man begs at the gate. Behind him three zombies turn.",
-   {"Give medkit", "Leave him", "Shoot"},
-   {1, -2, -1}, {40, 20, 10}},
-  {"Night. Your flashlight dies. A generator hums in the dark.",
+  // 0: opening - the dead mall
+  {"Rain hammers the dead mall. You wake between the tables. A lone "
+   "zombie drifts toward you.",
+   {"Loot fridge", "Sneak out", "Climb up"},
+   {0, 0, -1}, {30, 10, 10}, {1, 1, 1}},
+  // 1: gate with the bitten man
+  {"At the gate a bitten man begs for help. Behind him three zombies "
+   "turn.",
+   {"Give medkit", "Leave him", "Shoot them"},
+   {1, -2, -1}, {40, 20, 10}, {2, 4, 4}},
+  // 2: night generator (branch from helping)
+  {"Night falls. Your flashlight dies. Somewhere a generator hums.",
    {"Follow hum", "Hide", "Rush exit"},
-   {2, 0, -2}, {10, 10, 0}},
-  {"A police car. Keys inside, half a tank of gas.",
-   {"Drive it", "Loot it", "Walk on"},
-   {2, 0, 0}, {10, 20, -10}},
-  {"A horde moans beyond the half-open gate.",
-   {"Sprint", "Climb", "Wait"},
-   {-2, -1, 0}, {10, 0, 10}},
-  {"Dawn. A far helicopter. A flare gun at your feet.",
-   {"Fire flare", "Save it", "Signal"},
-   {0, 0, 1}, {30, 10, 20}},
+   {2, 0, -2}, {10, 10, 0}, {3, 3, 4}},
+  // 3: the police car
+  {"A police car waits. Keys inside, half a tank of gas.",
+   {"Drive away", "Loot trunk", "Walk on"},
+   {2, 0, 0}, {10, 20, -10}, {4, 4, 4}},
+  // 4: horde at the gate
+  {"A horde moans beyond the half-open gate. Something is coming.",
+   {"Sprint out", "Climb fence", "Wait"},
+   {-2, -1, 0}, {10, 0, 10}, {5, 5, 4}},
+  // 5: dawn rescue
+  {"Dawn. A far helicopter. A flare gun lies at your feet.",
+   {"Fire flare", "Save it", "Wave arms"},
+   {0, 0, 1}, {30, 10, 20}, {5, 5, 5}},
 };
 
 static const OfflineTurn kOfflineDe[] = {
-  {"Regen trommelt auf das tote Einkaufszentrum. Ein einzelner Zombie "
-   "treibt zwischen den Tischen.",
-   {"Kuehlschrank", "Schleichen", "Klettern"},
-   {0, 0, -1}, {30, 10, 10}},
-  {"Ein Gebissener fleht am Tor. Hinter ihm drehen sich drei Zombies um.",
-   {"Verband", "Ihn lassen", "Schiessen"},
-   {1, -2, -1}, {40, 20, 10}},
-  {"Nacht. Deine Lampe stirbt. Ein Generator brummt in der Dunkelheit.",
-   {"Folgen", "Verstecken", "Rennen"},
-   {2, 0, -2}, {10, 10, 0}},
-  {"Ein Streifenwagen. Der Schluessel steckt, halber Tank.",
-   {"Fahren", "Kofferraum", "Zu Fuss"},
-   {2, 0, 0}, {10, 20, -10}},
-  {"Eine Horde stoehnt hinter dem halboffenen Tor.",
-   {"Sprint", "Klettern", "Warten"},
-   {-2, -1, 0}, {10, 0, 10}},
-  {"Morgengrauen. Ein ferner Helikopter. Eine Signalpistole liegt vor dir.",
-   {"Signal", "Sparen", "Winken"},
-   {0, 0, 1}, {30, 10, 20}},
+  // 0: Eroeffnung - das tote Einkaufszentrum
+  {"Regen trommelt auf das tote Einkaufszentrum. Du erwachst zwischen "
+   "den Tischen. Ein einzelner Zombie treibt auf dich zu.",
+   {"Kuehlschrank", "Schleichen", "Hochklettern"},
+   {0, 0, -1}, {30, 10, 10}, {1, 1, 1}},
+  // 1: Tor mit dem Gebissenen
+  {"Am Tor fleht ein Gebissener um Hilfe. Hinter ihm drehen sich drei "
+   "Zombies um.",
+   {"Verband geben", "Ihn lassen", "Schiessen"},
+   {1, -2, -1}, {40, 20, 10}, {2, 4, 4}},
+  // 2: Nacht, Generator (Zweig fürs Helfen)
+  {"Nacht bricht herein. Deine Lampe stirbt. Irgendwo brummt ein "
+   "Generator.",
+   {"Dem Brummen", "Verstecken", "Rausrennen"},
+   {2, 0, -2}, {10, 10, 0}, {3, 3, 4}},
+  // 3: der Streifenwagen
+  {"Ein Streifenwagen steht bereit. Schluessel steckt, halber Tank.",
+   {"Wegfahren", "Kofferraum", "Zu Fuss"},
+   {2, 0, 0}, {10, 20, -10}, {4, 4, 4}},
+  // 4: Horde am Tor
+  {"Eine Horde stoesst hinter dem halboffenen Tor. Etwas naehert sich.",
+   {"Rausrennen", "Zaun hoch", "Warten"},
+   {-2, -1, 0}, {10, 0, 10}, {5, 5, 4}},
+  // 5: Rettung im Morgengrauen
+  {"Morgengrauen. Ein ferner Helikopter. Eine Signalpistole liegt vor "
+   "dir.",
+   {"Signal geben", "Sparen", "Winken"},
+   {0, 0, 1}, {30, 10, 20}, {5, 5, 5}},
 };
 
 // Palette: soft night tones instead of harsh white on black.
@@ -173,6 +205,10 @@ void SurvivalGame::init() {
   dirty_  = true;
   wantsMenu = false;
   requested_ = false;
+  retries_ = 0;
+  storyOn_ = false;
+  histCount_ = 0;
+  for (auto& h : history_) h[0] = 0;
   msg_[0] = 0;
   lastErr_[0] = 0;
   text_[0] = 0;
@@ -200,6 +236,11 @@ void SurvivalGame::startGame() {
   text_[0] = 0;
   optCount_ = 0;
   for (auto& o : opts_) o[0] = 0;
+  offlineIdx_ = 0;
+  retries_  = 0;
+  storyOn_  = false;
+  histCount_ = 0;
+  for (auto& h : history_) h[0] = 0;
   strncpy(msg_, "Starting...", sizeof(msg_) - 1);
   msgUntil_ = millis() + 2000;
   startRequest();
@@ -224,22 +265,49 @@ void SurvivalGame::startRequest() {
   }
   if (online_ && net.connected()) {
     const char* sys = (lang_ == 1) ? kSystemPromptDe : kSystemPromptEn;
-    char user[240];
+    // The prompt carries the story so far so the model continues the
+    // same arc. history_ entries: "Day 3: <situation> -> chose: <option>"
+    char user[640];
+    size_t used = 0;
+    auto append = [&](const char* fmt, ...) {
+      if (used >= sizeof(user) - 1) return;
+      va_list ap;
+      va_start(ap, fmt);
+      int n = vsnprintf(user + used, sizeof(user) - used, fmt, ap);
+      va_end(ap);
+      if (n > 0) used += (size_t)n;
+      if (used > sizeof(user) - 1) used = sizeof(user) - 1;
+    };
     if (lang_ == 1) {
-      snprintf(user, sizeof(user),
-               "Zombie-Survival, Tag %u. HP %d/%d, Punkte %d. Der Spieler "
-               "hat die letzte Situation ueberlebt. Schreibe die naechste "
-               "kurze Situation (max 130 Zeichen, nur ASCII, keine "
-               "Umlaute) mit 3 Wahlmoeglichkeiten (max 26 Zeichen) und "
-               "HP-/Punkte-Aenderungen pro Wahl.",
-               day_, hp_, MAX_HP, score_);
+      append("Zombie-Survival, Tag %u. HP %d/%d, Punkte %d. "
+             "Bisherige Geschichte (fahre GENAU hier fort):\n",
+             day_, hp_, MAX_HP, score_);
     } else {
-      snprintf(user, sizeof(user),
-               "Zombie survival, day %u. HP %d/%d, score %d. The player "
-               "just survived the last situation. Write the next short "
-               "situation (max 130 chars) with 3 choices (max 26 chars "
-               "each) and per-choice HP/score deltas.",
-               day_, hp_, MAX_HP, score_);
+      append("Zombie survival, day %u. HP %d/%d, score %d. "
+             "Story so far (continue EXACTLY from here):\n",
+             day_, hp_, MAX_HP, score_);
+    }
+    if (histCount_ == 0) {
+      if (lang_ == 1)
+        append("(Noch keine Geschichte. Beginne mit einer starken "
+               "Eroeffnung: der Spieler wacht in einer verlassenen Stadt "
+               "auf.)\n");
+      else
+        append("(No story yet. Start with a strong opening: the player "
+               "wakes up in an abandoned city.)\n");
+    } else {
+      for (uint8_t i = 0; i < histCount_; i++)
+        append("%s\n", history_[i]);
+    }
+    if (lang_ == 1) {
+      append("Schreibe die naechste Situation (max 220 Zeichen, nur "
+             "ASCII, keine Umlaute) mit 3 Wahlmoeglichkeiten (max 22 "
+             "Zeichen, hoechstens 3 Woerter) und HP-/Punkte-Aenderungen "
+             "pro Wahl.");
+    } else {
+      append("Write the next situation (max 220 chars) with 3 choices "
+             "(max 22 chars, at most 3 words each) and per-choice "
+             "HP/score deltas.");
     }
     net.reset();
     if (net.request(sys, user)) {
@@ -254,10 +322,17 @@ void SurvivalGame::startRequest() {
 }
 
 void SurvivalGame::offlineTurn() {
+  offlineTurnAt(offlineIdx_);
+}
+
+// Shows offline turn idx and remembers where each choice leads, so the
+// offline story branches instead of rotating through unrelated scenes.
+void SurvivalGame::offlineTurnAt(uint8_t idx) {
   const OfflineTurn* table = (lang_ == 1) ? kOfflineDe : kOfflineEn;
   constexpr uint8_t count = sizeof(kOfflineEn) / sizeof(kOfflineEn[0]);
-  const OfflineTurn& t = table[offlineIdx_ % count];
-  offlineIdx_++;
+  if (idx >= count) idx = 0;
+  const OfflineTurn& t = table[idx];
+  offlineIdx_ = idx;
   strncpy(text_, t.text, MAX_TEXT - 1);
   text_[MAX_TEXT - 1] = 0;
   optCount_ = 3;
@@ -266,6 +341,7 @@ void SurvivalGame::offlineTurn() {
     opts_[i][OPT_LEN] = 0;
     offHp_[i] = t.hp[i];
     offScore_[i] = t.score[i];
+    offNext_[i] = t.next[i];
   }
   page_ = 0;
   sel_ = 0;
@@ -290,6 +366,7 @@ void SurvivalGame::applyTurn(const char* raw) {
     const char* eol = p;
     while (*eol && *eol != '\n') eol++;
     size_t len = eol - p;
+    if (len > 0 && p[len - 1] == '\r') len--;  // tolerate CRLF
 
     if (len >= 2 && p[0] == 'S' && p[1] == ':') {
       size_t n = len - 2;
@@ -317,13 +394,33 @@ void SurvivalGame::applyTurn(const char* raw) {
     p = (*eol == '\n') ? eol + 1 : eol;
   }
 
-  // Fallback: if the model produced no usable text, use offline.
+  // Fallback: a malformed reply triggers ONE retry (the prompt is
+  // strict, so most replies parse); only after retries run out do we
+  // degrade to the offline story for the rest of the run.
   if (text_[0] == 0 || optCount_ == 0) {
+    retries_++;
+    if (retries_ <= 1 && online_ && net.connected()) {
+      strncpy(lastErr_, "bad AI reply, retry", sizeof(lastErr_) - 1);
+      phase_ = PH_LOADING;
+      dirty_ = true;
+      startRequest();
+      return;
+    }
     if (!lastErr_[0]) strncpy(lastErr_, "bad AI reply", sizeof(lastErr_) - 1);
     online_ = false;
+    storyOn_ = false;
+    offlineIdx_ = 0;
     offlineTurn();
     return;
   }
+  retries_ = 0;
+  storyOn_ = true;
+  // Trim stray control chars from the parsed strings.
+  for (size_t i = 0; text_[i]; i++)
+    if ((uint8_t)text_[i] < 32) text_[i] = ' ';
+  for (uint8_t i = 0; i < optCount_; i++)
+    for (size_t j = 0; opts_[i][j]; j++)
+      if ((uint8_t)opts_[i][j] < 32) opts_[i][j] = ' ';
   page_ = 0;
   sel_ = 0;
   choosing_ = false;
@@ -338,6 +435,19 @@ void SurvivalGame::choose(uint8_t idx) {
     dHp = llHp_[idx]; dScore = llScore_[idx];
   } else {
     dHp = offHp_[idx]; dScore = offScore_[idx];
+    // Follow the branch this choice leads to next turn.
+    uint8_t nx = offNext_[idx];
+    if (nx != 0xFF) offlineIdx_ = nx;
+  }
+  // Remember the beat for the LLM story memory (ring buffer).
+  if (storyOn_ && histCount_ < HISTORY_N) {
+    snprintf(history_[histCount_], sizeof(history_[0]),
+             "Day %u: %.60s -> chose: %.22s", day_, text_, opts_[idx]);
+    histCount_++;
+  } else if (storyOn_) {
+    memmove(history_[0], history_[1], (HISTORY_N - 1) * sizeof(history_[0]));
+    snprintf(history_[HISTORY_N - 1], sizeof(history_[0]),
+             "Day %u: %.60s -> chose: %.22s", day_, text_, opts_[idx]);
   }
   applyOutcome(dHp, dScore);
 }

@@ -44,7 +44,9 @@ public:
   static constexpr uint8_t TXT_W       = 26;
   static constexpr uint8_t TXT_LINES   = 5;   // text lines per page (24px each)
   static constexpr uint8_t MAX_WRAP_LINES = 16; // wrap buffer capacity (400/26)
-  static constexpr uint8_t OPT_LEN     = 30;  // max chars per choice label
+  // Choices are drawn 1.5x big; >22 chars would clip the 213px line
+  // sprite, so the LLM is asked for max 3 words / 22 chars per choice.
+  static constexpr uint8_t OPT_LEN     = 22;  // max chars per choice label
   static constexpr size_t  MAX_TEXT    = 400; // situation text cap
 
   // Landscape geometry (rotation 1). gfx.width()/height() are static
@@ -58,6 +60,7 @@ public:
   void choose(uint8_t idx);
   void applyOutcome(int8_t dHp, int16_t dScore);
   void offlineTurn();
+  void offlineTurnAt(uint8_t idx);
 
   int  wrapText(const char* t, char out[][TXT_W + 1], int maxL) const;
 
@@ -87,6 +90,8 @@ public:
   bool     wifiWaiting_  = false; // loading phase is waiting for WiFi
   bool     choosing_     = false; // PH_PLAY: choice screen (vs. text pages)
   uint8_t  lang_         = 1;     // 0 = English, 1 = German (default), toggle: B long on title
+  uint8_t  retries_      = 0;     // consecutive bad LLM replies this turn
+  bool     storyOn_      = false; // a coherent story arc is in progress
 
   char text_[MAX_TEXT] = "";
   char opts_[MAX_CHOICES][OPT_LEN + 1] = {{0},{0},{0}};
@@ -96,6 +101,12 @@ public:
   int16_t llScore_[MAX_CHOICES] = {0, 0, 0};
   int8_t  offHp_[MAX_CHOICES]    = {0, 0, 0};
   int16_t offScore_[MAX_CHOICES] = {0, 0, 0};
+  uint8_t offNext_[MAX_CHOICES]  = {0, 0, 0}; // branch target per choice
+  // Story memory: last situations + chosen options, sent back to the
+  // LLM so each new turn continues the arc instead of restarting it.
+  static constexpr uint8_t HISTORY_N = 4;
+  char history_[HISTORY_N][96] = {{0}};
+  uint8_t histCount_ = 0;
 
   char msg_[48]      = "";
   uint32_t msgUntil_ = 0;
