@@ -2,6 +2,7 @@
 #define GAMES_SURVIVAL_SURVIVAL_H
 
 #include <Arduino.h>
+#include <FS.h>
 #include "core/game.h"
 #include "core/display.h"
 #include "core/net.h"
@@ -43,9 +44,16 @@ public:
   static constexpr uint8_t MAX_CHOICES = 3;
   // Text wrapping is measured in pixels via TFT textWidth, so lines
   // fit the 320px screen exactly at any font size.
-  static constexpr uint8_t LINE_LEN     = 80;  // max chars per wrapped line
-  static constexpr uint8_t TXT_LINES    = 5;   // story lines per page (Font 4 = 26px)
+  static constexpr uint8_t LINE_LEN     = 96;  // max bytes per wrapped line
+  static constexpr uint8_t TXT_LINES    = 5;   // story lines per page (Roboto20 ~24px)
   static constexpr uint8_t MAX_WRAP_LINES = 20; // wrap buffer capacity
+  // Smooth fonts (TFT_eSPI .vlw) on the FAT "storage" partition,
+  // uploaded with `pio run -t uploadfs`. Story: Roboto20, choices/title:
+  // Roboto28. Both contain Basic Latin + Latin-1 Supplement (umlauts).
+  static constexpr const char* FONT_STORY  = "Roboto20";
+  static constexpr const char* FONT_BIG    = "Roboto28";
+  bool     fontReady_ = false;   // .vlw files found on the filesystem
+  bool     ffatMounted_ = false; // FFat mounted (kept mounted for font file handle)
   // Story and choices use native Font 4 (26px, full alphabet - the
   // biggest TFT_eSPI GLCD font with letters; fonts 6-8 are digits
   // only). 22 chars * ~13px = ~286px fits the 320px width at size 1,
@@ -67,18 +75,26 @@ public:
   void offlineTurnAt(uint8_t idx);
 
   // Word-wrap t into pixel-fitting lines (font/size as drawn).
-  int  wrapText(const char* t, uint8_t font, uint8_t size, int16_t maxW,
-                char out[][LINE_LEN + 1], int maxL) const;
+  // Word wrap in pixels for the currently loaded font (Roboto .vlw when
+  // fontReady_, built-in fallback otherwise). UTF-8 safe (umlauts).
+  int  wrapText(const char* t, bool big, int16_t maxW,
+                char out[][LINE_LEN + 1], int maxL);
 
+  // Load/unload the Roboto .vlw font for the current screen; no-op when
+  // falling back to built-in fonts (fontReady_ == false).
+  void loadStoryFont();
+  void loadBigFont();
+  void unloadFontIfLoaded();
   void drawTitle();
   void drawLoading();
   void drawPlay();
   void drawEnd(bool won);
   void drawStatus();
-  // Draws s with the TFT's own font renderer (font + integer size, no
-  // manual pixel scaling). x < 0 centers horizontally; returns draw x.
-  int16_t drawText(const char* s, int16_t x, int16_t y, uint8_t font,
-                   uint8_t size, uint16_t color);
+  // Draws s with the TFT's native renderer. big=true uses the Roboto28
+  // .vlw smooth font (when fontReady_), otherwise built-in Font 4;
+  // big=false uses Roboto20 .vlw or Font 2. x < 0 centers horizontally.
+  int16_t drawText(const char* s, int16_t x, int16_t y, bool big,
+                   uint16_t color);
 
   Phase    phase_   = PH_TITLE;
   int      hp_      = MAX_HP;
