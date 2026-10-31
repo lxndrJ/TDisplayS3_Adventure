@@ -181,14 +181,14 @@ static constexpr uint16_t K_COL_SAFE   = 0x5E4B;  // muted rescue green
 
 // Landscape layout constants (rotation 1, 320x170). All text is drawn
 // with the TFT's native font renderer (integer setTextSize) - no manual
-// pixel scaling, so glyphs stay crisp.
-// Font 2 at size 1 = 16px line height (story text), size 2 = 32px
-// (choices). Status row and footer use Font 2 / Font 1.
+// pixel scaling, so glyphs stay crisp. Story and choices use Font 4
+// (26px, the largest GLCD font with a full alphabet). Status row and
+// footer use Font 2 / Font 1.
 static constexpr int16_t K_STATUS_H   = 24;   // status row height
 static constexpr int16_t K_TEXT_Y     = 30;   // first story line
-static constexpr int16_t K_TEXT_LH    = 17;   // Font 2 size 1 + 1px gap
-static constexpr int16_t K_OPT_Y      = 40;   // first choice row
-static constexpr int16_t K_OPT_H      = 34;   // Font 2 size 2 + gap
+static constexpr int16_t K_TEXT_LH    = 28;   // Font 4 (26px) + 2px gap
+static constexpr int16_t K_OPT_Y      = 36;   // first choice row
+static constexpr int16_t K_OPT_H      = 40;   // Font 4 (26px) + gap
 static constexpr int16_t K_FOOTER_Y   = 160;  // bottom hint row (Font 1)
 
 void SurvivalGame::init() {
@@ -631,7 +631,7 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
 
     case PH_PLAY: {
       if (in.longPressed[(uint8_t)Key::A]) { wantsMenu = true; break; }
-      int lines = wrapText(text_, 2, 1, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
+      int lines = wrapText(text_, 4, 1, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
       int pages = (lines + TXT_LINES - 1) / TXT_LINES;
       if (pages < 1) pages = 1;
       if (page_ >= (uint8_t)pages) page_ = pages - 1;
@@ -727,7 +727,7 @@ void SurvivalGame::drawTitle() {
   tft.fillScreen(K_COL_BG);
   tft.setTextDatum(TL_DATUM);
 
-  drawText("SURVIVAL", -1, 12, 2, 3, K_COL_BLOOD);
+  drawText("SURVIVAL", -1, 12, 4, 2, K_COL_BLOOD);
 
   tft.setTextFont(2);
   tft.setTextColor(K_COL_DIM);
@@ -788,7 +788,7 @@ void SurvivalGame::drawLoading() {
 
   char day[12];
   snprintf(day, sizeof(day), ui.dayLabel, day_);
-  drawText(day, -1, 44, 2, 2, K_COL_TEXT);
+  drawText(day, -1, 44, 4, 1, K_COL_TEXT);
 
   tft.setTextFont(2);
   tft.setTextColor(K_COL_TEXT);
@@ -823,8 +823,8 @@ void SurvivalGame::drawPlay() {
   tft.setTextDatum(TL_DATUM);
 
   if (!choosing_) {
-    // Story text: native Font 2 at size 1 (16px lines, crisp).
-    int lines = wrapText(text_, 2, 1, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
+    // Story text: native Font 4 at size 1 (26px lines, crisp).
+    int lines = wrapText(text_, 4, 1, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
     int pages = (lines + TXT_LINES - 1) / TXT_LINES;
     if (pages < 1) pages = 1;
     if (page_ >= (uint8_t)pages) page_ = pages - 1;
@@ -833,7 +833,7 @@ void SurvivalGame::drawPlay() {
     for (uint8_t i = 0; i < TXT_LINES; i++) {
       int li = start + i;
       if (li < lines)
-        drawText(wrapBuf_[li], -1, K_TEXT_Y + i * K_TEXT_LH, 2, 1, K_COL_TEXT);
+        drawText(wrapBuf_[li], -1, K_TEXT_Y + i * K_TEXT_LH, 4, 1, K_COL_TEXT);
     }
 
     tft.setTextFont(1);
@@ -851,18 +851,19 @@ void SurvivalGame::drawPlay() {
     tft.setTextColor(TFT_DARKGREY);
     tft.drawString(pg, SCR_W - 26, K_FOOTER_Y);
   } else {
-    // Choice screen: one option per row, Font 2 size 2 (32px) centered;
-    // falls back to size 1 if the label would overflow the width.
+    // Choice screen: one option per row, native Font 4 (26px) centered;
+    // falls back to Font 2 if the label would overflow the width.
     for (uint8_t i = 0; i < optCount_; i++) {
       bool sel = (i == sel_);
       int16_t y = K_OPT_Y + i * K_OPT_H;
-      tft.setTextFont(2);
-      uint8_t size = (tft.textWidth(opts_[i], 2) * 2 > SCR_W - 24) ? 1 : 2;
-      int16_t tx = drawText(opts_[i], -1, y, 2, size, sel ? K_COL_SELECT : K_COL_DIM);
+      tft.setTextFont(4);
+      bool big = (tft.textWidth(opts_[i], 4) <= SCR_W - 40);
+      int16_t tx = drawText(opts_[i], -1, y, big ? 4 : 2, 1,
+                            sel ? K_COL_SELECT : K_COL_DIM);
       if (sel) {
-        tft.setTextFont(1);
+        tft.setTextFont(2);
         tft.setTextColor(K_COL_SELECT);
-        tft.drawString(">", tx - 14, y + (size == 2 ? 12 : 4));
+        tft.drawString(">", tx - 16, y + 6);
       }
     }
     tft.setTextFont(1);
@@ -881,7 +882,7 @@ void SurvivalGame::drawEnd(bool won) {
   tft.setTextDatum(TL_DATUM);
 
   const char* head = won ? ui.rescued : ui.died;
-  drawText(head, -1, 40, 2, 3, won ? K_COL_SAFE : K_COL_BLOOD);
+  drawText(head, -1, 40, 4, 2, won ? K_COL_SAFE : K_COL_BLOOD);
 
   tft.setTextFont(2);
   tft.setTextColor(K_COL_TEXT);
