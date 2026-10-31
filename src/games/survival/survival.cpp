@@ -371,7 +371,7 @@ void SurvivalGame::offlineTurnAt(uint8_t idx) {
 // "S:", "S.", "1:", "1)", "1.", "R1:H.. P.." in any order. Returns the
 // number of parsed fields so the caller can decide on a retry.
 static int parseTurn(const char* raw, char* text, size_t textCap,
-                     char opts[][OPT_LEN + 1], uint8_t& optCount,
+                     char opts[][SurvivalGame::OPT_LEN + 1], uint8_t& optCount,
                      int8_t* hp, int16_t* score) {
   if (!raw) return 0;
   int found = 0;
@@ -416,7 +416,7 @@ static int parseTurn(const char* raw, char* text, size_t textCap,
     } else if (tag == 'C') {
       while (bodyLen > 0 && (*body == ' ' || *body == '\t')) { body++; bodyLen--; }
       size_t n = bodyLen;
-      if (n > OPT_LEN) n = OPT_LEN;
+      if (n > SurvivalGame::OPT_LEN) n = SurvivalGame::OPT_LEN;
       memcpy(opts[idx], body, n);
       opts[idx][n] = 0;
       if (idx + 1 > optCount) optCount = idx + 1;
