@@ -686,7 +686,7 @@ int16_t SurvivalGame::drawText(const char* s, int16_t x, int16_t y,
   TFT_eSPI& tft = gfx.tft();
   tft.setTextFont(font);
   tft.setTextSize(size);
-  tft.setTextColor(color);
+  tft.setTextColor(color, K_COL_BG);  // opaque bg = clean glyphs on the field
   tft.setTextDatum(TL_DATUM);
   int16_t w = tft.textWidth(s, font);
   if (x < 0) x = (SCR_W - w) / 2;          // negative x = center
