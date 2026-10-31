@@ -79,8 +79,10 @@ static void netTask(void* arg) {
 void NetClient::begin() {
 #if NET_HAS_SECRETS
   if (!configured()) { state_ = State::NoConfig; return; }
-  if (began_) return;
-  began_ = true;
+  // Re-startable: also called after a WifiFailed timeout or after the
+  // game was quit and re-entered. WiFi.begin() is idempotent while
+  // associating and restarts the association after a disconnect.
+  if (WiFi.status() == WL_CONNECTED) { state_ = State::Idle; return; }
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(true);  // power saving between requests
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -190,6 +192,11 @@ NetClient::State NetClient::poll() {
         setError("wifi timeout");
         state_ = State::WifiFailed;
       }
+      break;
+
+    case State::WifiFailed:
+      // Allow begin() to retry the association after a failure instead
+      // of staying stuck in WifiFailed forever.
       break;
 
     default:

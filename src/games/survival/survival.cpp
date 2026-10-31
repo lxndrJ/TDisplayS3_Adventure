@@ -207,6 +207,8 @@ void SurvivalGame::init() {
   requested_ = false;
   retries_ = 0;
   storyOn_ = false;
+  turnOffline_ = false;
+  wifiAttempts_ = 0;
   histCount_ = 0;
   for (auto& h : history_) h[0] = 0;
   msg_[0] = 0;
@@ -239,6 +241,8 @@ void SurvivalGame::startGame() {
   offlineIdx_ = 0;
   retries_  = 0;
   storyOn_  = false;
+  turnOffline_ = false;
+  wifiAttempts_ = 0;
   histCount_ = 0;
   for (auto& h : history_) h[0] = 0;
   strncpy(msg_, "Starting...", sizeof(msg_) - 1);
@@ -249,11 +253,16 @@ void SurvivalGame::startGame() {
 void SurvivalGame::startRequest() {
   requested_ = false;
   wifiWaiting_ = false;
-  // Wait for WiFi (up to ~10 s) before falling back to offline, so a
-  // slow association doesn't silently disable the AI storyteller.
+  turnOffline_ = !online_;
+  // Wait for WiFi (up to ~30 s, retried) before falling back to offline,
+  // so a slow first association doesn't silently disable the AI.
   if (online_ && !net.connected()) {
-    net.begin();  // no-op when already started
-    if (net.poll() == NetClient::State::WifiConnecting) {
+    net.begin();  // (re)starts association, no-op while connected
+    NetClient::State st = net.poll();
+    if (st == NetClient::State::WifiConnecting || st == NetClient::State::WifiFailed) {
+      if (st == NetClient::State::WifiFailed && wifiAttempts_ < 2) {
+        wifiAttempts_++;  // one re-association attempt, then keep waiting
+      }
       phase_ = PH_LOADING;
       dirty_ = true;
       strncpy(msg_, "Connecting to WiFi...", sizeof(msg_) - 1);
@@ -261,6 +270,10 @@ void SurvivalGame::startRequest() {
       wifiWaiting_ = true;
       wifiWaitStart_ = millis();
       return;
+    }
+    if (st == NetClient::State::WifiFailed) {
+      strncpy(lastErr_, "wifi failed", sizeof(lastErr_) - 1);
+      // keep online_ true: the loading screen retries the association
     }
   }
   if (online_ && net.connected()) {
@@ -314,11 +327,12 @@ void SurvivalGame::startRequest() {
       requested_ = true;
       return;
     }
-    // request() refused: remember why, degrade to offline.
+    // request() refused: remember why, this turn goes offline. The next
+    // turn tries the LLM again - a refused request is not permanent.
     strncpy(lastErr_, net.error(), sizeof(lastErr_) - 1);
-    online_ = false;
+    turnOffline_ = true;
   }
-  offlineTurn();
+  if (turnOffline_) offlineTurn();
 }
 
 void SurvivalGame::offlineTurn() {
@@ -348,79 +362,117 @@ void SurvivalGame::offlineTurnAt(uint8_t idx) {
   choosing_ = false;
   phase_ = PH_PLAY;
   dirty_ = true;
-  if (!online_) {
+  if (turnOffline_) {
     strncpy(msg_, lastErr_[0] ? lastErr_ : kUi[lang_].offScenario,
             sizeof(msg_) - 1);
     msgUntil_ = millis() + 1500;
   }
 }
 
-void SurvivalGame::applyTurn(const char* raw) {
-  if (!raw) return;
-  text_[0] = 0;
-  optCount_ = 0;
-  for (uint8_t i = 0; i < 3; i++) { opts_[i][0] = 0; llHp_[i] = 0; llScore_[i] = 0; }
-
+// Lenient line parser: skips markdown fences and preamble, accepts
+// "S:", "S.", "1:", "1)", "1.", "R1:H.. P.." in any order. Returns the
+// number of parsed fields so the caller can decide on a retry.
+static int parseTurn(const char* raw, char* text, size_t textCap,
+                     char opts[][OPT_LEN + 1], uint8_t& optCount,
+                     int8_t* hp, int16_t* score) {
+  if (!raw) return 0;
+  int found = 0;
+  text[0] = 0;
+  optCount = 0;
   const char* p = raw;
   while (*p) {
+    // skip markdown code-fence lines (``` or ```lang) and blank lines;
+    // the fenced CONTENT stays and is parsed normally
+    while (*p == '\n' || *p == '\r' || *p == ' ') p++;
+    if (p[0] == '`' && p[1] == '`' && p[2] == '`') {
+      while (*p && *p != '\n') p++;  // drop the fence line only
+      continue;
+    }
     const char* eol = p;
     while (*eol && *eol != '\n') eol++;
     size_t len = eol - p;
-    if (len > 0 && p[len - 1] == '\r') len--;  // tolerate CRLF
+    if (len > 0 && p[len - 1] == '\r') len--;
+    // strip leading whitespace of the line
+    while (len > 0 && (*p == ' ' || *p == '\t')) { p++; len--; }
 
-    if (len >= 2 && p[0] == 'S' && p[1] == ':') {
-      size_t n = len - 2;
-      if (n > MAX_TEXT - 1) n = MAX_TEXT - 1;
-      memcpy(text_, p + 2, n);
-      text_[n] = 0;
-    } else if (len >= 3 && p[0] >= '1' && p[0] <= '3' && p[1] == ':') {
-      uint8_t idx = p[0] - '1';
-      size_t n = len - 2;
+    char tag = 0;
+    uint8_t idx = 0;
+    const char* body = nullptr;
+    size_t bodyLen = 0;
+    if (len >= 2 && p[0] == 'S' && (p[1] == ':' || p[1] == '.' || p[1] == ' ')) {
+      tag = 'S'; body = p + 2; bodyLen = len - 2;
+    } else if (len >= 3 && p[0] >= '1' && p[0] <= '3' &&
+               (p[1] == ':' || p[1] == ')' || p[1] == '.' || p[1] == ' ')) {
+      tag = 'C'; idx = p[0] - '1'; body = p + 2; bodyLen = len - 2;
+    } else if (len >= 3 && (p[0] == 'R' || p[0] == 'r') && p[1] >= '1' && p[1] <= '3' &&
+               (p[2] == ':' || p[2] == ' ' || p[2] == ')')) {
+      tag = 'R'; idx = p[1] - '1'; body = p + 3; bodyLen = len - 3;
+    }
+    if (tag == 'S') {
+      while (bodyLen > 0 && (*body == ' ' || *body == '\t')) { body++; bodyLen--; }
+      size_t n = bodyLen;
+      if (n > textCap - 1) n = textCap - 1;
+      memcpy(text, body, n);
+      text[n] = 0;
+      found++;
+    } else if (tag == 'C') {
+      while (bodyLen > 0 && (*body == ' ' || *body == '\t')) { body++; bodyLen--; }
+      size_t n = bodyLen;
       if (n > OPT_LEN) n = OPT_LEN;
-      memcpy(opts_[idx], p + 2, n);
-      opts_[idx][n] = 0;
-      if (idx + 1 > optCount_) optCount_ = idx + 1;
-    } else if (len >= 3 && p[0] == 'R' && p[1] >= '1' && p[1] <= '3') {
-      uint8_t idx = p[1] - '1';
-      // Tolerate both "R1:H..." and "R1 H...".
-      const char* q = p + 2;
+      memcpy(opts[idx], body, n);
+      opts[idx][n] = 0;
+      if (idx + 1 > optCount) optCount = idx + 1;
+      found++;
+    } else if (tag == 'R') {
+      const char* q = body;
       while (*q == ' ' || *q == ':') q++;
-      if (*q == 'H') {
-        llHp_[idx] = (int8_t)atoi(q + 1);
+      if (*q == 'H' || *q == 'h') {
+        hp[idx] = (int8_t)atoi(q + 1);
         const char* sp = strchr(q, 'P');
-        if (sp) llScore_[idx] = (int16_t)atoi(sp + 1);
+        if (!sp) sp = strchr(q, 'p');
+        if (sp) score[idx] = (int16_t)atoi(sp + 1);
+        found++;
       }
     }
     p = (*eol == '\n') ? eol + 1 : eol;
   }
+  // sanitize control chars
+  for (size_t i = 0; text[i]; i++)
+    if ((uint8_t)text[i] < 32) text[i] = ' ';
+  for (uint8_t i = 0; i < optCount; i++)
+    for (size_t j = 0; opts[i][j]; j++)
+      if ((uint8_t)opts[i][j] < 32) opts[i][j] = ' ';
+  return found;
+}
 
-  // Fallback: a malformed reply triggers ONE retry (the prompt is
-  // strict, so most replies parse); only after retries run out do we
-  // degrade to the offline story for the rest of the run.
+void SurvivalGame::applyTurn(const char* raw) {
+  if (!raw) return;
+  for (uint8_t i = 0; i < 3; i++) { opts_[i][0] = 0; llHp_[i] = 0; llScore_[i] = 0; }
+  uint8_t optCount = 0;
+  int fields = parseTurn(raw, text_, MAX_TEXT, opts_, optCount,
+                         llHp_, llScore_);
+  optCount_ = optCount;
+
+  // A usable turn needs situation text and at least one choice.
   if (text_[0] == 0 || optCount_ == 0) {
     retries_++;
-    if (retries_ <= 1 && online_ && net.connected()) {
-      strncpy(lastErr_, "bad AI reply, retry", sizeof(lastErr_) - 1);
+    if (retries_ <= 2 && online_ && net.connected()) {
+      snprintf(lastErr_, sizeof(lastErr_), "bad AI reply (%d fld), retry",
+               fields);
       phase_ = PH_LOADING;
       dirty_ = true;
       startRequest();
       return;
     }
-    if (!lastErr_[0]) strncpy(lastErr_, "bad AI reply", sizeof(lastErr_) - 1);
-    online_ = false;
-    storyOn_ = false;
-    offlineIdx_ = 0;
+    snprintf(lastErr_, sizeof(lastErr_), "bad AI reply (%d fld)", fields);
+    // Only THIS turn goes offline; the LLM is retried next turn.
+    turnOffline_ = true;
     offlineTurn();
     return;
   }
   retries_ = 0;
   storyOn_ = true;
-  // Trim stray control chars from the parsed strings.
-  for (size_t i = 0; text_[i]; i++)
-    if ((uint8_t)text_[i] < 32) text_[i] = ' ';
-  for (uint8_t i = 0; i < optCount_; i++)
-    for (size_t j = 0; opts_[i][j]; j++)
-      if ((uint8_t)opts_[i][j] < 32) opts_[i][j] = ' ';
+  turnOffline_ = false;
   page_ = 0;
   sel_ = 0;
   choosing_ = false;
@@ -431,7 +483,7 @@ void SurvivalGame::applyTurn(const char* raw) {
 void SurvivalGame::choose(uint8_t idx) {
   if (idx >= optCount_) return;
   int8_t dHp; int16_t dScore;
-  if (online_) {
+  if (!turnOffline_) {
     dHp = llHp_[idx]; dScore = llScore_[idx];
   } else {
     dHp = offHp_[idx]; dScore = offScore_[idx];
@@ -515,8 +567,11 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
   } else if (requested_ && ns == NetClient::State::Error) {
     requested_ = false;
     strncpy(lastErr_, net.error(), sizeof(lastErr_) - 1);
-    online_ = false;
-    if (phase_ == PH_LOADING) offlineTurn();
+    // Only this turn falls back to offline; the LLM is retried next turn.
+    if (phase_ == PH_LOADING) {
+      turnOffline_ = true;
+      offlineTurn();
+    }
   }
   netState_ = ns;
 
@@ -544,11 +599,16 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
       // give up to offline mode after a timeout.
       if (wifiWaiting_) {
         if (net.connected()) {
-          startRequest();
-        } else if (millis() - wifiWaitStart_ > 10000) {
           wifiWaiting_ = false;
+          wifiAttempts_ = 0;
+          startRequest();
+        } else if (millis() - wifiWaitStart_ > 30000) {
+          // 30 s without WiFi: play this turn offline, but keep online_
+          // true so the next turn retries the LLM.
+          wifiWaiting_ = false;
+          wifiAttempts_ = 0;
           strncpy(lastErr_, "wifi timeout", sizeof(lastErr_) - 1);
-          online_ = false;
+          turnOffline_ = true;
           offlineTurn();
         } else {
           dirty_ = true;  // keep the "Connecting..." animation fresh
@@ -659,9 +719,9 @@ void SurvivalGame::drawStatus() {
   // connection indicator
   uint16_t connColor;
   const char* connLabel;
-  if (online_ && net.connected())      { connColor = 0x07E0; connLabel = "AI"; }
-  else if (online_)                    { connColor = TFT_YELLOW; connLabel = "..."; }
-  else                                 { connColor = TFT_ORANGE; connLabel = "OFF"; }
+  if (!turnOffline_ && net.connected())  { connColor = 0x07E0; connLabel = "AI"; }
+  else if (!turnOffline_)                 { connColor = TFT_YELLOW; connLabel = "..."; }
+  else                                    { connColor = TFT_ORANGE; connLabel = "OFF"; }
   tft.setTextColor(connColor);
   tft.drawString(connLabel, 296, 4);
   tft.drawFastHLine(0, K_STATUS_H - 2, SCR_W, TFT_DARKGREY);
@@ -740,9 +800,9 @@ void SurvivalGame::drawLoading() {
   tft.setTextColor(K_COL_TEXT);
   uint8_t dots = (millis() / 400) % 4;
   String s;
-  if (online_ && net.connected()) {
+  if (!turnOffline_ && net.connected()) {
     s = ui.thinks;
-  } else if (online_) {
+  } else if (!turnOffline_) {
     s = ui.waitWifi;
   } else {
     s = ui.offline;

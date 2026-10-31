@@ -32,7 +32,7 @@ public:
     Error           // net.error() describes the failure
   };
 
-  static constexpr size_t MAX_RESPONSE = 1200;
+  static constexpr size_t MAX_RESPONSE = 2048;
 
   // Starts WiFi (async). Call once at boot or game init.
   void begin();
@@ -68,7 +68,6 @@ private:
 
   volatile State state_     = State::Idle;
   uint32_t       wifiStart_ = 0;
-  bool           began_     = false;
   char           response_[MAX_RESPONSE] = "";
   char           error_[64]  = "";
 };
