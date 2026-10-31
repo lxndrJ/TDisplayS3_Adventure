@@ -36,5 +36,6 @@
 
 #define LOAD_GLCD
 #define LOAD_FONT2
+#define LOAD_FONT4   // survival game draws story/choices with Font 4 (26px)
 
 #endif
