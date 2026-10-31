@@ -21,9 +21,11 @@
 //   B short       = next text page / next choice
 //   B long        = show choices / confirm choice / restart
 //   A long        = back to the launcher menu
-// Situation text and choices are drawn 2x big - text pages (page_)
-// and a dedicated choice screen (choosing_). The title screen toggles
-// the language with B long (0 = English, 1 = German, ASCII only).
+// All text uses the TFT's native font renderer (story: Font 2 size 1,
+// choices/title: Font 2 size 2-3) with pixel-accurate word wrap.
+// Text pages (page_) and a dedicated choice screen (choosing_).
+// The title screen toggles the language with B long (0 = English,
+// 1 = German, ASCII only).
 class SurvivalGame : public Game {
 public:
   const char* name() const override { return "Survival"; }
@@ -38,14 +40,14 @@ public:
 
   static constexpr uint8_t MAX_HP      = 10;
   static constexpr uint8_t MAX_CHOICES = 3;
-  // Chars per wrapped line. Text is drawn 1.5x big (Font 2 into a
-  // line sprite, block-scaled to 24px height, 320px = 213 sprite px),
-  // and Font 2 averages ~7px per char -> 26 chars fill the width.
-  static constexpr uint8_t TXT_W       = 26;
-  static constexpr uint8_t TXT_LINES   = 5;   // text lines per page (24px each)
-  static constexpr uint8_t MAX_WRAP_LINES = 16; // wrap buffer capacity (400/26)
-  // Choices are drawn 1.5x big; >22 chars would clip the 213px line
-  // sprite, so the LLM is asked for max 3 words / 22 chars per choice.
+  // Text wrapping is measured in pixels via TFT textWidth, so lines
+  // fit the 320px screen exactly at any font size.
+  static constexpr uint8_t LINE_LEN     = 80;  // max chars per wrapped line
+  static constexpr uint8_t TXT_LINES    = 6;   // story lines per page (Font 2 = 16px)
+  static constexpr uint8_t MAX_WRAP_LINES = 20; // wrap buffer capacity
+  // Choices are drawn with Font 2 at size 2 (32px line, ~13px/char ->
+  // ~24 chars fit the 320px width), so the LLM is asked for max 3
+  // words / 22 chars per choice.
   static constexpr uint8_t OPT_LEN     = 22;  // max chars per choice label
   static constexpr size_t  MAX_TEXT    = 400; // situation text cap
 
@@ -62,17 +64,19 @@ public:
   void offlineTurn();
   void offlineTurnAt(uint8_t idx);
 
-  int  wrapText(const char* t, char out[][TXT_W + 1], int maxL) const;
+  // Word-wrap t into pixel-fitting lines (font/size as drawn).
+  int  wrapText(const char* t, uint8_t font, uint8_t size, int16_t maxW,
+                char out[][LINE_LEN + 1], int maxL) const;
 
   void drawTitle();
   void drawLoading();
   void drawPlay();
   void drawEnd(bool won);
   void drawStatus();
-  // Draws s scaled 1.5x: Font 2 rendered into a 213x16 line sprite,
-  // pushed block-scaled (24px high). x < 0 centers the text
-  // horizontally; returns the x where the block was drawn.
-  int16_t drawBigText(const char* s, int16_t x, int16_t y, uint16_t color);
+  // Draws s with the TFT's own font renderer (font + integer size, no
+  // manual pixel scaling). x < 0 centers horizontally; returns draw x.
+  int16_t drawText(const char* s, int16_t x, int16_t y, uint8_t font,
+                   uint8_t size, uint16_t color);
 
   Phase    phase_   = PH_TITLE;
   int      hp_      = MAX_HP;
@@ -113,7 +117,7 @@ public:
   char msg_[48]      = "";
   uint32_t msgUntil_ = 0;
   char lastErr_[64]  = "";
-  char wrapBuf_[MAX_WRAP_LINES][TXT_W + 1];
+  char wrapBuf_[MAX_WRAP_LINES][LINE_LEN + 1];
 };
 
 #endif
