@@ -92,6 +92,8 @@ public:
   uint8_t  lang_         = 1;     // 0 = English, 1 = German (default), toggle: B long on title
   uint8_t  retries_      = 0;     // consecutive bad LLM replies this turn
   bool     storyOn_      = false; // a coherent story arc is in progress
+  bool     turnOffline_  = false; // current turn uses offline content
+  uint8_t  wifiAttempts_ = 0;     // WiFi association retries this wait
 
   char text_[MAX_TEXT] = "";
   char opts_[MAX_CHOICES][OPT_LEN + 1] = {{0},{0},{0}};
