@@ -21,8 +21,9 @@
 //   B short       = next text page / next choice
 //   B long        = show choices / confirm choice / restart
 //   A long        = back to the launcher menu
-// All text uses the TFT's native font renderer (story: Font 2 size 1,
-// choices/title: Font 2 size 2-3) with pixel-accurate word wrap.
+// All text uses the TFT's native font renderer (story/choices: Font 4,
+// the largest GLCD font with a full alphabet; title/end: Font 4 size 2)
+// with pixel-accurate word wrap.
 // Text pages (page_) and a dedicated choice screen (choosing_).
 // The title screen toggles the language with B long (0 = English,
 // 1 = German, ASCII only).
@@ -43,11 +44,12 @@ public:
   // Text wrapping is measured in pixels via TFT textWidth, so lines
   // fit the 320px screen exactly at any font size.
   static constexpr uint8_t LINE_LEN     = 80;  // max chars per wrapped line
-  static constexpr uint8_t TXT_LINES    = 6;   // story lines per page (Font 2 = 16px)
+  static constexpr uint8_t TXT_LINES    = 5;   // story lines per page (Font 4 = 26px)
   static constexpr uint8_t MAX_WRAP_LINES = 20; // wrap buffer capacity
-  // Choices are drawn with Font 2 at size 2 (32px line, ~13px/char ->
-  // ~24 chars fit the 320px width), so the LLM is asked for max 3
-  // words / 22 chars per choice.
+  // Story and choices use native Font 4 (26px, full alphabet - the
+  // biggest TFT_eSPI GLCD font with letters; fonts 6-8 are digits
+  // only). 22 chars * ~13px = ~286px fits the 320px width at size 1,
+  // so the LLM is asked for max 3 words / 22 chars per choice.
   static constexpr uint8_t OPT_LEN     = 22;  // max chars per choice label
   static constexpr size_t  MAX_TEXT    = 400; // situation text cap
 
