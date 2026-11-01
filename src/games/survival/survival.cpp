@@ -465,10 +465,15 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
 
   switch (phase_) {
     case PH_TITLE:
-      // Live status refresh on the title screen (every ~500 ms)
+      // Live status refresh on the title screen (every ~500 ms) and
+      // keep WiFi associating: begin() restarts after WifiFailed/timeout.
       if (millis() - titleRefresh_ > 500) {
         titleRefresh_ = millis();
         dirty_ = true;
+      }
+      if (online_ && !net.connected() && millis() - lastWifiRetry_ > 2000) {
+        lastWifiRetry_ = millis();
+        net.begin();  // (re)start association from the title screen too
       }
       // B long toggles the language (English <-> German).
       if (in.longPressed[(uint8_t)Key::B]) {
@@ -673,8 +678,12 @@ void SurvivalGame::drawTitle() {
     if (net.connected()) {
       wifiState = "connected"; wifiColor = 0x07E0;
     } else {
-      wifiState = (netState_ == NetClient::State::WifiConnecting) ? "connecting..." : "not connected";
-      wifiColor = (netState_ == NetClient::State::WifiConnecting) ? TFT_YELLOW : TFT_RED;
+      switch (netState_) {
+        case NetClient::State::WifiConnecting: wifiState = "connecting..."; wifiColor = TFT_YELLOW; break;
+        case NetClient::State::WifiFailed:     wifiState = "FAILED";        wifiColor = TFT_RED; break;
+        case NetClient::State::NoConfig:       wifiState = "no secrets.h";  wifiColor = TFT_ORANGE; break;
+        default:                               wifiState = "not connected"; wifiColor = TFT_RED; break;
+      }
     }
     char line[48];
     snprintf(line, sizeof(line), "WiFi: %s (%d dBm)", wifiState, net.rssi());
