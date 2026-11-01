@@ -116,6 +116,7 @@ public:
   bool     storyOn_      = false; // a coherent story arc is in progress
   bool     turnOffline_  = false; // current turn uses offline content
   uint8_t  wifiAttempts_ = 0;     // WiFi association retries this wait
+  uint32_t lastWifiRetry_ = 0;    // last re-association attempt (loading wait)
 
   char text_[MAX_TEXT] = "";
   char opts_[MAX_CHOICES][OPT_LEN + 1] = {{0},{0},{0}};

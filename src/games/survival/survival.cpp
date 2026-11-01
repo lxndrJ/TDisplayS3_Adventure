@@ -20,15 +20,17 @@ static const char* kSystemPromptEn =
   "open threads. Never restart or jump to a new place. Reply in "
   "EXACTLY this format, nothing else:\n"
   "S:<situation, max 220 chars, 2-4 sentences, no newlines>\n"
-  "1:<choice, max 22 chars, at most 3 short words>\n"
-  "2:<choice, max 22 chars, at most 3 short words>\n"
-  "3:<choice, max 22 chars, at most 3 short words>\n"
+  "1:<action, max 22 chars, verb first, max 3 words>\n"
+  "2:<action, max 22 chars, verb first, max 3 words>\n"
+  "3:<action, max 22 chars, verb first, max 3 words>\n"
   "R1:H<signed hp delta> P<signed score delta>\n"
   "R2:H<signed hp delta> P<signed score delta>\n"
   "R3:H<signed hp delta> P<signed score delta>\n"
   "HP is 0..10, score is survival points. Choices are shown very big "
   "on a 320px screen: every choice at most 3 words and under 22 "
-  "characters. Grim, tense, cinematic. Choices must have real "
+  "characters. Every choice MUST be an ACTION (verb first, then "
+  "object), e.g. \"Loot fridge\", \"Shoot them\", \"Climb fence\" - never a bare noun "
+  "like \"fridge\". Grim, tense, cinematic. Choices must have real "
   "consequences (hp/score deltas).";
 
 static const char* kSystemPromptDe =
@@ -39,15 +41,18 @@ static const char* kSystemPromptDe =
   "neu anfangen oder an einen anderen Ort springen. Antworte GENAU in "
   "diesem Format, nichts anderes:\n"
   "S:<Situation, max 220 Zeichen, 2-4 Sätze, keine Zeilenumbrüche>\n"
-  "1:<Wahl, max 22 Zeichen, höchstens 3 kurze Wörter>\n"
-  "2:<Wahl, max 22 Zeichen, höchstens 3 kurze Wörter>\n"
-  "3:<Wahl, max 22 Zeichen, höchstens 3 kurze Wörter>\n"
+  "1:<Aktion, max 22 Zeichen, Verb zuerst, max 3 Wörter>\n"
+  "2:<Aktion, max 22 Zeichen, Verb zuerst, max 3 Wörter>\n"
+  "3:<Aktion, max 22 Zeichen, Verb zuerst, max 3 Wörter>\n"
   "R1:H<signierte HP-Änderung> P<signierte Punkte-Änderung>\n"
   "R2:H<signierte HP-Änderung> P<signierte Punkte-Änderung>\n"
   "R3:H<signierte HP-Änderung> P<signierte Punkte-Änderung>\n"
   "HP ist 0..10, Punkte sind Ueberlebenspunkte. Schreibe DEUTSCH "
-  "mit normalen Umlauten (UTF-8). Die Wahlmöglichkeiten erscheinen groß auf "
-  "einem 320px-Schirm: jede Wahl höchstens 3 Wörter und unter 22 Zeichen. "
+  "mit normalen Umlauten (UTF-8). Jede Wahl MUSS eine AKTION sein (Verb zuerst, "
+  "dann Objekt), z.B. \"Kasse plündern\", \"Auf sie schießen\", \"Über Zaun klettern\" - "
+  "nie ein einzelnes Hauptwort wie \"Kühlschrank\". Die Wahlmöglichkeiten "
+  "erscheinen groß auf einem 320px-Schirm: jede Wahl höchstens 3 Wörter und "
+  "unter 22 Zeichen. "
   "Grimmig, spannend, filmreif. Wahlen brauchen echte Konsequenzen "
   "(HP-/Punkte-Änderungen).";
 
@@ -110,10 +115,10 @@ struct OfflineTurn {
 };
 
 static const OfflineTurn kOfflineEn[] = {
-  // 0: opening - the dead mall
+  // 0: opening - the dead mall. Choices are ACTIONS (verb + object).
   {"Rain hammers the dead mall. You wake between the tables. A lone "
    "zombie drifts toward you.",
-   {"Loot fridge", "Sneak out", "Climb up"},
+   {"Loot fridge", "Sneak past", "Climb shelf"},
    {0, 0, -1}, {30, 10, 10}, {1, 1, 1}},
   // 1: gate with the bitten man
   {"At the gate a bitten man begs for help. Behind him three zombies "
@@ -122,53 +127,52 @@ static const OfflineTurn kOfflineEn[] = {
    {1, -2, -1}, {40, 20, 10}, {2, 4, 4}},
   // 2: night generator (branch from helping)
   {"Night falls. Your flashlight dies. Somewhere a generator hums.",
-   {"Follow hum", "Hide", "Rush exit"},
+   {"Chase hum", "Hide still", "Rush exit"},
    {2, 0, -2}, {10, 10, 0}, {3, 3, 4}},
   // 3: the police car
   {"A police car waits. Keys inside, half a tank of gas.",
-   {"Drive away", "Loot trunk", "Walk on"},
+   {"Hotwire car", "Loot trunk", "Walk on"},
    {2, 0, 0}, {10, 20, -10}, {4, 4, 4}},
   // 4: horde at the gate
   {"A horde moans beyond the half-open gate. Something is coming.",
-   {"Sprint out", "Climb fence", "Wait"},
+   {"Sprint out", "Climb fence", "Hold still"},
    {-2, -1, 0}, {10, 0, 10}, {5, 5, 4}},
   // 5: dawn rescue
   {"Dawn. A far helicopter. A flare gun lies at your feet.",
-   {"Fire flare", "Save it", "Wave arms"},
+   {"Fire flare", "Save flare", "Wave arms"},
    {0, 0, 1}, {30, 10, 20}, {5, 5, 5}},
 };
 
 static const OfflineTurn kOfflineDe[] = {
-  // 0: Eröffnung - das tote Einkaufszentrum
+  // 0: Eröffnung - das tote Einkaufszentrum. Optionen sind AKTIONEN (Verb + Objekt).
   {"Regen trommelt auf das tote Einkaufszentrum. Du erwachst zwischen "
    "den Tischen. Ein einzelner Zombie treibt auf dich zu.",
-   {"Kühlschrank", "Schleichen", "Hochklettern"},
+   {"Kasse plündern", "Vorbeischleichen", "Regal erklimmen"},
    {0, 0, -1}, {30, 10, 10}, {1, 1, 1}},
   // 1: Tor mit dem Gebissenen
   {"Am Tor fleht ein Gebissener um Hilfe. Hinter ihm drehen sich drei "
    "Zombies um.",
-   {"Verband geben", "Ihn lassen", "Schießen"},
+   {"Verband geben", "Ihn liegenlassen", "Auf sie schießen"},
    {1, -2, -1}, {40, 20, 10}, {2, 4, 4}},
   // 2: Nacht, Generator (Zweig fürs Helfen)
   {"Nacht bricht herein. Deine Lampe stirbt. Irgendwo brummt ein "
    "Generator.",
-   {"Dem Brummen", "Verstecken", "Rausrennen"},
+   {"Dem Brummen folgen", "Still verharren", "Rausrennen"},
    {2, 0, -2}, {10, 10, 0}, {3, 3, 4}},
   // 3: der Streifenwagen
   {"Ein Streifenwagen steht bereit. Schlüssel steckt, halber Tank.",
-   {"Wegfahren", "Kofferraum", "Zu Fuß"},
+   {"Auto klauen", "Kofferraum plündern", "Zu Fuß gehen"},
    {2, 0, 0}, {10, 20, -10}, {4, 4, 4}},
   // 4: Horde am Tor
-  {"Eine Horde stösst hinter dem halboffenen Tor. Etwas nähert sich.",
-   {"Rausrennen", "Zaun hoch", "Warten"},
+  {"Eine Horde stößt hinter dem halboffenen Tor. Etwas nähert sich.",
+   {"Raus sprinten", "Über Zaun klettern", "Still warten"},
    {-2, -1, 0}, {10, 0, 10}, {5, 5, 4}},
-  // 5: Rettung im Morgengraün
-  {"Morgengraün. Ein ferner Helikopter. Eine Signalpistole liegt vor "
+  // 5: Rettung im Morgengrauen
+  {"Morgengrauen. Ein ferner Helikopter. Eine Signalpistole liegt vor "
    "dir.",
-   {"Signal geben", "Sparen", "Winken"},
+   {"Signal abfeuern", "Signal sparen", "Mit Armen winken"},
    {0, 0, 1}, {30, 10, 20}, {5, 5, 5}},
 };
-
 // Palette: soft night tones instead of harsh white on black.
 // All story text is a pale sickly green, unselected choices are dim,
 // the selection is warm amber.
@@ -277,11 +281,16 @@ void SurvivalGame::startRequest() {
       msgUntil_ = millis() + 60000;  // effectively permanent
       wifiWaiting_ = true;
       wifiWaitStart_ = millis();
+      lastWifiRetry_ = millis();
       return;
     }
     if (st == NetClient::State::WifiFailed) {
       strncpy(lastErr_, "wifi failed", sizeof(lastErr_) - 1);
       // keep online_ true: the loading screen retries the association
+    }
+    if (online_ && !net.connected()) {
+      // Still not connected after the wait branch: this turn offline.
+      turnOffline_ = true;
     }
   }
   if (online_ && net.connected()) {
@@ -322,13 +331,13 @@ void SurvivalGame::startRequest() {
     }
     if (lang_ == 1) {
       append("Schreibe die nächste Situation (max 220 Zeichen, "
-             "Umlaute erlaubt) mit 3 Wahlmöglichkeiten (max 22 "
+             "Umlaute erlaubt) mit 3 AKTIONS-Wahlen (Verb zuerst, max 22 "
              "Zeichen, höchstens 3 Wörter) und HP-/Punkte-Änderungen "
              "pro Wahl.");
     } else {
-      append("Write the next situation (max 220 chars) with 3 choices "
-             "(max 22 chars, at most 3 words each) and per-choice "
-             "HP/score deltas.");
+      append("Write the next situation (max 220 chars) with 3 ACTION choices "
+             "(verb first, max 22 chars, at most 3 words each) and "
+             "per-choice HP/score deltas.");
     }
     net.reset();
     if (net.request(sys, user)) {
@@ -639,6 +648,15 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
           turnOffline_ = true;
           offlineTurn();
         } else {
+          // Re-try the association every 5 s while waiting (handles
+          // WifiFailed / dropped connection instead of hanging forever).
+          if (millis() - lastWifiRetry_ > 5000) {
+            lastWifiRetry_ = millis();
+            if (wifiAttempts_ < 4) {
+              wifiAttempts_++;
+              net.begin();  // restarts WiFi association
+            }
+          }
           dirty_ = true;  // keep the "Connecting..." animation fresh
         }
       } else if (millis() - titleRefresh_ > 250) {
