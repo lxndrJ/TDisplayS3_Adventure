@@ -42,7 +42,7 @@ static const UiText kUi[2] = {
     "Survive 30 days. Find a way out.",
     "Press A or B to start",
     "B long: Deutsch",
-    "The storyteller thinks", "Waiting for WiFi", "Loading...",
+    "The storyteller thinks", "Waiting for WiFi",
     "B: next page", "B: choose",
     "A/B: select   B long: OK", "A long: menu",
     "YOU DIED", "RESCUED!", "Survived %u days",
@@ -56,7 +56,7 @@ static const UiText kUi[2] = {
     "Überlebe 30 Tage. Finde einen Ausweg.",
     "A oder B: Start",
     "B lang: English",
-    "Der Erzähler denkt", "Warte auf WLAN", "Lade...",
+    "Der Erzähler denkt", "Warte auf WLAN",
     "B: weiter", "B: Auswahl",
     "A/B: wählen   B lang: OK", "A lang: Menü",
     "GESTORBEN", "GERETTET!", "%u Tage überlebt",
@@ -75,6 +75,15 @@ static constexpr uint16_t K_COL_DIM    = 0x640B;  // dim green (unselected)
 static constexpr uint16_t K_COL_SELECT = TFT_ORANGE;  // amber selection
 static constexpr uint16_t K_COL_BLOOD  = 0xC943;  // muted blood red
 static constexpr uint16_t K_COL_SAFE   = 0x5E4B;  // muted rescue green
+
+// Landscape layout constants (rotation 1, 320x170). Story text and
+// choices use the compiled-in Roboto .vlw smooth fonts.
+static constexpr int16_t K_STATUS_H   = 24;   // status row height
+static constexpr int16_t K_TEXT_Y     = 30;   // first story line
+static constexpr int16_t K_TEXT_LH    = 26;   // Roboto20 yAdvance ~24px + gap
+static constexpr int16_t K_OPT_Y      = 36;   // first choice row
+static constexpr int16_t K_OPT_H      = 40;   // Roboto28 yAdvance ~33px + gap
+static constexpr int16_t K_FOOTER_Y   = 160;  // bottom hint row (Font 1)
 
 // Lenient line parser (see prompts.h for the expected format). Returns
 // number of parsed fields so the caller can decide on a retry.
