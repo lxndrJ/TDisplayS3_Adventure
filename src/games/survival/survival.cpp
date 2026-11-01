@@ -471,7 +471,7 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
         titleRefresh_ = millis();
         dirty_ = true;
       }
-      if (online_ && !net.connected() && millis() - lastWifiRetry_ > 2000) {
+      if (online_ && !net.connected() && millis() - lastWifiRetry_ > 8000) {
         lastWifiRetry_ = millis();
         net.begin();  // (re)start association from the title screen too
       }

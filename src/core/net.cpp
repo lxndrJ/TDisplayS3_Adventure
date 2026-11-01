@@ -83,9 +83,15 @@ void NetClient::begin() {
   // game was quit and re-entered. WiFi.begin() is idempotent while
   // associating and restarts the association after a disconnect.
   if (WiFi.status() == WL_CONNECTED) { state_ = State::Idle; return; }
-  // Full restart on every begin() while not connected: a plain
-  // WiFi.begin() after a disconnect/timeout often never re-associates
-  // on the S3, so disconnect first and start clean.
+  // While an association attempt is still within its timeout, let it
+  // run - disconnecting here would abort it every time begin() is
+  // called again (title screen retries), so we would never connect.
+  if (state_ == State::WifiConnecting &&
+      millis() - wifiStart_ < WIFI_TIMEOUT_MS) {
+    return;
+  }
+  // Full restart: a plain WiFi.begin() after a disconnect/timeout often
+  // never re-associates on the S3, so disconnect first and start clean.
   WiFi.disconnect(true);   // true = erase SDK config, force re-assoc
   delay(50);
   WiFi.mode(WIFI_STA);
