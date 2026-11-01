@@ -1,6 +1,6 @@
 #include "survival.h"
 #include "prompts.h"
-#include "Roboto20.h"
+#include "Roboto24.h"
 #include "Roboto28.h"
 #include "core/net.h"
 
@@ -80,7 +80,7 @@ static constexpr uint16_t K_COL_SAFE   = 0x5E4B;  // muted rescue green
 // choices use the compiled-in Roboto .vlw smooth fonts.
 static constexpr int16_t K_STATUS_H   = 24;   // status row height
 static constexpr int16_t K_TEXT_Y     = 30;   // first story line
-static constexpr int16_t K_TEXT_LH    = 26;   // Roboto20 yAdvance ~24px + gap
+static constexpr int16_t K_TEXT_LH    = 28;   // Roboto24 yAdvance ~29px
 static constexpr int16_t K_OPT_Y      = 36;   // first choice row
 static constexpr int16_t K_OPT_H      = 40;   // Roboto28 yAdvance ~33px + gap
 static constexpr int16_t K_FOOTER_Y   = 160;  // bottom hint row (Font 1)
@@ -302,7 +302,12 @@ void SurvivalGame::init() {
 }
 
 void SurvivalGame::quit() {
-  net.reset();
+  // Keep WiFi associated between games (re-connecting costs seconds and
+  // is what made the AI look "offline" after leaving the game).
+  requested_ = false;
+  retryAt_ = 0;
+  wifiWaiting_ = false;
+  if (gfx.tft().fontLoaded) gfx.tft().unloadFont();
 }
 
 void SurvivalGame::startGame() {
@@ -460,10 +465,15 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
 
   switch (phase_) {
     case PH_TITLE:
-      // Live status refresh on the title screen (every ~500 ms)
+      // Live status refresh on the title screen (every ~500 ms) and
+      // keep WiFi associating: begin() restarts after WifiFailed/timeout.
       if (millis() - titleRefresh_ > 500) {
         titleRefresh_ = millis();
         dirty_ = true;
+      }
+      if (online_ && !net.connected() && millis() - lastWifiRetry_ > 2000) {
+        lastWifiRetry_ = millis();
+        net.begin();  // (re)start association from the title screen too
       }
       // B long toggles the language (English <-> German).
       if (in.longPressed[(uint8_t)Key::B]) {
@@ -573,7 +583,7 @@ void SurvivalGame::draw() {
 
 void SurvivalGame::loadStoryFont() {
   TFT_eSPI& tft = gfx.tft();
-  tft.loadFont(Roboto20_vlw);          // PROGMEM array from Roboto20.h
+  tft.loadFont(Roboto24_vlw);          // PROGMEM array from Roboto24.h
   tft.setTextFont(1);                  // font 1 = use loaded smooth font
   tft.setTextSize(1);
 }
@@ -668,8 +678,12 @@ void SurvivalGame::drawTitle() {
     if (net.connected()) {
       wifiState = "connected"; wifiColor = 0x07E0;
     } else {
-      wifiState = (netState_ == NetClient::State::WifiConnecting) ? "connecting..." : "not connected";
-      wifiColor = (netState_ == NetClient::State::WifiConnecting) ? TFT_YELLOW : TFT_RED;
+      switch (netState_) {
+        case NetClient::State::WifiConnecting: wifiState = "connecting..."; wifiColor = TFT_YELLOW; break;
+        case NetClient::State::WifiFailed:     wifiState = "FAILED";        wifiColor = TFT_RED; break;
+        case NetClient::State::NoConfig:       wifiState = "no secrets.h";  wifiColor = TFT_ORANGE; break;
+        default:                               wifiState = "not connected"; wifiColor = TFT_RED; break;
+      }
     }
     char line[48];
     snprintf(line, sizeof(line), "WiFi: %s (%d dBm)", wifiState, net.rssi());
@@ -743,7 +757,7 @@ void SurvivalGame::drawPlay() {
   tft.setTextDatum(TL_DATUM);
 
   if (!choosing_) {
-    // Story text: Roboto20 smooth font (or Font 2 fallback), 24px lines.
+    // Story text: Roboto24 smooth font, 28px lines.
     loadStoryFont();
     int lines = wrapText(text_, false, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
     int pages = (lines + TXT_LINES - 1) / TXT_LINES;
@@ -774,7 +788,7 @@ void SurvivalGame::drawPlay() {
     tft.drawString(pg, SCR_W - 26, K_FOOTER_Y);
   } else {
     // Choice screen: one option per row, Roboto28 smooth font (Font 4
-    // fallback) centered; falls back to Roboto20 if a label is too wide.
+    // centered; falls back to Roboto24 if a label is too wide.
     loadBigFont();
     for (uint8_t i = 0; i < optCount_; i++) {
       if (tft.textWidth(opts_[i]) > SCR_W - 40) {

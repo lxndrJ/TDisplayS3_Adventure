@@ -83,8 +83,14 @@ void NetClient::begin() {
   // game was quit and re-entered. WiFi.begin() is idempotent while
   // associating and restarts the association after a disconnect.
   if (WiFi.status() == WL_CONNECTED) { state_ = State::Idle; return; }
+  // Full restart on every begin() while not connected: a plain
+  // WiFi.begin() after a disconnect/timeout often never re-associates
+  // on the S3, so disconnect first and start clean.
+  WiFi.disconnect(true);   // true = erase SDK config, force re-assoc
+  delay(50);
   WiFi.mode(WIFI_STA);
-  WiFi.setSleep(true);  // power saving between requests
+  WiFi.setSleep(false); // power save off: it drops the link on this board
+  WiFi.setAutoReconnect(true);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   wifiStart_ = millis();
   state_ = State::WifiConnecting;
@@ -215,5 +221,6 @@ void NetClient::setError(const char* msg) {
 void NetClient::reset() {
   response_[0] = 0;
   error_[0] = 0;
-  state_ = connected() ? State::Idle : State::Idle;
+  if (state_ == State::Busy) return;  // job still running; poll() reaps it
+  state_ = State::Idle;
 }
