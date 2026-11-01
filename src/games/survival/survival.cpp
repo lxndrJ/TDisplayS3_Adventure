@@ -47,14 +47,14 @@ static const char* kSystemPromptDe =
   "R1:H<signierte HP-Änderung> P<signierte Punkte-Änderung>\n"
   "R2:H<signierte HP-Änderung> P<signierte Punkte-Änderung>\n"
   "R3:H<signierte HP-Änderung> P<signierte Punkte-Änderung>\n"
-  "HP ist 0..10, Punkte sind Ueberlebenspunkte. Schreibe DEUTSCH "
-  "Schreibe IMMER echte Umlaute (ä ö ü ß), NIEMALS ae/oe/ue/ss. "
+  "HP ist 0..10, Punkte sind Überlebenspunkte. Schreibe DEUTSCH "
+  "Schreibe IMMER echte Umlaute (ä ö ü ß), niemals ae/oe/ue/ss. "
   "Jede Wahl MUSS eine AKTION sein (Verb zuerst, "
   "dann Objekt), z.B. \"Kasse plündern\", \"Auf sie schießen\", \"Über Zaun klettern\" - "
   "nie ein einzelnes Hauptwort wie \"Kühlschrank\". Die Wahlmöglichkeiten "
   "erscheinen groß auf einem 320px-Schirm: jede Wahl höchstens 3 Wörter und "
   "unter 22 Zeichen. "
-  "Grimmig, spannend, filmreif. Wahlen brauchen echte Konsequenzen "
+  "Grimmig, spannend, filmreif. Jede Aktion braucht echte Konsequenzen "
   "(HP-/Punkte-Änderungen).";
 
 // UI strings, indexed by lang_ (0 = EN, 1 = DE).
@@ -529,12 +529,18 @@ void SurvivalGame::choose(uint8_t idx) {
   // Remember the beat for the LLM story memory (ring buffer).
   if (storyOn_ && histCount_ < HISTORY_N) {
     snprintf(history_[histCount_], sizeof(history_[0]),
-             "Day %u: %.60s -> chose: %.22s", day_, text_, opts_[idx]);
+             "Day %u: %.60s -> wählte: %.22s", day_, text_, opts_[idx]);
+    size_t hl = strlen(history_[histCount_]);
+    while (hl > 0 && ((uint8_t)history_[histCount_][hl] & 0xC0) == 0x80)
+      history_[histCount_][--hl] = 0;  // drop a split UTF-8 tail
     histCount_++;
   } else if (storyOn_) {
     memmove(history_[0], history_[1], (HISTORY_N - 1) * sizeof(history_[0]));
     snprintf(history_[HISTORY_N - 1], sizeof(history_[0]),
-             "Day %u: %.60s -> chose: %.22s", day_, text_, opts_[idx]);
+             "Day %u: %.60s -> wählte: %.22s", day_, text_, opts_[idx]);
+    size_t hl = strlen(history_[HISTORY_N - 1]);
+    while (hl > 0 && ((uint8_t)history_[HISTORY_N - 1][hl] & 0xC0) == 0x80)
+      history_[HISTORY_N - 1][--hl] = 0;
   }
   applyOutcome(dHp, dScore);
 }
