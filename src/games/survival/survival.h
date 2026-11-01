@@ -2,7 +2,6 @@
 #define GAMES_SURVIVAL_SURVIVAL_H
 
 #include <Arduino.h>
-#include <FS.h>
 #include "core/game.h"
 #include "core/display.h"
 #include "core/net.h"
@@ -13,9 +12,9 @@
 // The model generates situation + choices + outcome; the device parses
 // a strict line format and applies HP/score locally.
 //
-// Without WiFi/API key (include/secrets.h missing) the game falls back
-// to built-in offline scenarios, so it always runs. The title screen
-// shows the live WiFi/API status (RSSI, connecting, ready, failed).
+// LLM-only game: without WiFi/API key (include/secrets.h missing) it
+// keeps retrying on the loading screen - there is no offline fallback.
+// The title screen shows the live WiFi/API status (RSSI, last error).
 //
 // Controls:
 //   A short       = previous text page / previous choice
@@ -50,10 +49,8 @@ public:
   // Smooth fonts (TFT_eSPI .vlw) on the FAT "storage" partition,
   // uploaded with `pio run -t uploadfs`. Story: Roboto20, choices/title:
   // Roboto28. Both contain Basic Latin + Latin-1 Supplement (umlauts).
-  static constexpr const char* FONT_STORY  = "Roboto20";
-  static constexpr const char* FONT_BIG    = "Roboto28";
-  bool     fontReady_ = false;   // .vlw files found on the filesystem
-  bool     ffatMounted_ = false; // FFat mounted (kept mounted for font file handle)
+  // Roboto smooth fonts are compiled in as PROGMEM arrays
+  // (Roboto20.h / Roboto28.h), always available - no filesystem needed.
   // Story and choices use native Font 4 (26px, full alphabet - the
   // biggest TFT_eSPI GLCD font with letters; fonts 6-8 are digits
   // only). 22 chars * ~13px = ~286px fits the 320px width at size 1,
@@ -71,17 +68,15 @@ public:
   void applyTurn(const char* raw);
   void choose(uint8_t idx);
   void applyOutcome(int8_t dHp, int16_t dScore);
-  void offlineTurn();
-  void offlineTurnAt(uint8_t idx);
 
   // Word-wrap t into pixel-fitting lines (font/size as drawn).
   // Word wrap in pixels for the currently loaded font (Roboto .vlw when
-  // fontReady_, built-in fallback otherwise). UTF-8 safe (umlauts).
+  // loaded via loadStoryFont/loadBigFont). UTF-8 safe (umlauts).
   int  wrapText(const char* t, bool big, int16_t maxW,
                 char out[][LINE_LEN + 1], int maxL);
 
   // Load/unload the Roboto .vlw font for the current screen; no-op when
-  // falling back to built-in fonts (fontReady_ == false).
+  
   void loadStoryFont();
   void loadBigFont();
   void unloadFontIfLoaded();
@@ -91,7 +86,6 @@ public:
   void drawEnd(bool won);
   void drawStatus();
   // Draws s with the TFT's native renderer. big=true uses the Roboto28
-  // .vlw smooth font (when fontReady_), otherwise built-in Font 4;
   // big=false uses Roboto20 .vlw or Font 2. x < 0 centers horizontally.
   int16_t drawText(const char* s, int16_t x, int16_t y, bool big,
                    uint16_t color);
@@ -103,10 +97,9 @@ public:
   uint8_t  sel_     = 0;
   uint8_t  page_    = 0;
   bool     dirty_   = true;
-  bool     online_  = false;   // LLM reachable, offline fallback otherwise
+  bool     online_  = false;   // WiFi/API configured
   bool     requested_ = false;  // an API request is in flight
   NetClient::State netState_ = NetClient::State::Idle;  // cached for draw
-  uint8_t  offlineIdx_ = 0;     // rotating offline scenario index
   uint32_t titleRefresh_ = 0;   // title screen redraw timer (live status)
   uint32_t wifiWaitStart_ = 0;  // when the WiFi wait began (loading phase)
   bool     wifiWaiting_  = false; // loading phase is waiting for WiFi
@@ -114,19 +107,16 @@ public:
   uint8_t  lang_         = 1;     // 0 = English, 1 = German (default), toggle: B long on title
   uint8_t  retries_      = 0;     // consecutive bad LLM replies this turn
   bool     storyOn_      = false; // a coherent story arc is in progress
-  bool     turnOffline_  = false; // current turn uses offline content
+  uint32_t retryAt_ = 0;         // retry a failed request at this time
   uint8_t  wifiAttempts_ = 0;     // WiFi association retries this wait
   uint32_t lastWifiRetry_ = 0;    // last re-association attempt (loading wait)
 
   char text_[MAX_TEXT] = "";
   char opts_[MAX_CHOICES][OPT_LEN + 1] = {{0},{0},{0}};
   uint8_t optCount_ = 0;
-  // per-choice outcomes, filled by applyTurn() (LLM) or offlineTurn()
+  // per-choice outcomes, filled by applyTurn() (LLM)
   int8_t  llHp_[MAX_CHOICES]    = {0, 0, 0};
   int16_t llScore_[MAX_CHOICES] = {0, 0, 0};
-  int8_t  offHp_[MAX_CHOICES]    = {0, 0, 0};
-  int16_t offScore_[MAX_CHOICES] = {0, 0, 0};
-  uint8_t offNext_[MAX_CHOICES]  = {0, 0, 0}; // branch target per choice
   // Story memory: last situations + chosen options, sent back to the
   // LLM so each new turn continues the arc instead of restarting it.
   static constexpr uint8_t HISTORY_N = 4;
@@ -137,7 +127,6 @@ public:
   uint32_t msgUntil_ = 0;
   char lastErr_[64]  = "";
   char wrapBuf_[MAX_WRAP_LINES][LINE_LEN + 1];
-  char textAscii_[MAX_TEXT];  // transliterated copy for the GLCD fallback font
 };
 
 #endif

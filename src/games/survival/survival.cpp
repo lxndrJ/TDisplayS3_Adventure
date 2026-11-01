@@ -1,7 +1,8 @@
 #include "survival.h"
 #include "prompts.h"
+#include "Roboto20.h"
+#include "Roboto28.h"
 #include "core/net.h"
-#include <FFat.h>
 
 // Truncate s to maxBytes without splitting a UTF-8 sequence: if the cut
 // lands inside a multi-byte char (continuation byte 0x80-0xBF at the
@@ -19,53 +20,19 @@ static size_t utf8SafeLen(const char* s, size_t maxBytes) {
   return n;
 }
 
-// Transliterate umlauts to ae/oe/ue/ss into dst (ASCII fallback when the
-// built-in GLCD font is active, which has no UTF-8 glyphs). dst must be
-// at least as large as src. Other non-ASCII bytes are skipped (ß -> ss).
-static void asciiFallback(char* dst, const char* src) {
-  static const char* uml[7][2] = {
-    {"\xC3\xA4", "ae"}, {"\xC3\xB6", "oe"}, {"\xC3\xBC", "ue"},
-    {"\xC3\x84", "Ae"}, {"\xC3\x96", "Oe"}, {"\xC3\x9C", "Ue"},
-    {"\xC3\x9F", "ss"},
-  };
-  char* d = dst;
-  for (const char* p = src; *p;) {
-    bool matched = false;
-    for (auto& u : uml) {
-      size_t ul = strlen(u[0]);
-      if (strncmp(p, u[0], ul) == 0) {
-        const char* r = u[1];
-        while (*r) *d++ = *r++;
-        p += ul;
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      if ((uint8_t)*p & 0x80) {
-        int clen = ((uint8_t)*p >= 0xF0) ? 4 : ((uint8_t)*p >= 0xE0) ? 3 : 2;
-        p += clen;  // skip unknown non-ASCII sequence
-      } else {
-        *d++ = *p++;
-      }
-    }
-  }
-  *d = 0;
-}
-
 // UI strings, indexed by lang_ (0 = EN, 1 = DE).
 struct UiText {
   const char* subtitle;
   const char* intro1, *intro2;
   const char* start;
   const char* langHint;
-  const char* thinks, *waitWifi, *offline;
+  const char* thinks, *waitWifi;
   const char* hintPage, *hintChoose;
   const char* hintSelect, *hintMenu;
   const char* died, *rescued, *survived;
   const char* scoreLabel, *again;
   const char* dayLabel, *ptsLabel, *ptsWord;
-  const char* offScenario, *lastErrLabel, *connTitle;
+  const char* lastErrLabel, *connTitle;
 };
 
 static const UiText kUi[2] = {
@@ -75,13 +42,13 @@ static const UiText kUi[2] = {
     "Survive 30 days. Find a way out.",
     "Press A or B to start",
     "B long: Deutsch",
-    "The storyteller thinks", "Waiting for WiFi", "Loading scenario",
+    "The storyteller thinks", "Waiting for WiFi", "Loading...",
     "B: next page", "B: choose",
     "A/B: select   B long: OK", "A long: menu",
     "YOU DIED", "RESCUED!", "Survived %u days",
     "Score: %d", "B long: again",
     "Day %u", "Pts %d", "pts",
-    "Offline scenario", "Last error: ", "CONNECTION",
+    "Last error: ", "CONNECTION",
   },
   {   // German (UTF-8 umlauts)
     "Zombie-Apokalypse",
@@ -89,87 +56,16 @@ static const UiText kUi[2] = {
     "Überlebe 30 Tage. Finde einen Ausweg.",
     "A oder B: Start",
     "B lang: English",
-    "Der Erzähler denkt", "Warte auf WLAN", "Lade Szenario",
+    "Der Erzähler denkt", "Warte auf WLAN", "Lade...",
     "B: weiter", "B: Auswahl",
     "A/B: wählen   B lang: OK", "A lang: Menü",
     "GESTORBEN", "GERETTET!", "%u Tage überlebt",
     "Punkte: %d", "B lang: Nochmal",
     "Tag %u", "Pkt %d", "Pkt",
-    "Offline-Szenario", "Letzter Fehler: ", "VERBINDUNG",
+    "Letzter Fehler: ", "VERBINDUNG",
   },
 };
 
-// Built-in offline story (used when WiFi/API is unavailable). The turns
-// form a branching chain (next[choice]) instead of a loose rotation, so
-// offline play tells one connected story: mall -> gate -> night ->
-// police car -> gate horde -> rescue, with branches rejoining.
-struct OfflineTurn {
-  const char* text;
-  const char* opt[3];
-  int8_t  hp[3];
-  int16_t score[3];
-  uint8_t next[3];  // index of the follow-up turn per choice (255 = end)
-};
-
-static const OfflineTurn kOfflineEn[] = {
-  // 0: opening - the dead mall. Choices are ACTIONS (verb + object).
-  {"Rain hammers the dead mall. You wake between the tables. A lone "
-   "zombie drifts toward you.",
-   {"Loot fridge", "Sneak past", "Climb shelf"},
-   {0, 0, -1}, {30, 10, 10}, {1, 1, 1}},
-  // 1: gate with the bitten man
-  {"At the gate a bitten man begs for help. Behind him three zombies "
-   "turn.",
-   {"Give medkit", "Leave him", "Shoot them"},
-   {1, -2, -1}, {40, 20, 10}, {2, 4, 4}},
-  // 2: night generator (branch from helping)
-  {"Night falls. Your flashlight dies. Somewhere a generator hums.",
-   {"Chase hum", "Hide still", "Rush exit"},
-   {2, 0, -2}, {10, 10, 0}, {3, 3, 4}},
-  // 3: the police car
-  {"A police car waits. Keys inside, half a tank of gas.",
-   {"Hotwire car", "Loot trunk", "Walk on"},
-   {2, 0, 0}, {10, 20, -10}, {4, 4, 4}},
-  // 4: horde at the gate
-  {"A horde moans beyond the half-open gate. Something is coming.",
-   {"Sprint out", "Climb fence", "Hold still"},
-   {-2, -1, 0}, {10, 0, 10}, {5, 5, 4}},
-  // 5: dawn rescue
-  {"Dawn. A far helicopter. A flare gun lies at your feet.",
-   {"Fire flare", "Save flare", "Wave arms"},
-   {0, 0, 1}, {30, 10, 20}, {5, 5, 5}},
-};
-
-static const OfflineTurn kOfflineDe[] = {
-  // 0: Eröffnung - das tote Einkaufszentrum. Optionen sind AKTIONEN (Verb + Objekt).
-  {"Regen trommelt auf das tote Einkaufszentrum. Du erwachst zwischen "
-   "den Tischen. Ein einzelner Zombie treibt auf dich zu.",
-   {"Kasse plündern", "Vorbeischleichen", "Regal erklimmen"},
-   {0, 0, -1}, {30, 10, 10}, {1, 1, 1}},
-  // 1: Tor mit dem Gebissenen
-  {"Am Tor fleht ein Gebissener um Hilfe. Hinter ihm drehen sich drei "
-   "Zombies um.",
-   {"Verband geben", "Ihn liegenlassen", "Auf sie schießen"},
-   {1, -2, -1}, {40, 20, 10}, {2, 4, 4}},
-  // 2: Nacht, Generator (Zweig fürs Helfen)
-  {"Nacht bricht herein. Deine Lampe stirbt. Irgendwo brummt ein "
-   "Generator.",
-   {"Dem Brummen folgen", "Still verharren", "Rausrennen"},
-   {2, 0, -2}, {10, 10, 0}, {3, 3, 4}},
-  // 3: der Streifenwagen
-  {"Ein Streifenwagen steht bereit. Schlüssel steckt, halber Tank.",
-   {"Auto klauen", "Kofferraum plündern", "Zu Fuß gehen"},
-   {2, 0, 0}, {10, 20, -10}, {4, 4, 4}},
-  // 4: Horde am Tor
-  {"Eine Horde stößt hinter dem halboffenen Tor. Etwas nähert sich.",
-   {"Raus sprinten", "Über Zaun klettern", "Still warten"},
-   {-2, -1, 0}, {10, 0, 10}, {5, 5, 4}},
-  // 5: Rettung im Morgengrauen
-  {"Morgengrauen. Ein ferner Helikopter. Eine Signalpistole liegt vor "
-   "dir.",
-   {"Signal abfeuern", "Signal sparen", "Mit Armen winken"},
-   {0, 0, 1}, {30, 10, 20}, {5, 5, 5}},
-};
 // Palette: soft night tones instead of harsh white on black.
 // All story text is a pale sickly green, unselected choices are dim,
 // the selection is warm amber.
@@ -180,190 +76,7 @@ static constexpr uint16_t K_COL_SELECT = TFT_ORANGE;  // amber selection
 static constexpr uint16_t K_COL_BLOOD  = 0xC943;  // muted blood red
 static constexpr uint16_t K_COL_SAFE   = 0x5E4B;  // muted rescue green
 
-// Landscape layout constants (rotation 1, 320x170). All text is drawn
-// with the TFT's native font renderer (integer setTextSize) - no manual
-// pixel scaling, so glyphs stay crisp. Story and choices use Font 4
-// (26px, the largest GLCD font with a full alphabet). Status row and
-// footer use Font 2 / Font 1.
-static constexpr int16_t K_STATUS_H   = 24;   // status row height
-static constexpr int16_t K_TEXT_Y     = 30;   // first story line
-static constexpr int16_t K_TEXT_LH    = 26;   // Roboto20 yAdvance ~24px + gap
-static constexpr int16_t K_OPT_Y      = 36;   // first choice row
-static constexpr int16_t K_OPT_H      = 40;   // Roboto28 yAdvance ~33px + gap
-static constexpr int16_t K_FOOTER_Y   = 160;  // bottom hint row (Font 1)
-
-void SurvivalGame::init() {
-  gfx.tft().setRotation(1);  // landscape
-  // Mount the FAT "storage" partition once and probe for the Roboto
-  // smooth fonts. FFat stays mounted (loadFont keeps a file handle);
-  // without the .vlw files the game falls back to built-in Font 4.
-  if (!fontReady_ && !ffatMounted_) {
-    if (FFat.begin()) {
-      ffatMounted_ = true;
-      if (FFat.exists("/Roboto20.vlw") && FFat.exists("/Roboto28.vlw"))
-        fontReady_ = true;
-    }
-  }
-  phase_  = PH_TITLE;
-  hp_     = MAX_HP;
-  score_  = 0;
-  day_    = 1;
-  sel_    = 0;
-  page_   = 0;
-  choosing_ = false;
-  dirty_  = true;
-  wantsMenu = false;
-  requested_ = false;
-  retries_ = 0;
-  storyOn_ = false;
-  turnOffline_ = false;
-  wifiAttempts_ = 0;
-  histCount_ = 0;
-  for (auto& h : history_) h[0] = 0;
-  msg_[0] = 0;
-  lastErr_[0] = 0;
-  text_[0] = 0;
-  optCount_ = 0;
-  for (auto& o : opts_) o[0] = 0;
-  titleRefresh_ = 0;  // force first draw
-
-  net.begin();
-  online_ = net.configured();
-}
-
-void SurvivalGame::quit() {
-  net.reset();
-}
-
-void SurvivalGame::startGame() {
-  phase_ = PH_LOADING;
-  hp_ = MAX_HP;
-  score_ = 0;
-  day_ = 1;
-  sel_ = 0;
-  page_ = 0;
-  choosing_ = false;
-  dirty_ = true;
-  text_[0] = 0;
-  optCount_ = 0;
-  for (auto& o : opts_) o[0] = 0;
-  offlineIdx_ = 0;
-  retries_  = 0;
-  storyOn_  = false;
-  turnOffline_ = false;
-  wifiAttempts_ = 0;
-  histCount_ = 0;
-  for (auto& h : history_) h[0] = 0;
-  strncpy(msg_, "Starting...", sizeof(msg_) - 1);
-  msgUntil_ = millis() + 2000;
-  startRequest();
-}
-
-void SurvivalGame::startRequest() {
-  requested_ = false;
-  wifiWaiting_ = false;
-  turnOffline_ = !online_;
-  // Wait for WiFi (up to ~30 s, retried) before falling back to offline,
-  // so a slow first association doesn't silently disable the AI.
-  if (online_ && !net.connected()) {
-    net.begin();  // (re)starts association, no-op while connected
-    NetClient::State st = net.poll();
-    if (st == NetClient::State::WifiConnecting || st == NetClient::State::WifiFailed) {
-      if (st == NetClient::State::WifiFailed && wifiAttempts_ < 2) {
-        wifiAttempts_++;  // one re-association attempt, then keep waiting
-      }
-      phase_ = PH_LOADING;
-      dirty_ = true;
-      strncpy(msg_, "Connecting to WiFi...", sizeof(msg_) - 1);
-      msgUntil_ = millis() + 60000;  // effectively permanent
-      wifiWaiting_ = true;
-      wifiWaitStart_ = millis();
-      lastWifiRetry_ = millis();
-      return;
-    }
-    if (st == NetClient::State::WifiFailed) {
-      strncpy(lastErr_, "wifi failed", sizeof(lastErr_) - 1);
-      // keep online_ true: the loading screen retries the association
-    }
-    if (online_ && !net.connected()) {
-      // Still not connected after the wait branch: this turn offline.
-      turnOffline_ = true;
-    }
-  }
-  if (online_ && net.connected()) {
-    const char* sys = (lang_ == 1) ? kSystemPromptDe : kSystemPromptEn;
-    // The prompt carries the story so far so the model continues the
-    // same arc. history_ entries: "Day 3: <situation> -> chose: <option>"
-    char user[640];
-    size_t used = 0;
-    auto append = [&](const char* fmt, ...) {
-      if (used >= sizeof(user) - 1) return;
-      va_list ap;
-      va_start(ap, fmt);
-      int n = vsnprintf(user + used, sizeof(user) - used, fmt, ap);
-      va_end(ap);
-      if (n > 0) used += (size_t)n;
-      if (used > sizeof(user) - 1) used = sizeof(user) - 1;
-    };
-    const PromptUser& pu = (lang_ == 1) ? kPromptUserDe : kPromptUserEn;
-    append(pu.header, day_, hp_, MAX_HP, score_);
-    if (histCount_ == 0) {
-      append("%s", pu.noHistory);
-    } else {
-      for (uint8_t i = 0; i < histCount_; i++)
-        append("%s\n", history_[i]);
-    }
-    append("%s", pu.tail);
-    net.reset();
-    if (net.request(sys, user)) {
-      requested_ = true;
-      return;
-    }
-    // request() refused: remember why, this turn goes offline. The next
-    // turn tries the LLM again - a refused request is not permanent.
-    strncpy(lastErr_, net.error(), sizeof(lastErr_) - 1);
-    turnOffline_ = true;
-  }
-  if (turnOffline_) offlineTurn();
-}
-
-void SurvivalGame::offlineTurn() {
-  offlineTurnAt(offlineIdx_);
-}
-
-// Shows offline turn idx and remembers where each choice leads, so the
-// offline story branches instead of rotating through unrelated scenes.
-void SurvivalGame::offlineTurnAt(uint8_t idx) {
-  const OfflineTurn* table = (lang_ == 1) ? kOfflineDe : kOfflineEn;
-  constexpr uint8_t count = sizeof(kOfflineEn) / sizeof(kOfflineEn[0]);
-  if (idx >= count) idx = 0;
-  const OfflineTurn& t = table[idx];
-  offlineIdx_ = idx;
-  strncpy(text_, t.text, MAX_TEXT - 1);
-  text_[MAX_TEXT - 1] = 0;
-  optCount_ = 3;
-  for (uint8_t i = 0; i < 3; i++) {
-    size_t n = utf8SafeLen(t.opt[i], OPT_LEN);
-    memcpy(opts_[i], t.opt[i], n);
-    opts_[i][n] = 0;
-    offHp_[i] = t.hp[i];
-    offScore_[i] = t.score[i];
-    offNext_[i] = t.next[i];
-  }
-  page_ = 0;
-  sel_ = 0;
-  choosing_ = false;
-  phase_ = PH_PLAY;
-  dirty_ = true;
-  if (turnOffline_) {
-    strncpy(msg_, lastErr_[0] ? lastErr_ : kUi[lang_].offScenario,
-            sizeof(msg_) - 1);
-    msgUntil_ = millis() + 1500;
-  }
-}
-
-// Lenient line parser: skips markdown fences and preamble, accepts
-// "S:", "S.", "1:", "1)", "1.", "R1:H.. P.." in any order. Returns the
+// Lenient line parser (see prompts.h for the expected format). Returns
 // number of parsed fields so the caller can decide on a retry.
 static int parseTurn(const char* raw, char* text, size_t textCap,
                      char opts[][SurvivalGame::OPT_LEN + 1], uint8_t& optCount,
@@ -457,15 +170,15 @@ void SurvivalGame::applyTurn(const char* raw) {
       startRequest();
       return;
     }
-    snprintf(lastErr_, sizeof(lastErr_), "bad AI reply (%d fld)", fields);
-    // Only THIS turn goes offline; the LLM is retried next turn.
-    turnOffline_ = true;
-    offlineTurn();
+    snprintf(lastErr_, sizeof(lastErr_), "bad AI reply (%d fld), retry", fields);
+    // No offline fallback: wait a moment and ask the LLM again.
+    retryAt_ = millis() + 2000;
+    phase_ = PH_LOADING;
+    dirty_ = true;
     return;
   }
   retries_ = 0;
   storyOn_ = true;
-  turnOffline_ = false;
   // Normalize ae/oe/ue/ss to real umlauts in-place (the Roboto .vlw font
   // renders UTF-8; models sometimes answer with ae/oe/ue despite the
   // prompt). In-place is safe: replacements are never longer than the
@@ -501,15 +214,8 @@ void SurvivalGame::applyTurn(const char* raw) {
 
 void SurvivalGame::choose(uint8_t idx) {
   if (idx >= optCount_) return;
-  int8_t dHp; int16_t dScore;
-  if (!turnOffline_) {
-    dHp = llHp_[idx]; dScore = llScore_[idx];
-  } else {
-    dHp = offHp_[idx]; dScore = offScore_[idx];
-    // Follow the branch this choice leads to next turn.
-    uint8_t nx = offNext_[idx];
-    if (nx != 0xFF) offlineIdx_ = nx;
-  }
+  int8_t dHp = llHp_[idx];
+  int16_t dScore = llScore_[idx];
   // Remember the beat for the LLM story memory (ring buffer).
   if (storyOn_ && histCount_ < HISTORY_N) {
     snprintf(history_[histCount_], sizeof(history_[0]),
@@ -556,10 +262,133 @@ void SurvivalGame::applyOutcome(int8_t dHp, int16_t dScore) {
   startRequest();
 }
 
+void SurvivalGame::init() {
+  gfx.tft().setRotation(1);  // landscape
+  phase_  = PH_TITLE;
+  hp_     = MAX_HP;
+  score_  = 0;
+  day_    = 1;
+  sel_    = 0;
+  page_   = 0;
+  choosing_ = false;
+  dirty_  = true;
+  wantsMenu = false;
+  requested_ = false;
+  retries_  = 0;
+  retryAt_  = 0;
+  storyOn_  = false;
+  wifiAttempts_ = 0;
+  lastWifiRetry_ = 0;
+  histCount_ = 0;
+  for (auto& h : history_) h[0] = 0;
+  msg_[0] = 0;
+  lastErr_[0] = 0;
+  text_[0] = 0;
+  optCount_ = 0;
+  for (auto& o : opts_) o[0] = 0;
+  titleRefresh_ = 0;  // force first draw
+
+  net.begin();
+  online_ = net.configured();
+}
+
+void SurvivalGame::quit() {
+  net.reset();
+}
+
+void SurvivalGame::startGame() {
+  phase_ = PH_LOADING;
+  hp_     = MAX_HP;
+  score_  = 0;
+  day_    = 1;
+  sel_    = 0;
+  page_   = 0;
+  choosing_ = false;
+  dirty_  = true;
+  retries_  = 0;
+  retryAt_  = 0;
+  storyOn_  = false;
+  histCount_ = 0;
+  for (auto& h : history_) h[0] = 0;
+  text_[0] = 0;
+  optCount_ = 0;
+  for (auto& o : opts_) o[0] = 0;
+  strncpy(msg_, "Starting...", sizeof(msg_) - 1);
+  msgUntil_ = millis() + 2000;
+  startRequest();
+}
+
+void SurvivalGame::startRequest() {
+  requested_ = false;
+  wifiWaiting_ = false;
+  // Wait for WiFi (retried) before sending the prompt; on any error the
+  // game simply retries later - there is no offline fallback anymore.
+  if (online_ && !net.connected()) {
+    net.begin();  // (re)starts association
+    NetClient::State st = net.poll();
+    if (st == NetClient::State::WifiConnecting || st == NetClient::State::WifiFailed) {
+      phase_ = PH_LOADING;
+      dirty_ = true;
+      strncpy(msg_, "Connecting to WiFi...", sizeof(msg_) - 1);
+      msgUntil_ = millis() + 60000;
+      wifiWaiting_ = true;
+      wifiWaitStart_ = millis();
+      lastWifiRetry_ = millis();
+      return;
+    }
+    if (st == NetClient::State::WifiFailed) {
+      strncpy(lastErr_, "wifi failed, retrying", sizeof(lastErr_) - 1);
+    }
+    if (online_ && !net.connected()) {
+      retryAt_ = millis() + 1500;  // try again shortly
+      phase_ = PH_LOADING;
+      dirty_ = true;
+      return;
+    }
+  }
+  if (online_ && net.connected()) {
+    const char* sys = (lang_ == 1) ? kSystemPromptDe : kSystemPromptEn;
+    char user[640];
+    size_t used = 0;
+    auto append = [&](const char* fmt, ...) {
+      if (used >= sizeof(user) - 1) return;
+      va_list ap;
+      va_start(ap, fmt);
+      int n = vsnprintf(user + used, sizeof(user) - used, fmt, ap);
+      va_end(ap);
+      if (n > 0) used += (size_t)n;
+      if (used > sizeof(user) - 1) used = sizeof(user) - 1;
+    };
+    const PromptUser& pu = (lang_ == 1) ? kPromptUserDe : kPromptUserEn;
+    append(pu.header, day_, hp_, MAX_HP, score_);
+    if (histCount_ == 0) {
+      append("%s", pu.noHistory);
+    } else {
+      for (uint8_t i = 0; i < histCount_; i++)
+        append("%s\n", history_[i]);
+    }
+    append("%s", pu.tail);
+    net.reset();
+    if (net.request(sys, user)) {
+      requested_ = true;
+      return;
+    }
+    // request() refused: retry shortly, never offline.
+    strncpy(lastErr_, net.error(), sizeof(lastErr_) - 1);
+    retryAt_ = millis() + 1500;
+    phase_ = PH_LOADING;
+    dirty_ = true;
+    return;
+  }
+  // No config / no WiFi at all: keep the loading screen and retry.
+  retryAt_ = millis() + 2000;
+  phase_ = PH_LOADING;
+  dirty_ = true;
+}
+
 // Pixel-accurate word wrap, UTF-8 aware: a line is broken at the last
 // space whose byte range still fits maxW. Expects the matching font
-// (Roboto .vlw when fontReady_, built-in fallback otherwise) to be
-// loaded/selected by the caller. Multi-byte UTF-8 sequences (umlauts)
+// (PROGMEM Roboto .vlw via loadStoryFont/loadBigFont). Multi-byte UTF-8 sequences (umlauts)
 // are never split.
 int SurvivalGame::wrapText(const char* t, bool big, int16_t maxW,
                            char out[][LINE_LEN + 1], int maxL) {
@@ -612,10 +441,10 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
   } else if (requested_ && ns == NetClient::State::Error) {
     requested_ = false;
     strncpy(lastErr_, net.error(), sizeof(lastErr_) - 1);
-    // Only this turn falls back to offline; the LLM is retried next turn.
+    // No offline fallback: retry the request after a short pause.
     if (phase_ == PH_LOADING) {
-      turnOffline_ = true;
-      offlineTurn();
+      retryAt_ = millis() + 2000;
+      dirty_ = true;
     }
   }
   netState_ = ns;
@@ -640,21 +469,26 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
 
     case PH_LOADING:
       if (in.longPressed[(uint8_t)Key::A]) { wantsMenu = true; break; }
+      // Retry a refused/failed request after a short pause (no offline mode).
+      if (retryAt_ && millis() >= retryAt_) {
+        retryAt_ = 0;
+        startRequest();
+        break;
+      }
       // While waiting for WiFi, retry startRequest() once connected or
-      // give up to offline mode after a timeout.
+      // retry the association and keep waiting (no offline mode).
       if (wifiWaiting_) {
         if (net.connected()) {
           wifiWaiting_ = false;
           wifiAttempts_ = 0;
           startRequest();
         } else if (millis() - wifiWaitStart_ > 30000) {
-          // 30 s without WiFi: play this turn offline, but keep online_
-          // true so the next turn retries the LLM.
-          wifiWaiting_ = false;
+          // 30 s without WiFi: keep waiting and retry association again.
           wifiAttempts_ = 0;
-          strncpy(lastErr_, "wifi timeout", sizeof(lastErr_) - 1);
-          turnOffline_ = true;
-          offlineTurn();
+          strncpy(lastErr_, "wifi timeout, retrying", sizeof(lastErr_) - 1);
+          wifiWaitStart_ = millis();
+          lastWifiRetry_ = millis();
+          dirty_ = true;
         } else {
           // Re-try the association every 5 s while waiting (handles
           // WifiFailed / dropped connection instead of hanging forever).
@@ -677,8 +511,7 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
     case PH_PLAY: {
       if (in.longPressed[(uint8_t)Key::A]) { wantsMenu = true; break; }
       loadStoryFont();
-      if (!gfx.tft().fontLoaded) asciiFallback(textAscii_, text_);
-      int lines = wrapText(gfx.tft().fontLoaded ? text_ : textAscii_,
+      int lines = wrapText(text_,
                            false, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
       unloadFontIfLoaded();
       int pages = (lines + TXT_LINES - 1) / TXT_LINES;
@@ -731,21 +564,15 @@ void SurvivalGame::draw() {
 
 void SurvivalGame::loadStoryFont() {
   TFT_eSPI& tft = gfx.tft();
-  if (fontReady_ && ffatMounted_) {
-    tft.loadFont(FONT_STORY, FFat);
-    if (tft.fontLoaded) { tft.setTextFont(1); tft.setTextSize(1); return; }
-  }
-  tft.setTextFont(2);
+  tft.loadFont(Roboto20_vlw);          // PROGMEM array from Roboto20.h
+  tft.setTextFont(1);                  // font 1 = use loaded smooth font
   tft.setTextSize(1);
 }
 
 void SurvivalGame::loadBigFont() {
   TFT_eSPI& tft = gfx.tft();
-  if (fontReady_ && ffatMounted_) {
-    tft.loadFont(FONT_BIG, FFat);
-    if (tft.fontLoaded) { tft.setTextFont(1); tft.setTextSize(1); return; }
-  }
-  tft.setTextFont(4);
+  tft.loadFont(Roboto28_vlw);          // PROGMEM array from Roboto28.h
+  tft.setTextFont(1);
   tft.setTextSize(1);
 }
 
@@ -761,12 +588,6 @@ int16_t SurvivalGame::drawText(const char* s, int16_t x, int16_t y,
   // or built-in fallback) and unloads it afterwards; drawText only
   // measures + draws, so multi-line draws keep the smooth font.
   (void)big;
-  char asciiBuf[LINE_LEN + 8];
-  if (!tft.fontLoaded) {
-    // built-in GLCD fonts have no UTF-8 glyphs: transliterate umlauts
-    asciiFallback(asciiBuf, s);
-    s = asciiBuf;
-  }
   tft.setTextColor(color, K_COL_BG);  // bg needed for anti-aliasing
   tft.setTextDatum(TL_DATUM);
   int16_t w = tft.textWidth(s);
@@ -793,9 +614,8 @@ void SurvivalGame::drawStatus() {
   // connection indicator
   uint16_t connColor;
   const char* connLabel;
-  if (!turnOffline_ && net.connected())  { connColor = 0x07E0; connLabel = "AI"; }
-  else if (!turnOffline_)                 { connColor = TFT_YELLOW; connLabel = "..."; }
-  else                                    { connColor = TFT_ORANGE; connLabel = "OFF"; }
+  if (net.connected())  { connColor = 0x07E0; connLabel = "AI"; }
+  else                 { connColor = TFT_YELLOW; connLabel = "..."; }
   tft.setTextColor(connColor);
   tft.drawString(connLabel, 296, 4);
   tft.drawFastHLine(0, K_STATUS_H - 2, SCR_W, TFT_DARKGREY);
@@ -849,7 +669,7 @@ void SurvivalGame::drawTitle() {
 
     tft.setTextColor(net.connected() ? 0x07E0 : TFT_DARKGREY);
     tft.drawString(net.connected() ? "API:  ready (Mistral)" : "API:  waiting for WiFi", 20, y + 10);
-    // Show why the last attempt fell back to offline (diagnosis).
+    // Show the last network error (diagnosis).
     if (lastErr_[0]) {
       tft.setTextFont(1);
       tft.setTextColor(TFT_ORANGE);
@@ -887,12 +707,10 @@ void SurvivalGame::drawLoading() {
   tft.setTextColor(K_COL_TEXT);
   uint8_t dots = (millis() / 400) % 4;
   String s;
-  if (!turnOffline_ && net.connected()) {
+  if (net.connected()) {
     s = ui.thinks;
-  } else if (!turnOffline_) {
-    s = ui.waitWifi;
   } else {
-    s = ui.offline;
+    s = ui.waitWifi;
   }
   for (uint8_t i = 0; i < dots; i++) s += '.';
   tft.drawString(s, (SCR_W - tft.textWidth(s.c_str(), 2)) / 2, 104);
@@ -918,9 +736,7 @@ void SurvivalGame::drawPlay() {
   if (!choosing_) {
     // Story text: Roboto20 smooth font (or Font 2 fallback), 24px lines.
     loadStoryFont();
-    if (!gfx.tft().fontLoaded) asciiFallback(textAscii_, text_);
-    int lines = wrapText(gfx.tft().fontLoaded ? text_ : textAscii_,
-                         false, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
+    int lines = wrapText(text_, false, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
     int pages = (lines + TXT_LINES - 1) / TXT_LINES;
     if (pages < 1) pages = 1;
     if (page_ >= (uint8_t)pages) page_ = pages - 1;
