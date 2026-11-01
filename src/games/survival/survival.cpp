@@ -48,7 +48,8 @@ static const char* kSystemPromptDe =
   "R2:H<signierte HP-Änderung> P<signierte Punkte-Änderung>\n"
   "R3:H<signierte HP-Änderung> P<signierte Punkte-Änderung>\n"
   "HP ist 0..10, Punkte sind Ueberlebenspunkte. Schreibe DEUTSCH "
-  "mit normalen Umlauten (UTF-8). Jede Wahl MUSS eine AKTION sein (Verb zuerst, "
+  "Schreibe IMMER echte Umlaute (ä ö ü ß), NIEMALS ae/oe/ue/ss. "
+  "Jede Wahl MUSS eine AKTION sein (Verb zuerst, "
   "dann Objekt), z.B. \"Kasse plündern\", \"Auf sie schießen\", \"Über Zaun klettern\" - "
   "nie ein einzelnes Hauptwort wie \"Kühlschrank\". Die Wahlmöglichkeiten "
   "erscheinen groß auf einem 320px-Schirm: jede Wahl höchstens 3 Wörter und "
@@ -368,8 +369,9 @@ void SurvivalGame::offlineTurnAt(uint8_t idx) {
   text_[MAX_TEXT - 1] = 0;
   optCount_ = 3;
   for (uint8_t i = 0; i < 3; i++) {
-    strncpy(opts_[i], t.opt[i], OPT_LEN);
-    opts_[i][OPT_LEN] = 0;
+    size_t n = utf8SafeLen(t.opt[i], OPT_LEN);
+    memcpy(opts_[i], t.opt[i], n);
+    opts_[i][n] = 0;
     offHp_[i] = t.hp[i];
     offScore_[i] = t.score[i];
     offNext_[i] = t.next[i];
@@ -384,6 +386,22 @@ void SurvivalGame::offlineTurnAt(uint8_t idx) {
             sizeof(msg_) - 1);
     msgUntil_ = millis() + 1500;
   }
+}
+
+// Truncate s to maxBytes without splitting a UTF-8 sequence: if the cut
+// lands inside a multi-byte char (continuation byte 0x80-0xBF at the
+// cut position), back up to the sequence start.
+static size_t utf8SafeLen(const char* s, size_t maxBytes) {
+  size_t n = 0;
+  while (s[n] && n < maxBytes) n++;
+  // If we stopped in the middle of a multi-byte char (s[n] is a
+  // continuation byte), back up to the lead byte and drop the whole char.
+  if (s[n] && n > 0 && ((uint8_t)s[n] & 0xC0) == 0x80) {
+    size_t lead = n;
+    while (lead > 0 && ((uint8_t)s[lead] & 0xC0) == 0x80) lead--;
+    n = lead;
+  }
+  return n;
 }
 
 // Lenient line parser: skips markdown fences and preamble, accepts
@@ -427,14 +445,14 @@ static int parseTurn(const char* raw, char* text, size_t textCap,
     }
     if (tag == 'S') {
       while (bodyLen > 0 && (*body == ' ' || *body == '\t')) { body++; bodyLen--; }
-      size_t n = bodyLen;
+      size_t n = utf8SafeLen(body, bodyLen);
       if (n > textCap - 1) n = textCap - 1;
       memcpy(text, body, n);
       text[n] = 0;
       found++;
     } else if (tag == 'C') {
       while (bodyLen > 0 && (*body == ' ' || *body == '\t')) { body++; bodyLen--; }
-      size_t n = bodyLen;
+      size_t n = utf8SafeLen(body, bodyLen);
       if (n > SurvivalGame::OPT_LEN) n = SurvivalGame::OPT_LEN;
       memcpy(opts[idx], body, n);
       opts[idx][n] = 0;
@@ -669,7 +687,9 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
     case PH_PLAY: {
       if (in.longPressed[(uint8_t)Key::A]) { wantsMenu = true; break; }
       loadStoryFont();
-      int lines = wrapText(text_, false, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
+      if (!gfx.tft().fontLoaded) asciiFallback(textAscii_, text_);
+      int lines = wrapText(gfx.tft().fontLoaded ? text_ : textAscii_,
+                           false, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
       unloadFontIfLoaded();
       int pages = (lines + TXT_LINES - 1) / TXT_LINES;
       if (pages < 1) pages = 1;
@@ -743,6 +763,40 @@ void SurvivalGame::unloadFontIfLoaded() {
   if (gfx.tft().fontLoaded) gfx.tft().unloadFont();
 }
 
+// Transliterate umlauts to ae/oe/ue/ss into dst (ASCII fallback when the
+// built-in GLCD font is active, which has no UTF-8 glyphs). dst must be
+// at least as large as src. Other non-ASCII bytes are skipped (ß -> ss).
+static void asciiFallback(char* dst, const char* src) {
+  static const char* uml[7][2] = {
+    {"\xC3\xA4", "ae"}, {"\xC3\xB6", "oe"}, {"\xC3\xBC", "ue"},
+    {"\xC3\x84", "Ae"}, {"\xC3\x96", "Oe"}, {"\xC3\x9C", "Ue"},
+    {"\xC3\x9F", "ss"},
+  };
+  char* d = dst;
+  for (const char* p = src; *p;) {
+    bool matched = false;
+    for (auto& u : uml) {
+      size_t ul = strlen(u[0]);
+      if (strncmp(p, u[0], ul) == 0) {
+        const char* r = u[1];
+        while (*r) *d++ = *r++;
+        p += ul;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      if ((uint8_t)*p & 0x80) {
+        int clen = ((uint8_t)*p >= 0xF0) ? 4 : ((uint8_t)*p >= 0xE0) ? 3 : 2;
+        p += clen;  // skip unknown non-ASCII sequence
+      } else {
+        *d++ = *p++;
+      }
+    }
+  }
+  *d = 0;
+}
+
 int16_t SurvivalGame::drawText(const char* s, int16_t x, int16_t y,
                                bool big, uint16_t color) {
   if (!s || !s[0]) return x;
@@ -751,6 +805,12 @@ int16_t SurvivalGame::drawText(const char* s, int16_t x, int16_t y,
   // or built-in fallback) and unloads it afterwards; drawText only
   // measures + draws, so multi-line draws keep the smooth font.
   (void)big;
+  char asciiBuf[LINE_LEN + 8];
+  if (!tft.fontLoaded) {
+    // built-in GLCD fonts have no UTF-8 glyphs: transliterate umlauts
+    asciiFallback(asciiBuf, s);
+    s = asciiBuf;
+  }
   tft.setTextColor(color, K_COL_BG);  // bg needed for anti-aliasing
   tft.setTextDatum(TL_DATUM);
   int16_t w = tft.textWidth(s);
@@ -893,7 +953,9 @@ void SurvivalGame::drawPlay() {
   if (!choosing_) {
     // Story text: Roboto20 smooth font (or Font 2 fallback), 24px lines.
     loadStoryFont();
-    int lines = wrapText(text_, false, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
+    if (!gfx.tft().fontLoaded) asciiFallback(textAscii_, text_);
+    int lines = wrapText(gfx.tft().fontLoaded ? text_ : textAscii_,
+                         false, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
     int pages = (lines + TXT_LINES - 1) / TXT_LINES;
     if (pages < 1) pages = 1;
     if (page_ >= (uint8_t)pages) page_ = pages - 1;

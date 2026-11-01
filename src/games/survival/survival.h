@@ -137,6 +137,7 @@ public:
   uint32_t msgUntil_ = 0;
   char lastErr_[64]  = "";
   char wrapBuf_[MAX_WRAP_LINES][LINE_LEN + 1];
+  char textAscii_[MAX_TEXT];  // transliterated copy for the GLCD fallback font
 };
 
 #endif
