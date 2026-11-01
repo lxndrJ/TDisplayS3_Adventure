@@ -508,6 +508,32 @@ void SurvivalGame::applyTurn(const char* raw) {
   retries_ = 0;
   storyOn_ = true;
   turnOffline_ = false;
+  // Normalize ae/oe/ue/ss to real umlauts in-place (the Roboto .vlw font
+  // renders UTF-8; models sometimes answer with ae/oe/ue despite the
+  // prompt). In-place is safe: replacements are never longer than the
+  // ASCII source.
+  auto umlautify = [](char* str) {
+    for (char* p = str; *p; ) {
+      if      (p[0] == 'a' && p[1] == 'e') { *p = '\xC3'; memmove(p + 1, p + 2, strlen(p + 2) + 1); p[1] = '\xA4'; p += 2; }
+      else if (p[0] == 'o' && p[1] == 'e') { *p = '\xC3'; memmove(p + 1, p + 2, strlen(p + 2) + 1); p[1] = '\xB6'; p += 2; }
+      else if (p[0] == 'u' && p[1] == 'e') { *p = '\xC3'; memmove(p + 1, p + 2, strlen(p + 2) + 1); p[1] = '\xBC'; p += 2; }
+      else if (p[0] == 'A' && p[1] == 'e') { *p = '\xC3'; memmove(p + 1, p + 2, strlen(p + 2) + 1); p[1] = '\x84'; p += 2; }
+      else if (p[0] == 'O' && p[1] == 'e') { *p = '\xC3'; memmove(p + 1, p + 2, strlen(p + 2) + 1); p[1] = '\x96'; p += 2; }
+      else if (p[0] == 'U' && p[1] == 'e') { *p = '\xC3'; memmove(p + 1, p + 2, strlen(p + 2) + 1); p[1] = '\x9C'; p += 2; }
+      else p++;
+    }
+  };
+  umlautify(text_);
+  for (uint8_t i = 0; i < optCount_; i++) umlautify(opts_[i]);
+  // ss -> ß at word end after a vowel (e.g. "stösst" written as "stoesst")
+  for (char* p = text_; p[0] && p[1]; ) {
+    if (p[0] == 's' && p[1] == 's' &&
+        (p[2] == 0 || p[2] == ' ' || p[2] == '.' || p[2] == '!' || p[2] == ',' || p[2] == ':' || p[2] == ')') &&
+        p > text_ && (p[-1] == 'a' || p[-1] == 'e' || p[-1] == 'i' || p[-1] == 'o' || p[-1] == 'u' ||
+                      p[-1] == '\xC3')) {  // vowel or umlaut byte before
+      *p = '\xC3'; memmove(p + 1, p + 2, strlen(p + 2) + 1); p[1] = '\x9F'; p += 2;
+    } else p++;
+  }
   page_ = 0;
   sel_ = 0;
   choosing_ = false;
