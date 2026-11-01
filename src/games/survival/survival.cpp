@@ -3,6 +3,56 @@
 #include "core/net.h"
 #include <FFat.h>
 
+// Truncate s to maxBytes without splitting a UTF-8 sequence: if the cut
+// lands inside a multi-byte char (continuation byte 0x80-0xBF at the
+// cut position), back up to the sequence start.
+static size_t utf8SafeLen(const char* s, size_t maxBytes) {
+  size_t n = 0;
+  while (s[n] && n < maxBytes) n++;
+  // If we stopped in the middle of a multi-byte char (s[n] is a
+  // continuation byte), back up to the lead byte and drop the whole char.
+  if (s[n] && n > 0 && ((uint8_t)s[n] & 0xC0) == 0x80) {
+    size_t lead = n;
+    while (lead > 0 && ((uint8_t)s[lead] & 0xC0) == 0x80) lead--;
+    n = lead;
+  }
+  return n;
+}
+
+// Transliterate umlauts to ae/oe/ue/ss into dst (ASCII fallback when the
+// built-in GLCD font is active, which has no UTF-8 glyphs). dst must be
+// at least as large as src. Other non-ASCII bytes are skipped (ß -> ss).
+static void asciiFallback(char* dst, const char* src) {
+  static const char* uml[7][2] = {
+    {"\xC3\xA4", "ae"}, {"\xC3\xB6", "oe"}, {"\xC3\xBC", "ue"},
+    {"\xC3\x84", "Ae"}, {"\xC3\x96", "Oe"}, {"\xC3\x9C", "Ue"},
+    {"\xC3\x9F", "ss"},
+  };
+  char* d = dst;
+  for (const char* p = src; *p;) {
+    bool matched = false;
+    for (auto& u : uml) {
+      size_t ul = strlen(u[0]);
+      if (strncmp(p, u[0], ul) == 0) {
+        const char* r = u[1];
+        while (*r) *d++ = *r++;
+        p += ul;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      if ((uint8_t)*p & 0x80) {
+        int clen = ((uint8_t)*p >= 0xF0) ? 4 : ((uint8_t)*p >= 0xE0) ? 3 : 2;
+        p += clen;  // skip unknown non-ASCII sequence
+      } else {
+        *d++ = *p++;
+      }
+    }
+  }
+  *d = 0;
+}
+
 // UI strings, indexed by lang_ (0 = EN, 1 = DE).
 struct UiText {
   const char* subtitle;
@@ -310,22 +360,6 @@ void SurvivalGame::offlineTurnAt(uint8_t idx) {
             sizeof(msg_) - 1);
     msgUntil_ = millis() + 1500;
   }
-}
-
-// Truncate s to maxBytes without splitting a UTF-8 sequence: if the cut
-// lands inside a multi-byte char (continuation byte 0x80-0xBF at the
-// cut position), back up to the sequence start.
-static size_t utf8SafeLen(const char* s, size_t maxBytes) {
-  size_t n = 0;
-  while (s[n] && n < maxBytes) n++;
-  // If we stopped in the middle of a multi-byte char (s[n] is a
-  // continuation byte), back up to the lead byte and drop the whole char.
-  if (s[n] && n > 0 && ((uint8_t)s[n] & 0xC0) == 0x80) {
-    size_t lead = n;
-    while (lead > 0 && ((uint8_t)s[lead] & 0xC0) == 0x80) lead--;
-    n = lead;
-  }
-  return n;
 }
 
 // Lenient line parser: skips markdown fences and preamble, accepts
@@ -717,40 +751,6 @@ void SurvivalGame::loadBigFont() {
 
 void SurvivalGame::unloadFontIfLoaded() {
   if (gfx.tft().fontLoaded) gfx.tft().unloadFont();
-}
-
-// Transliterate umlauts to ae/oe/ue/ss into dst (ASCII fallback when the
-// built-in GLCD font is active, which has no UTF-8 glyphs). dst must be
-// at least as large as src. Other non-ASCII bytes are skipped (ß -> ss).
-static void asciiFallback(char* dst, const char* src) {
-  static const char* uml[7][2] = {
-    {"\xC3\xA4", "ae"}, {"\xC3\xB6", "oe"}, {"\xC3\xBC", "ue"},
-    {"\xC3\x84", "Ae"}, {"\xC3\x96", "Oe"}, {"\xC3\x9C", "Ue"},
-    {"\xC3\x9F", "ss"},
-  };
-  char* d = dst;
-  for (const char* p = src; *p;) {
-    bool matched = false;
-    for (auto& u : uml) {
-      size_t ul = strlen(u[0]);
-      if (strncmp(p, u[0], ul) == 0) {
-        const char* r = u[1];
-        while (*r) *d++ = *r++;
-        p += ul;
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      if ((uint8_t)*p & 0x80) {
-        int clen = ((uint8_t)*p >= 0xF0) ? 4 : ((uint8_t)*p >= 0xE0) ? 3 : 2;
-        p += clen;  // skip unknown non-ASCII sequence
-      } else {
-        *d++ = *p++;
-      }
-    }
-  }
-  *d = 0;
 }
 
 int16_t SurvivalGame::drawText(const char* s, int16_t x, int16_t y,
