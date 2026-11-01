@@ -1,55 +1,7 @@
 #include "survival.h"
+#include "prompts.h"
 #include "core/net.h"
-
-// System prompt: strict output format the device can parse line by line.
-//   S:<situation text, max ~220 chars, no line breaks>
-//   1:<choice label, max 22 chars = max 3 short words>
-//   2:<choice label>
-//   3:<choice label>
-//   R1:H<hp delta> P<score delta>
-//   R2:H<hp delta> P<score delta>
-//   R3:H<hp delta> P<score delta>
-// The user prompt carries the story so far, so the model must continue
-// the SAME arc (same place, same stakes) instead of inventing a new one.
-// Font 2 on the device is ASCII-only, so German must avoid umlauts.
-static const char* kSystemPromptEn =
-  "You are the storyteller of a grim zombie survival game on a tiny "
-  "handheld screen. The user message contains the story so far. You "
-  "MUST continue that exact story: same location, same characters, "
-  "open threads. Never restart or jump to a new place. Reply in "
-  "EXACTLY this format, nothing else:\n"
-  "S:<situation, max 220 chars, 2-4 sentences, no newlines>\n"
-  "1:<choice, max 22 chars, at most 3 short words>\n"
-  "2:<choice, max 22 chars, at most 3 short words>\n"
-  "3:<choice, max 22 chars, at most 3 short words>\n"
-  "R1:H<signed hp delta> P<signed score delta>\n"
-  "R2:H<signed hp delta> P<signed score delta>\n"
-  "R3:H<signed hp delta> P<signed score delta>\n"
-  "HP is 0..10, score is survival points. Choices are shown very big "
-  "on a 320px screen: every choice at most 3 words and under 22 "
-  "characters. Grim, tense, cinematic. Choices must have real "
-  "consequences (hp/score deltas).";
-
-static const char* kSystemPromptDe =
-  "Du bist der Erzaehler eines grimmigen Zombie-Survival-Spiels auf "
-  "einem winzigen Handheld-Bildschirm. Die User-Nachricht enthaelt die "
-  "bisherige Geschichte. Du MUSST genau diese Geschichte fortsetzen: "
-  "gleicher Ort, gleiche Figuren, offene Handlungsstraenge. Niemals "
-  "neu anfangen oder an einen anderen Ort springen. Antworte GENAU in "
-  "diesem Format, nichts anderes:\n"
-  "S:<Situation, max 220 Zeichen, 2-4 Saetze, keine Zeilenumbrueche>\n"
-  "1:<Wahl, max 22 Zeichen, hoechstens 3 kurze Woerter>\n"
-  "2:<Wahl, max 22 Zeichen, hoechstens 3 kurze Woerter>\n"
-  "3:<Wahl, max 22 Zeichen, hoechstens 3 kurze Woerter>\n"
-  "R1:H<signierte HP-Aenderung> P<signierte Punkte-Aenderung>\n"
-  "R2:H<signierte HP-Aenderung> P<signierte Punkte-Aenderung>\n"
-  "R3:H<signierte HP-Aenderung> P<signierte Punkte-Aenderung>\n"
-  "HP ist 0..10, Punkte sind Ueberlebenspunkte. Schreibe DEUTSCH, "
-  "aber NUR ASCII: keine Umlaute, schreibe ae/oe/ue/ss. Die "
-  "Wahlmoeglichkeiten erscheinen sehr gross auf einem 320px-Schirm: "
-  "jede Wahl hoechstens 3 Woerter und unter 22 Zeichen. Grimmig, "
-  "spannend, filmreif. Wahlen brauchen echte Konsequenzen "
-  "(HP-/Punkte-Aenderungen).";
+#include <FFat.h>
 
 // UI strings, indexed by lang_ (0 = EN, 1 = DE).
 struct UiText {
@@ -81,16 +33,16 @@ static const UiText kUi[2] = {
     "Day %u", "Pts %d", "pts",
     "Offline scenario", "Last error: ", "CONNECTION",
   },
-  {   // German (ASCII only)
+  {   // German (UTF-8 umlauts)
     "Zombie-Apokalypse",
     "Die Toten laufen. Du hast 10 HP.",
-    "Ueberlebe 30 Tage. Find einen Ausweg.",
+    "Überlebe 30 Tage. Finde einen Ausweg.",
     "A oder B: Start",
     "B lang: English",
-    "Der Erzaehler denkt", "Warte auf WLAN", "Lade Szenario",
+    "Der Erzähler denkt", "Warte auf WLAN", "Lade Szenario",
     "B: weiter", "B: Auswahl",
-    "A/B: waehlen   B lang: OK", "A lang: Menue",
-    "GESTORBEN", "GERETTET!", "%u Tage ueberlebt",
+    "A/B: wählen   B lang: OK", "A lang: Menü",
+    "GESTORBEN", "GERETTET!", "%u Tage überlebt",
     "Punkte: %d", "B lang: Nochmal",
     "Tag %u", "Pkt %d", "Pkt",
     "Offline-Szenario", "Letzter Fehler: ", "VERBINDUNG",
@@ -110,10 +62,10 @@ struct OfflineTurn {
 };
 
 static const OfflineTurn kOfflineEn[] = {
-  // 0: opening - the dead mall
+  // 0: opening - the dead mall. Choices are ACTIONS (verb + object).
   {"Rain hammers the dead mall. You wake between the tables. A lone "
    "zombie drifts toward you.",
-   {"Loot fridge", "Sneak out", "Climb up"},
+   {"Loot fridge", "Sneak past", "Climb shelf"},
    {0, 0, -1}, {30, 10, 10}, {1, 1, 1}},
   // 1: gate with the bitten man
   {"At the gate a bitten man begs for help. Behind him three zombies "
@@ -122,53 +74,52 @@ static const OfflineTurn kOfflineEn[] = {
    {1, -2, -1}, {40, 20, 10}, {2, 4, 4}},
   // 2: night generator (branch from helping)
   {"Night falls. Your flashlight dies. Somewhere a generator hums.",
-   {"Follow hum", "Hide", "Rush exit"},
+   {"Chase hum", "Hide still", "Rush exit"},
    {2, 0, -2}, {10, 10, 0}, {3, 3, 4}},
   // 3: the police car
   {"A police car waits. Keys inside, half a tank of gas.",
-   {"Drive away", "Loot trunk", "Walk on"},
+   {"Hotwire car", "Loot trunk", "Walk on"},
    {2, 0, 0}, {10, 20, -10}, {4, 4, 4}},
   // 4: horde at the gate
   {"A horde moans beyond the half-open gate. Something is coming.",
-   {"Sprint out", "Climb fence", "Wait"},
+   {"Sprint out", "Climb fence", "Hold still"},
    {-2, -1, 0}, {10, 0, 10}, {5, 5, 4}},
   // 5: dawn rescue
   {"Dawn. A far helicopter. A flare gun lies at your feet.",
-   {"Fire flare", "Save it", "Wave arms"},
+   {"Fire flare", "Save flare", "Wave arms"},
    {0, 0, 1}, {30, 10, 20}, {5, 5, 5}},
 };
 
 static const OfflineTurn kOfflineDe[] = {
-  // 0: Eroeffnung - das tote Einkaufszentrum
+  // 0: Eröffnung - das tote Einkaufszentrum. Optionen sind AKTIONEN (Verb + Objekt).
   {"Regen trommelt auf das tote Einkaufszentrum. Du erwachst zwischen "
    "den Tischen. Ein einzelner Zombie treibt auf dich zu.",
-   {"Kuehlschrank", "Schleichen", "Hochklettern"},
+   {"Kasse plündern", "Vorbeischleichen", "Regal erklimmen"},
    {0, 0, -1}, {30, 10, 10}, {1, 1, 1}},
   // 1: Tor mit dem Gebissenen
   {"Am Tor fleht ein Gebissener um Hilfe. Hinter ihm drehen sich drei "
    "Zombies um.",
-   {"Verband geben", "Ihn lassen", "Schiessen"},
+   {"Verband geben", "Ihn liegenlassen", "Auf sie schießen"},
    {1, -2, -1}, {40, 20, 10}, {2, 4, 4}},
   // 2: Nacht, Generator (Zweig fürs Helfen)
   {"Nacht bricht herein. Deine Lampe stirbt. Irgendwo brummt ein "
    "Generator.",
-   {"Dem Brummen", "Verstecken", "Rausrennen"},
+   {"Dem Brummen folgen", "Still verharren", "Rausrennen"},
    {2, 0, -2}, {10, 10, 0}, {3, 3, 4}},
   // 3: der Streifenwagen
-  {"Ein Streifenwagen steht bereit. Schluessel steckt, halber Tank.",
-   {"Wegfahren", "Kofferraum", "Zu Fuss"},
+  {"Ein Streifenwagen steht bereit. Schlüssel steckt, halber Tank.",
+   {"Auto klauen", "Kofferraum plündern", "Zu Fuß gehen"},
    {2, 0, 0}, {10, 20, -10}, {4, 4, 4}},
   // 4: Horde am Tor
-  {"Eine Horde stoesst hinter dem halboffenen Tor. Etwas naehert sich.",
-   {"Rausrennen", "Zaun hoch", "Warten"},
+  {"Eine Horde stößt hinter dem halboffenen Tor. Etwas nähert sich.",
+   {"Raus sprinten", "Über Zaun klettern", "Still warten"},
    {-2, -1, 0}, {10, 0, 10}, {5, 5, 4}},
   // 5: Rettung im Morgengrauen
   {"Morgengrauen. Ein ferner Helikopter. Eine Signalpistole liegt vor "
    "dir.",
-   {"Signal geben", "Sparen", "Winken"},
+   {"Signal abfeuern", "Signal sparen", "Mit Armen winken"},
    {0, 0, 1}, {30, 10, 20}, {5, 5, 5}},
 };
-
 // Palette: soft night tones instead of harsh white on black.
 // All story text is a pale sickly green, unselected choices are dim,
 // the selection is warm amber.
@@ -186,13 +137,23 @@ static constexpr uint16_t K_COL_SAFE   = 0x5E4B;  // muted rescue green
 // footer use Font 2 / Font 1.
 static constexpr int16_t K_STATUS_H   = 24;   // status row height
 static constexpr int16_t K_TEXT_Y     = 30;   // first story line
-static constexpr int16_t K_TEXT_LH    = 28;   // Font 4 (26px) + 2px gap
+static constexpr int16_t K_TEXT_LH    = 26;   // Roboto20 yAdvance ~24px + gap
 static constexpr int16_t K_OPT_Y      = 36;   // first choice row
-static constexpr int16_t K_OPT_H      = 40;   // Font 4 (26px) + gap
+static constexpr int16_t K_OPT_H      = 40;   // Roboto28 yAdvance ~33px + gap
 static constexpr int16_t K_FOOTER_Y   = 160;  // bottom hint row (Font 1)
 
 void SurvivalGame::init() {
   gfx.tft().setRotation(1);  // landscape
+  // Mount the FAT "storage" partition once and probe for the Roboto
+  // smooth fonts. FFat stays mounted (loadFont keeps a file handle);
+  // without the .vlw files the game falls back to built-in Font 4.
+  if (!fontReady_ && !ffatMounted_) {
+    if (FFat.begin()) {
+      ffatMounted_ = true;
+      if (FFat.exists("/Roboto20.vlw") && FFat.exists("/Roboto28.vlw"))
+        fontReady_ = true;
+    }
+  }
   phase_  = PH_TITLE;
   hp_     = MAX_HP;
   score_  = 0;
@@ -267,11 +228,16 @@ void SurvivalGame::startRequest() {
       msgUntil_ = millis() + 60000;  // effectively permanent
       wifiWaiting_ = true;
       wifiWaitStart_ = millis();
+      lastWifiRetry_ = millis();
       return;
     }
     if (st == NetClient::State::WifiFailed) {
       strncpy(lastErr_, "wifi failed", sizeof(lastErr_) - 1);
       // keep online_ true: the loading screen retries the association
+    }
+    if (online_ && !net.connected()) {
+      // Still not connected after the wait branch: this turn offline.
+      turnOffline_ = true;
     }
   }
   if (online_ && net.connected()) {
@@ -289,37 +255,15 @@ void SurvivalGame::startRequest() {
       if (n > 0) used += (size_t)n;
       if (used > sizeof(user) - 1) used = sizeof(user) - 1;
     };
-    if (lang_ == 1) {
-      append("Zombie-Survival, Tag %u. HP %d/%d, Punkte %d. "
-             "Bisherige Geschichte (fahre GENAU hier fort):\n",
-             day_, hp_, MAX_HP, score_);
-    } else {
-      append("Zombie survival, day %u. HP %d/%d, score %d. "
-             "Story so far (continue EXACTLY from here):\n",
-             day_, hp_, MAX_HP, score_);
-    }
+    const PromptUser& pu = (lang_ == 1) ? kPromptUserDe : kPromptUserEn;
+    append(pu.header, day_, hp_, MAX_HP, score_);
     if (histCount_ == 0) {
-      if (lang_ == 1)
-        append("(Noch keine Geschichte. Beginne mit einer starken "
-               "Eroeffnung: der Spieler wacht in einer verlassenen Stadt "
-               "auf.)\n");
-      else
-        append("(No story yet. Start with a strong opening: the player "
-               "wakes up in an abandoned city.)\n");
+      append("%s", pu.noHistory);
     } else {
       for (uint8_t i = 0; i < histCount_; i++)
         append("%s\n", history_[i]);
     }
-    if (lang_ == 1) {
-      append("Schreibe die naechste Situation (max 220 Zeichen, nur "
-             "ASCII, keine Umlaute) mit 3 Wahlmoeglichkeiten (max 22 "
-             "Zeichen, hoechstens 3 Woerter) und HP-/Punkte-Aenderungen "
-             "pro Wahl.");
-    } else {
-      append("Write the next situation (max 220 chars) with 3 choices "
-             "(max 22 chars, at most 3 words each) and per-choice "
-             "HP/score deltas.");
-    }
+    append("%s", pu.tail);
     net.reset();
     if (net.request(sys, user)) {
       requested_ = true;
@@ -349,8 +293,9 @@ void SurvivalGame::offlineTurnAt(uint8_t idx) {
   text_[MAX_TEXT - 1] = 0;
   optCount_ = 3;
   for (uint8_t i = 0; i < 3; i++) {
-    strncpy(opts_[i], t.opt[i], OPT_LEN);
-    opts_[i][OPT_LEN] = 0;
+    size_t n = utf8SafeLen(t.opt[i], OPT_LEN);
+    memcpy(opts_[i], t.opt[i], n);
+    opts_[i][n] = 0;
     offHp_[i] = t.hp[i];
     offScore_[i] = t.score[i];
     offNext_[i] = t.next[i];
@@ -365,6 +310,22 @@ void SurvivalGame::offlineTurnAt(uint8_t idx) {
             sizeof(msg_) - 1);
     msgUntil_ = millis() + 1500;
   }
+}
+
+// Truncate s to maxBytes without splitting a UTF-8 sequence: if the cut
+// lands inside a multi-byte char (continuation byte 0x80-0xBF at the
+// cut position), back up to the sequence start.
+static size_t utf8SafeLen(const char* s, size_t maxBytes) {
+  size_t n = 0;
+  while (s[n] && n < maxBytes) n++;
+  // If we stopped in the middle of a multi-byte char (s[n] is a
+  // continuation byte), back up to the lead byte and drop the whole char.
+  if (s[n] && n > 0 && ((uint8_t)s[n] & 0xC0) == 0x80) {
+    size_t lead = n;
+    while (lead > 0 && ((uint8_t)s[lead] & 0xC0) == 0x80) lead--;
+    n = lead;
+  }
+  return n;
 }
 
 // Lenient line parser: skips markdown fences and preamble, accepts
@@ -408,14 +369,14 @@ static int parseTurn(const char* raw, char* text, size_t textCap,
     }
     if (tag == 'S') {
       while (bodyLen > 0 && (*body == ' ' || *body == '\t')) { body++; bodyLen--; }
-      size_t n = bodyLen;
+      size_t n = utf8SafeLen(body, bodyLen);
       if (n > textCap - 1) n = textCap - 1;
       memcpy(text, body, n);
       text[n] = 0;
       found++;
     } else if (tag == 'C') {
       while (bodyLen > 0 && (*body == ' ' || *body == '\t')) { body++; bodyLen--; }
-      size_t n = bodyLen;
+      size_t n = utf8SafeLen(body, bodyLen);
       if (n > SurvivalGame::OPT_LEN) n = SurvivalGame::OPT_LEN;
       memcpy(opts[idx], body, n);
       opts[idx][n] = 0;
@@ -471,6 +432,32 @@ void SurvivalGame::applyTurn(const char* raw) {
   retries_ = 0;
   storyOn_ = true;
   turnOffline_ = false;
+  // Normalize ae/oe/ue/ss to real umlauts in-place (the Roboto .vlw font
+  // renders UTF-8; models sometimes answer with ae/oe/ue despite the
+  // prompt). In-place is safe: replacements are never longer than the
+  // ASCII source.
+  auto umlautify = [](char* str) {
+    for (char* p = str; *p; ) {
+      if      (p[0] == 'a' && p[1] == 'e') { *p = '\xC3'; memmove(p + 1, p + 2, strlen(p + 2) + 1); p[1] = '\xA4'; p += 2; }
+      else if (p[0] == 'o' && p[1] == 'e') { *p = '\xC3'; memmove(p + 1, p + 2, strlen(p + 2) + 1); p[1] = '\xB6'; p += 2; }
+      else if (p[0] == 'u' && p[1] == 'e') { *p = '\xC3'; memmove(p + 1, p + 2, strlen(p + 2) + 1); p[1] = '\xBC'; p += 2; }
+      else if (p[0] == 'A' && p[1] == 'e') { *p = '\xC3'; memmove(p + 1, p + 2, strlen(p + 2) + 1); p[1] = '\x84'; p += 2; }
+      else if (p[0] == 'O' && p[1] == 'e') { *p = '\xC3'; memmove(p + 1, p + 2, strlen(p + 2) + 1); p[1] = '\x96'; p += 2; }
+      else if (p[0] == 'U' && p[1] == 'e') { *p = '\xC3'; memmove(p + 1, p + 2, strlen(p + 2) + 1); p[1] = '\x9C'; p += 2; }
+      else p++;
+    }
+  };
+  umlautify(text_);
+  for (uint8_t i = 0; i < optCount_; i++) umlautify(opts_[i]);
+  // ss -> ß at word end after a vowel (e.g. "stösst" written as "stoesst")
+  for (char* p = text_; p[0] && p[1]; ) {
+    if (p[0] == 's' && p[1] == 's' &&
+        (p[2] == 0 || p[2] == ' ' || p[2] == '.' || p[2] == '!' || p[2] == ',' || p[2] == ':' || p[2] == ')') &&
+        p > text_ && (p[-1] == 'a' || p[-1] == 'e' || p[-1] == 'i' || p[-1] == 'o' || p[-1] == 'u' ||
+                      p[-1] == '\xC3')) {  // vowel or umlaut byte before
+      *p = '\xC3'; memmove(p + 1, p + 2, strlen(p + 2) + 1); p[1] = '\x9F'; p += 2;
+    } else p++;
+  }
   page_ = 0;
   sel_ = 0;
   choosing_ = false;
@@ -492,12 +479,18 @@ void SurvivalGame::choose(uint8_t idx) {
   // Remember the beat for the LLM story memory (ring buffer).
   if (storyOn_ && histCount_ < HISTORY_N) {
     snprintf(history_[histCount_], sizeof(history_[0]),
-             "Day %u: %.60s -> chose: %.22s", day_, text_, opts_[idx]);
+             "Day %u: %.60s -> wählte: %.22s", day_, text_, opts_[idx]);
+    size_t hl = strlen(history_[histCount_]);
+    while (hl > 0 && ((uint8_t)history_[histCount_][hl] & 0xC0) == 0x80)
+      history_[histCount_][--hl] = 0;  // drop a split UTF-8 tail
     histCount_++;
   } else if (storyOn_) {
     memmove(history_[0], history_[1], (HISTORY_N - 1) * sizeof(history_[0]));
     snprintf(history_[HISTORY_N - 1], sizeof(history_[0]),
-             "Day %u: %.60s -> chose: %.22s", day_, text_, opts_[idx]);
+             "Day %u: %.60s -> wählte: %.22s", day_, text_, opts_[idx]);
+    size_t hl = strlen(history_[HISTORY_N - 1]);
+    while (hl > 0 && ((uint8_t)history_[HISTORY_N - 1][hl] & 0xC0) == 0x80)
+      history_[HISTORY_N - 1][--hl] = 0;
   }
   applyOutcome(dHp, dScore);
 }
@@ -529,25 +522,34 @@ void SurvivalGame::applyOutcome(int8_t dHp, int16_t dScore) {
   startRequest();
 }
 
-// Pixel-accurate word wrap: a line is broken at the last space that
-// still fits maxW at the given font/size (measured with textWidth).
-int SurvivalGame::wrapText(const char* t, uint8_t font, uint8_t size,
-                           int16_t maxW, char out[][LINE_LEN + 1], int maxL) const {
+// Pixel-accurate word wrap, UTF-8 aware: a line is broken at the last
+// space whose byte range still fits maxW. Expects the matching font
+// (Roboto .vlw when fontReady_, built-in fallback otherwise) to be
+// loaded/selected by the caller. Multi-byte UTF-8 sequences (umlauts)
+// are never split.
+int SurvivalGame::wrapText(const char* t, bool big, int16_t maxW,
+                           char out[][LINE_LEN + 1], int maxL) {
   TFT_eSPI& tft = gfx.tft();
-  tft.setTextFont(font);
-  tft.setTextSize(size);
   int n = 0;
   const char* p = t;
   while (*p && n < maxL) {
     const char* start = p;
     int i = 0, lastSpace = -1, w = 0;
     while (p[i] && i < LINE_LEN) {
-      char tmp[2] = {p[i], 0};
-      int cw = tft.textWidth(tmp, font);
+      // measure one UTF-8 codepoint (1-4 bytes), never split it
+      int clen = 1;
+      uint8_t c0 = (uint8_t)p[i];
+      if (c0 >= 0xF0) clen = 4;
+      else if (c0 >= 0xE0) clen = 3;
+      else if (c0 >= 0xC0) clen = 2;
+      if (i + clen > LINE_LEN) break;
+      char tmp[5] = {0, 0, 0, 0, 0};
+      memcpy(tmp, p + i, clen);
+      int cw = tft.textWidth(tmp);
       if (w + cw > maxW) break;
       w += cw;
       if (p[i] == ' ') lastSpace = i;
-      i++;
+      i += clen;
     }
     int cut;
     if (p[i] && lastSpace > 0) {
@@ -620,6 +622,15 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
           turnOffline_ = true;
           offlineTurn();
         } else {
+          // Re-try the association every 5 s while waiting (handles
+          // WifiFailed / dropped connection instead of hanging forever).
+          if (millis() - lastWifiRetry_ > 5000) {
+            lastWifiRetry_ = millis();
+            if (wifiAttempts_ < 4) {
+              wifiAttempts_++;
+              net.begin();  // restarts WiFi association
+            }
+          }
           dirty_ = true;  // keep the "Connecting..." animation fresh
         }
       } else if (millis() - titleRefresh_ > 250) {
@@ -631,7 +642,11 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
 
     case PH_PLAY: {
       if (in.longPressed[(uint8_t)Key::A]) { wantsMenu = true; break; }
-      int lines = wrapText(text_, 4, 1, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
+      loadStoryFont();
+      if (!gfx.tft().fontLoaded) asciiFallback(textAscii_, text_);
+      int lines = wrapText(gfx.tft().fontLoaded ? text_ : textAscii_,
+                           false, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
+      unloadFontIfLoaded();
       int pages = (lines + TXT_LINES - 1) / TXT_LINES;
       if (pages < 1) pages = 1;
       if (page_ >= (uint8_t)pages) page_ = pages - 1;
@@ -680,19 +695,84 @@ void SurvivalGame::draw() {
   }
 }
 
+void SurvivalGame::loadStoryFont() {
+  TFT_eSPI& tft = gfx.tft();
+  if (fontReady_ && ffatMounted_) {
+    tft.loadFont(FONT_STORY, FFat);
+    if (tft.fontLoaded) { tft.setTextFont(1); tft.setTextSize(1); return; }
+  }
+  tft.setTextFont(2);
+  tft.setTextSize(1);
+}
+
+void SurvivalGame::loadBigFont() {
+  TFT_eSPI& tft = gfx.tft();
+  if (fontReady_ && ffatMounted_) {
+    tft.loadFont(FONT_BIG, FFat);
+    if (tft.fontLoaded) { tft.setTextFont(1); tft.setTextSize(1); return; }
+  }
+  tft.setTextFont(4);
+  tft.setTextSize(1);
+}
+
+void SurvivalGame::unloadFontIfLoaded() {
+  if (gfx.tft().fontLoaded) gfx.tft().unloadFont();
+}
+
+// Transliterate umlauts to ae/oe/ue/ss into dst (ASCII fallback when the
+// built-in GLCD font is active, which has no UTF-8 glyphs). dst must be
+// at least as large as src. Other non-ASCII bytes are skipped (ß -> ss).
+static void asciiFallback(char* dst, const char* src) {
+  static const char* uml[7][2] = {
+    {"\xC3\xA4", "ae"}, {"\xC3\xB6", "oe"}, {"\xC3\xBC", "ue"},
+    {"\xC3\x84", "Ae"}, {"\xC3\x96", "Oe"}, {"\xC3\x9C", "Ue"},
+    {"\xC3\x9F", "ss"},
+  };
+  char* d = dst;
+  for (const char* p = src; *p;) {
+    bool matched = false;
+    for (auto& u : uml) {
+      size_t ul = strlen(u[0]);
+      if (strncmp(p, u[0], ul) == 0) {
+        const char* r = u[1];
+        while (*r) *d++ = *r++;
+        p += ul;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      if ((uint8_t)*p & 0x80) {
+        int clen = ((uint8_t)*p >= 0xF0) ? 4 : ((uint8_t)*p >= 0xE0) ? 3 : 2;
+        p += clen;  // skip unknown non-ASCII sequence
+      } else {
+        *d++ = *p++;
+      }
+    }
+  }
+  *d = 0;
+}
+
 int16_t SurvivalGame::drawText(const char* s, int16_t x, int16_t y,
-                               uint8_t font, uint8_t size, uint16_t color) {
+                               bool big, uint16_t color) {
   if (!s || !s[0]) return x;
   TFT_eSPI& tft = gfx.tft();
-  tft.setTextFont(font);
-  tft.setTextSize(size);
-  tft.setTextColor(color, K_COL_BG);  // opaque bg = clean glyphs on the field
+  // Caller must have selected the font already (loadStoryFont/loadBigFont
+  // or built-in fallback) and unloads it afterwards; drawText only
+  // measures + draws, so multi-line draws keep the smooth font.
+  (void)big;
+  char asciiBuf[LINE_LEN + 8];
+  if (!tft.fontLoaded) {
+    // built-in GLCD fonts have no UTF-8 glyphs: transliterate umlauts
+    asciiFallback(asciiBuf, s);
+    s = asciiBuf;
+  }
+  tft.setTextColor(color, K_COL_BG);  // bg needed for anti-aliasing
   tft.setTextDatum(TL_DATUM);
-  int16_t w = tft.textWidth(s, font);
+  int16_t w = tft.textWidth(s);
   if (x < 0) x = (SCR_W - w) / 2;          // negative x = center
   if (x < 0) x = 0;
-  tft.drawString(s, x, y, font);
-  tft.setTextSize(1);                       // restore default
+  tft.drawString(s, x, y);
   return x;
 }
 
@@ -727,7 +807,9 @@ void SurvivalGame::drawTitle() {
   tft.fillScreen(K_COL_BG);
   tft.setTextDatum(TL_DATUM);
 
-  drawText("SURVIVAL", -1, 12, 4, 2, K_COL_BLOOD);
+  loadBigFont();
+  drawText("SURVIVAL", -1, 12, true, K_COL_BLOOD);
+  unloadFontIfLoaded();
 
   tft.setTextFont(2);
   tft.setTextColor(K_COL_DIM);
@@ -767,6 +849,15 @@ void SurvivalGame::drawTitle() {
 
     tft.setTextColor(net.connected() ? 0x07E0 : TFT_DARKGREY);
     tft.drawString(net.connected() ? "API:  ready (Mistral)" : "API:  waiting for WiFi", 20, y + 10);
+    // Show why the last attempt fell back to offline (diagnosis).
+    if (lastErr_[0]) {
+      tft.setTextFont(1);
+      tft.setTextColor(TFT_ORANGE);
+      char errLine[64];
+      snprintf(errLine, sizeof(errLine), "last: %s", lastErr_);
+      tft.drawString(errLine, 20, y + 22);
+      tft.setTextFont(2);
+    }
   }
 
   tft.setTextFont(2);
@@ -788,7 +879,9 @@ void SurvivalGame::drawLoading() {
 
   char day[12];
   snprintf(day, sizeof(day), ui.dayLabel, day_);
-  drawText(day, -1, 44, 4, 1, K_COL_TEXT);
+  loadBigFont();
+  drawText(day, -1, 44, true, K_COL_TEXT);
+  unloadFontIfLoaded();
 
   tft.setTextFont(2);
   tft.setTextColor(K_COL_TEXT);
@@ -823,8 +916,11 @@ void SurvivalGame::drawPlay() {
   tft.setTextDatum(TL_DATUM);
 
   if (!choosing_) {
-    // Story text: native Font 4 at size 1 (26px lines, crisp).
-    int lines = wrapText(text_, 4, 1, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
+    // Story text: Roboto20 smooth font (or Font 2 fallback), 24px lines.
+    loadStoryFont();
+    if (!gfx.tft().fontLoaded) asciiFallback(textAscii_, text_);
+    int lines = wrapText(gfx.tft().fontLoaded ? text_ : textAscii_,
+                         false, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
     int pages = (lines + TXT_LINES - 1) / TXT_LINES;
     if (pages < 1) pages = 1;
     if (page_ >= (uint8_t)pages) page_ = pages - 1;
@@ -833,8 +929,9 @@ void SurvivalGame::drawPlay() {
     for (uint8_t i = 0; i < TXT_LINES; i++) {
       int li = start + i;
       if (li < lines)
-        drawText(wrapBuf_[li], -1, K_TEXT_Y + i * K_TEXT_LH, 4, 1, K_COL_TEXT);
+        drawText(wrapBuf_[li], -1, K_TEXT_Y + i * K_TEXT_LH, false, K_COL_TEXT);
     }
+    unloadFontIfLoaded();
 
     tft.setTextFont(1);
     // Footer: outcome flash or controls hint, plus page indicator
@@ -851,21 +948,25 @@ void SurvivalGame::drawPlay() {
     tft.setTextColor(TFT_DARKGREY);
     tft.drawString(pg, SCR_W - 26, K_FOOTER_Y);
   } else {
-    // Choice screen: one option per row, native Font 4 (26px) centered;
-    // falls back to Font 2 if the label would overflow the width.
+    // Choice screen: one option per row, Roboto28 smooth font (Font 4
+    // fallback) centered; falls back to Roboto20 if a label is too wide.
+    loadBigFont();
     for (uint8_t i = 0; i < optCount_; i++) {
+      if (tft.textWidth(opts_[i]) > SCR_W - 40) {
+        unloadFontIfLoaded();
+        loadStoryFont();
+      }
       bool sel = (i == sel_);
       int16_t y = K_OPT_Y + i * K_OPT_H;
-      tft.setTextFont(4);
-      bool big = (tft.textWidth(opts_[i], 4) <= SCR_W - 40);
-      int16_t tx = drawText(opts_[i], -1, y, big ? 4 : 2, 1,
-                            sel ? K_COL_SELECT : K_COL_DIM);
+      int16_t tx = drawText(opts_[i], -1, y, true, sel ? K_COL_SELECT : K_COL_DIM);
+      if (tft.fontLoaded) loadBigFont();  // restore big font for next row
       if (sel) {
         tft.setTextFont(2);
         tft.setTextColor(K_COL_SELECT);
         tft.drawString(">", tx - 16, y + 6);
       }
     }
+    unloadFontIfLoaded();
     tft.setTextFont(1);
     tft.setTextColor(K_COL_DIM);
     tft.drawString(ui.hintSelect, 4, K_FOOTER_Y);
@@ -882,7 +983,9 @@ void SurvivalGame::drawEnd(bool won) {
   tft.setTextDatum(TL_DATUM);
 
   const char* head = won ? ui.rescued : ui.died;
-  drawText(head, -1, 40, 4, 2, won ? K_COL_SAFE : K_COL_BLOOD);
+  loadBigFont();
+  drawText(head, -1, 40, true, won ? K_COL_SAFE : K_COL_BLOOD);
+  unloadFontIfLoaded();
 
   tft.setTextFont(2);
   tft.setTextColor(K_COL_TEXT);
