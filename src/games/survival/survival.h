@@ -44,13 +44,13 @@ public:
   // Text wrapping is measured in pixels via TFT textWidth, so lines
   // fit the 320px screen exactly at any font size.
   static constexpr uint8_t LINE_LEN     = 96;  // max bytes per wrapped line
-  static constexpr uint8_t TXT_LINES    = 5;   // story lines per page (Roboto20 ~24px)
+  static constexpr uint8_t TXT_LINES    = 4;   // story lines per page (Roboto24 ~29px)
   static constexpr uint8_t MAX_WRAP_LINES = 20; // wrap buffer capacity
   // Smooth fonts (TFT_eSPI .vlw) on the FAT "storage" partition,
   // uploaded with `pio run -t uploadfs`. Story: Roboto20, choices/title:
   // Roboto28. Both contain Basic Latin + Latin-1 Supplement (umlauts).
   // Roboto smooth fonts are compiled in as PROGMEM arrays
-  // (Roboto20.h / Roboto28.h), always available - no filesystem needed.
+  // (Roboto24.h / Roboto28.h), always available - no filesystem needed.
   // Story and choices use native Font 4 (26px, full alphabet - the
   // biggest TFT_eSPI GLCD font with letters; fonts 6-8 are digits
   // only). 22 chars * ~13px = ~286px fits the 320px width at size 1,
