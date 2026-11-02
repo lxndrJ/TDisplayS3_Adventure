@@ -1,0 +1,59 @@
+#ifndef CORE_TOUCH_H
+#define CORE_TOUCH_H
+
+#include <Arduino.h>
+#include <Wire.h>
+#include "board_config.h"
+
+// Poller for the capacitive touch integrated in the AXS15231B (Guition
+// JC3248W535C_I_Y). The touch controller is an I2C slave (0x3B) whose INT/RST
+// pins are not wired on this board, so it is polled: write the 11-byte read
+// command, then read 8 bytes (event flag, point count, x hi/lo, y hi/lo).
+class TouchPanel {
+public:
+  void init() {
+    if constexpr (board::HAS_TOUCH) {
+      Wire.begin(board::PIN_TOUCH_SDA, board::PIN_TOUCH_SCL, board::TOUCH_I2C_FREQ);
+    }
+  }
+
+  void setRotation(uint8_t r) { rot_ = r & 3; }
+
+  // Fills down/x/y; x/y are mapped from the native panel orientation to the
+  // current display rotation. Returns the touch-down state.
+  bool poll(bool& down, int16_t& x, int16_t& y) {
+    down = false;
+    x = 0;
+    y = 0;
+    if constexpr (!board::HAS_TOUCH) return false;
+    static const uint8_t kCmd[11] = {0xB5, 0xAB, 0xA5, 0x5A, 0, 0, 0, 0x08, 0, 0, 0};
+    Wire.beginTransmission(board::TOUCH_I2C_ADDR);
+    Wire.write(kCmd, sizeof(kCmd));
+    if (Wire.endTransmission() != 0) return false;
+    if (Wire.requestFrom(board::TOUCH_I2C_ADDR, (uint8_t)8) != 8) return false;
+    uint8_t d[8];
+    for (uint8_t i = 0; i < 8; i++) d[i] = Wire.read();
+    if (d[0] == 0 || d[1] == 0) return false;  // no touch point
+    int16_t rx = (int16_t)(((d[2] & 0x0F) << 8) | d[3]);
+    int16_t ry = (int16_t)(((d[4] & 0x0F) << 8) | d[5]);
+    switch (rot_) {
+      case 1:  x = ry;                       y = board::PANEL_W - 1 - rx; break;
+      case 2:  x = board::PANEL_W - 1 - rx; y = board::PANEL_H - 1 - ry; break;
+      case 3:  x = board::PANEL_H - 1 - ry; y = rx;                       break;
+      default: x = rx;                       y = ry;                       break;
+    }
+    down = true;
+    return true;
+  }
+
+private:
+  uint8_t rot_ = 0;
+};
+
+extern TouchPanel touchPanel;
+
+// Called by the display backend when the rotation changes, so touch
+// coordinates stay in sync with the sketch orientation.
+void touchNotifyRotation(uint8_t r);
+
+#endif

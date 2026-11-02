@@ -88,7 +88,7 @@ private:
     tft.setTextDatum(TL_DATUM);
     tft.setTextFont(2);
     tft.setTextColor(0x07FF);  // Neon-Cyan
-    tft.drawString("T-Display S3", 6, 8);
+    tft.drawString(board::BOARD_NAME, 6, 8);
     tft.setTextColor(0x7BEF);
     tft.drawString("Games", 6, 26);
     tft.drawFastHLine(0, 44, gfx.width(), 0x8010);
@@ -101,7 +101,11 @@ private:
     }
     tft.setTextFont(1);
     tft.setTextColor(0x7BEF);
-    tft.drawString("A/B: select | B long: Start", 6, gfx.height() - 12);
+    if constexpr (board::HAS_TOUCH && !board::HAS_BTN_B) {
+      tft.drawString("BOOT: back | tap: next | hold: start", 6, gfx.height() - 12);
+    } else {
+      tft.drawString("A/B: select | B long: Start", 6, gfx.height() - 12);
+    }
   }
 
   Game*    active_  = nullptr;
