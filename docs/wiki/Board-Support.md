@@ -48,6 +48,13 @@ Build with `pio run -e jc3248w535` (board file: `src/boards/board_jc3248w535.h`)
 > facade (`setTextFont` maps to the classic font, `.vlw` fonts fall back to
 > built-in) should be verified on the device (see checklist below).
 
+### References (pinout & touch verified against the vendor BSP)
+
+- [NorthernMan54/JC3248W535EN](https://github.com/NorthernMan54/JC3248W535EN/tree/main/src) – vendor demo (ESP-IDF 5.3 + LVGL) as PlatformIO build; `src/esp_bsp.h` = pinout (QSPI CS=45/PCLK=47/D0–D3=21/48/40/39, RST=NC, BL=1, TE=38; touch I2C0 400 kHz SCL=8/SDA=4, RST/INT=-1), `src/esp_lcd_axs15231b.c` = touch read command `{B5 AB A5 5A 00 00 00 08 00 00 00}` @ 0x3B → 8-byte reply, 12-bit x/y – identical to `src/boards/board_jc3248w535.h` and `src/core/touch.h`
+- [done.land: Guition JC3248W535](https://done.land/components/microcontroller/families/esp/esp32/developmentboards/esp32-s3/guitionjc3248w535/) – schematic analysis (SD SPI 10–13, speaker I2S 41/42/2, battery divider GPIO5, exposed GPIOs)
+- [ESPHome axs15231 touchscreen](https://esphome.io/components/touchscreen/axs15231/) – merged I2C touch driver (same command/response format)
+- [Waveshare ESP32-S3-Touch-LCD-3.5B](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-3.5B) – same AXS15231B chip: Arduino_GFX usage (`Arduino_ESP32QSPI` + `Arduino_AXS15231B`)
+
 ## Adding a New Board (4 Steps)
 
 ### Step 1: Create the Board File
