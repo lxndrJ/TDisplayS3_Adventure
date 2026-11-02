@@ -52,7 +52,7 @@ static void netTask(void* arg) {
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Authorization", String("Bearer ") + MISTRAL_API_KEY);
     int code = http.POST(job->body);
-    if (code == HTTPC_ERROR_CONNECTION_FAILED || code == -1) {
+    if (code < 0) {  // -1 = connection failed/refused (name varies by HTTPClient version)
       // distinguish DNS / TCP / TLS so the title screen tells the cause
       IPAddress ip;
       if (WiFi.hostByName("api.mistral.ai", ip) != 1)
