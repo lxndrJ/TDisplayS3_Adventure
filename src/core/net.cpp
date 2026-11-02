@@ -12,6 +12,11 @@
   #include <WiFiClientSecure.h>
   #include <HTTPClient.h>
   #include <ArduinoJson.h>
+  // Removed in newer Arduino-ESP32 cores (2.0.17+); -1 is the
+  // connection-failed code there (HTTPC_ERROR_CONNECTION_REFUSED).
+  #ifndef HTTPC_ERROR_CONNECTION_FAILED
+    #define HTTPC_ERROR_CONNECTION_FAILED (-1)
+  #endif
 #endif
 
 NetClient net;
