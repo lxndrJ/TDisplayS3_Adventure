@@ -20,7 +20,7 @@ NetClient net;
 // HTTPClient::setTimeout, so a stalled request cannot wedge the game.
 static constexpr uint32_t WIFI_TIMEOUT_MS = 15000;
 static constexpr uint32_t HTTP_TIMEOUT_MS = 20000;
-static constexpr uint32_t TASK_STACK      = 16384;  // TLS needs a lot
+static constexpr uint32_t TASK_STACK      = 12288;  // TLS needs a lot
 
 #if NET_HAS_SECRETS
 
@@ -40,9 +40,11 @@ static void netTask(void* arg) {
 
   WiFiClientSecure client;
   client.setInsecure();  // no CA bundle on the device; acceptable for a game
+  client.setHandshakeTimeout(HTTP_TIMEOUT_MS / 1000);
   HTTPClient http;
   http.setTimeout(HTTP_TIMEOUT_MS);
   http.setConnectTimeout(HTTP_TIMEOUT_MS);
+  http.setReuse(false);
 
   if (!http.begin(client, "https://api.mistral.ai/v1/chat/completions")) {
     snprintf(job->error, sizeof(job->error), "http begin failed");
@@ -50,7 +52,16 @@ static void netTask(void* arg) {
     http.addHeader("Content-Type", "application/json");
     http.addHeader("Authorization", String("Bearer ") + MISTRAL_API_KEY);
     int code = http.POST(job->body);
-    if (code != HTTP_CODE_OK) {
+    if (code == HTTPC_ERROR_CONNECTION_FAILED || code == -1) {
+      // distinguish DNS / TCP / TLS so the title screen tells the cause
+      IPAddress ip;
+      if (WiFi.hostByName("api.mistral.ai", ip) != 1)
+        snprintf(job->error, sizeof(job->error), "dns failed");
+      else if (!client.connect("api.mistral.ai", 443))
+        snprintf(job->error, sizeof(job->error), "tcp/tls failed");
+      else
+        snprintf(job->error, sizeof(job->error), "http -1 (conn)");
+    } else if (code != HTTP_CODE_OK) {
       snprintf(job->error, sizeof(job->error), "http %d", code);
     } else {
       String raw = http.getString();
@@ -149,11 +160,21 @@ bool NetClient::request(const char* systemPrompt, const char* userPrompt) {
   job->done = xSemaphoreCreateBinary();
 
   g_job = job;
+  uint32_t freeHeap = esp_get_free_heap_size();
+  if (freeHeap < TASK_STACK + 24 * 1024) {  // TLS also needs heap at runtime
+    vSemaphoreDelete(job->done);
+    delete job;
+    g_job = nullptr;
+    snprintf(error_, sizeof(error_), "low heap (%u B free)", freeHeap);
+    state_ = State::Error;
+    return false;
+  }
   if (xTaskCreate(netTask, "net", TASK_STACK, job, 1, nullptr) != pdPASS) {
     vSemaphoreDelete(job->done);
     delete job;
     g_job = nullptr;
-    setError("task create failed");
+    snprintf(error_, sizeof(error_), "task create failed (heap %u)", freeHeap);
+    state_ = State::Error;
     return false;
   }
   state_ = State::Busy;
@@ -193,6 +214,9 @@ NetClient::State NetClient::poll() {
     case State::WifiConnecting:
       if (WiFi.status() == WL_CONNECTED) {
         state_ = State::Idle;
+        // TLS certificate checks (and some mbedTLS paths even with
+        // setInsecure) need a plausible clock: sync via NTP once.
+        configTime(0, 0, "pool.ntp.org", "time.nist.gov");
       } else if (millis() - wifiStart_ > WIFI_TIMEOUT_MS) {
         WiFi.disconnect();
         setError("wifi timeout");
