@@ -102,6 +102,9 @@ void NetClient::begin() {
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false); // power save off: it drops the link on this board
   WiFi.setAutoReconnect(true);
+  // Max TX power: weak-signal routers (kick below ~-75 dBm) otherwise
+  // drop this board even a few meters away.
+  WiFi.setTxPower(WIFI_POWER_19_5dBm);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   wifiStart_ = millis();
   state_ = State::WifiConnecting;
