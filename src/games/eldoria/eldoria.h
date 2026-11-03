@@ -30,6 +30,10 @@ public:
   static constexpr uint8_t TXT_W     = 20;
   static constexpr uint8_t TXT_LINES = 5;
   static constexpr uint8_t MAX_HP    = 3;
+  // Options list (last text page): row geometry, used by drawOptions()
+  // and by the touch hit-test in update().
+  static constexpr int16_t OPT_Y0    = 212;
+  static constexpr int16_t OPT_ROW_H = 20;
 
   struct Choice {
     const char* label;

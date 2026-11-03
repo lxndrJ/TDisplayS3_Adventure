@@ -529,6 +529,18 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
 
     case PH_PLAY: {
       if (in.longPressed[(uint8_t)Key::A]) { wantsMenu = true; break; }
+      // Touch boards: tap directly on a choice row (full width, K_OPT_H tall)
+      // confirms that choice immediately.
+      if constexpr (board::HAS_TOUCH) {
+        if (in.touchTap && choosing_ && optCount_ > 0) {
+          int16_t row = (in.touchY - K_OPT_Y) / K_OPT_H;
+          if (in.touchX >= 0 && in.touchX < SCR_W &&
+              row >= 0 && row < optCount_) {
+            choose((uint8_t)row);
+            break;  // consumed - do not also fire the Key::B mapping
+          }
+        }
+      }
       loadStoryFont();
       int lines = wrapText(text_,
                            false, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
@@ -561,6 +573,9 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
 
     case PH_DEAD:
     case PH_WIN:
+      if constexpr (board::HAS_TOUCH) {
+        if (in.touchTap) { init(); break; }  // tap = restart
+      }
       if (in.longPressed[(uint8_t)Key::B]) init();
       else if (in.longPressed[(uint8_t)Key::A]) wantsMenu = true;
       break;
@@ -583,16 +598,27 @@ void SurvivalGame::draw() {
 
 void SurvivalGame::loadStoryFont() {
   TFT_eSPI& tft = gfx.tft();
-  tft.loadFont(Roboto24_vlw);          // PROGMEM array from Roboto24.h
-  tft.setTextFont(1);                  // font 1 = use loaded smooth font
-  tft.setTextSize(1);
+  if constexpr (board::HAS_TOUCH) {
+    // QSPI boards have no .vlw support in the display facade: use a bigger
+    // built-in font so the text stays readable/tappable on the touch panel.
+    tft.setTextFont(2);                // 16px classic
+  } else {
+    tft.loadFont(Roboto24_vlw);        // PROGMEM array from Roboto24.h
+    tft.setTextFont(1);                // font 1 = use loaded smooth font
+    tft.setTextSize(1);
+  }
 }
 
 void SurvivalGame::loadBigFont() {
   TFT_eSPI& tft = gfx.tft();
-  tft.loadFont(Roboto28_vlw);          // PROGMEM array from Roboto28.h
-  tft.setTextFont(1);
-  tft.setTextSize(1);
+  if constexpr (board::HAS_TOUCH) {
+    tft.setTextFont(2);
+    tft.setTextSize(3);                // 24px classic; choice rows are 40px tall
+  } else {
+    tft.loadFont(Roboto28_vlw);        // PROGMEM array from Roboto28.h
+    tft.setTextFont(1);
+    tft.setTextSize(1);
+  }
 }
 
 void SurvivalGame::unloadFontIfLoaded() {

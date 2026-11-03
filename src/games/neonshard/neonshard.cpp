@@ -108,6 +108,41 @@ void NeonShardGame::gotoScene(uint8_t sc) {
 
 void NeonShardGame::update(const InputState& in, uint32_t dtMs) {
   (void)dtMs;
+  // Touch boards: tap directly on a hotspot / choice / title. A tap that is
+  // consumed here must not also fire the Key::B mapping (pressed[B]).
+  bool touchUsed = false;
+  if constexpr (board::HAS_TOUCH) {
+    if (in.touchTap) {
+      if (phase_ == PH_TITLE) {
+        startStory();
+        touchUsed = true;
+      } else if (phase_ == PH_SCENE) {
+        const SceneDef& s = kScenes[scene_];
+        for (uint8_t i = 0; i < s.nHot; i++) {
+          const Hotspot& h = s.hot[i];
+          if (in.touchX >= h.x && in.touchX < h.x + h.w &&
+              in.touchY >= h.y && in.touchY < h.y + h.h) {
+            sel_ = i;
+            interact(h.id);
+            touchUsed = true;
+            break;
+          }
+        }
+      } else if (phase_ == PH_DIALOG && dlgIdx_ == dlgLineCount_ - 1 &&
+                 dlgChoiceCount_ > 0) {
+        int16_t row = (in.touchY - (BAND_Y + 20)) / 17;
+        if (in.touchX >= 0 && in.touchX < SW && row >= 0 &&
+            row < dlgChoiceCount_ && row < 3) {
+          dialogEnd(dlgId_, (uint8_t)row);
+          touchUsed = true;
+        }
+      } else if (phase_ == PH_END) {
+        wantsMenu = true;
+        touchUsed = true;
+      }
+    }
+  }
+  if (touchUsed) return;
   switch (phase_) {
     case PH_TITLE:
       if (in.longPressed[(uint8_t)Key::B]) startStory();

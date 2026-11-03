@@ -466,8 +466,8 @@ void EldoriaGame::drawOptions(const Scene& s) {
     bool srow = (idx == sel_);
     tft.setTextDatum(TL_DATUM);
     tft.setTextColor(srow ? TFT_YELLOW : TFT_LIGHTGREY);
-    tft.drawString(srow ? "> " : "  ", 6, 212 + idx * 20);
-    tft.drawString(s.ch[c].label, 18, 212 + idx * 20);
+    tft.drawString(srow ? "> " : "  ", 6, OPT_Y0 + idx * OPT_ROW_H);
+    tft.drawString(s.ch[c].label, 18, OPT_Y0 + idx * OPT_ROW_H);
     idx++;
   }
 }
@@ -567,11 +567,39 @@ void EldoriaGame::init() {
 
 void EldoriaGame::update(const InputState& in, uint32_t dtMs) {
   (void)dtMs;
+  // Touch boards: tap directly on an option (last text page) selects and runs
+  // it. The tap must not also fire the Key::B mapping (pressed[B] = next).
+  bool touchUsed = false;
+  if constexpr (board::HAS_TOUCH) {
+    if (in.touchTap) {
+      if (invOpen_) {
+        invOpen_ = false;
+        dirty_ = true;
+        touchUsed = true;
+      } else {
+        const Scene& s = kScenes[cur_];
+        int lines = wrapText(s.text, wrapBuf_, 10);
+        int pages = (lines + TXT_LINES - 1) / TXT_LINES;
+        int nv = visibleCount(s);
+        if (page_ >= (uint8_t)(pages - 1) && nv > 0) {
+          int16_t row = (in.touchY - OPT_Y0) / OPT_ROW_H;
+          if (in.touchX >= 0 && in.touchX < gfx.width() &&
+              row >= 0 && row < nv) {
+            sel_ = (uint8_t)row;
+            handleEvent(EV_B_LONG);
+            touchUsed = true;
+          }
+        }
+      }
+    }
+  }
   Ev e = EV_NONE;
-  if (in.pressed[(uint8_t)Key::A])         e = EV_A_SHORT;
-  else if (in.longPressed[(uint8_t)Key::A]) e = EV_A_LONG;
-  else if (in.pressed[(uint8_t)Key::B])     e = EV_B_SHORT;
-  else if (in.longPressed[(uint8_t)Key::B]) e = EV_B_LONG;
+  if (!touchUsed) {
+    if (in.pressed[(uint8_t)Key::A])         e = EV_A_SHORT;
+    else if (in.longPressed[(uint8_t)Key::A]) e = EV_A_LONG;
+    else if (in.pressed[(uint8_t)Key::B])     e = EV_B_SHORT;
+    else if (in.longPressed[(uint8_t)Key::B]) e = EV_B_LONG;
+  }
   if (e != EV_NONE) handleEvent(e);
   if (msg_[0] && millis() > msgUntil_) { msg_[0] = 0; dirty_ = true; }
 }
