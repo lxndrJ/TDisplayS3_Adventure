@@ -3,8 +3,8 @@
 // ---------------------------------------------------------------- Layout
 
 // Portrait 170x320: board on top, HUD (arrow + blueprint miniature) below.
-static constexpr int16_t SW = 170;
-static constexpr int16_t SH = 320;
+static constexpr int16_t SW = board::SCR_W;
+static constexpr int16_t SH = board::SCR_H;
 
 static constexpr int16_t GRID_X  = 8;    // board top-left
 static constexpr int16_t GRID_Y  = 26;

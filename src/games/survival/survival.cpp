@@ -79,11 +79,13 @@ static constexpr uint16_t K_COL_SAFE   = 0x5E4B;  // muted rescue green
 // Landscape layout constants (rotation 1, 320x170). Story text and
 // choices use the compiled-in Roboto .vlw smooth fonts.
 static constexpr int16_t K_STATUS_H   = 24;   // status row height
-static constexpr int16_t K_TEXT_Y     = 30;   // first story line
-static constexpr int16_t K_TEXT_LH    = 28;   // Roboto24 yAdvance ~29px
-static constexpr int16_t K_OPT_Y      = 36;   // first choice row
-static constexpr int16_t K_OPT_H      = 40;   // Roboto28 yAdvance ~33px + gap
-static constexpr int16_t K_FOOTER_Y   = 160;  // bottom hint row (Font 1)
+static constexpr int16_t K_TEXT_Y     = K_STATUS_H + 6;  // first story line
+// On touch boards the facade renders FreeSans (~17px at font 1) instead of
+// Roboto .vlw, and the panel is 480x320 landscape -> more lines, lower rows.
+static constexpr int16_t K_TEXT_LH    = board::HAS_TOUCH ? 20 : 28;  // line height
+static constexpr int16_t K_OPT_Y      = board::HAS_TOUCH ? 100 : 36; // first choice row
+static constexpr int16_t K_OPT_H      = 40;   // choice row height (big tap area)
+static constexpr int16_t K_FOOTER_Y   = board::SCR_LH - 10;  // bottom hint row
 
 // Lenient line parser (see prompts.h for the expected format). Returns
 // number of parsed fields so the caller can decide on a retry.
@@ -599,9 +601,7 @@ void SurvivalGame::draw() {
 void SurvivalGame::loadStoryFont() {
   TFT_eSPI& tft = gfx.tft();
   if constexpr (board::HAS_TOUCH) {
-    // QSPI boards have no .vlw support in the display facade: use a bigger
-    // built-in font so the text stays readable/tappable on the touch panel.
-    tft.setTextFont(2);                // 16px classic
+    tft.setTextFont(1);                // FreeSans ~17px (facade has no .vlw)
   } else {
     tft.loadFont(Roboto24_vlw);        // PROGMEM array from Roboto24.h
     tft.setTextFont(1);                // font 1 = use loaded smooth font
@@ -612,8 +612,7 @@ void SurvivalGame::loadStoryFont() {
 void SurvivalGame::loadBigFont() {
   TFT_eSPI& tft = gfx.tft();
   if constexpr (board::HAS_TOUCH) {
-    tft.setTextFont(2);
-    tft.setTextSize(3);                // 24px classic; choice rows are 40px tall
+    tft.setTextFont(2);                // FreeSans ~34px; choice rows are 40px tall
   } else {
     tft.loadFont(Roboto28_vlw);        // PROGMEM array from Roboto28.h
     tft.setTextFont(1);

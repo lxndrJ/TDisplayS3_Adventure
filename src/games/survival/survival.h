@@ -44,7 +44,7 @@ public:
   // Text wrapping is measured in pixels via TFT textWidth, so lines
   // fit the 320px screen exactly at any font size.
   static constexpr uint8_t LINE_LEN     = 96;  // max bytes per wrapped line
-  static constexpr uint8_t TXT_LINES    = 4;   // story lines per page (Roboto24 ~29px)
+  static constexpr uint8_t TXT_LINES    = board::HAS_TOUCH ? 10 : 4;  // story lines per page (more room on the 480x320 panel)
   static constexpr uint8_t MAX_WRAP_LINES = 20; // wrap buffer capacity
   // Smooth fonts (TFT_eSPI .vlw) on the FAT "storage" partition,
   // uploaded with `pio run -t uploadfs`. Story: Roboto20, choices/title:
@@ -59,9 +59,9 @@ public:
   static constexpr size_t  MAX_TEXT    = 400; // situation text cap
 
   // Landscape geometry (rotation 1). gfx.width()/height() are static
-  // portrait values, so the game uses its own constants.
-  static constexpr int16_t SCR_W = 320;
-  static constexpr int16_t SCR_H = 170;
+  // portrait values, so the game uses its own constants (= board landscape).
+  static constexpr int16_t SCR_W = board::SCR_LW;
+  static constexpr int16_t SCR_H = board::SCR_LH;
 
   void startGame();
   void startRequest();

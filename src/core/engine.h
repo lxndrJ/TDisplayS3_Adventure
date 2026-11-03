@@ -126,7 +126,7 @@ private:
     tft.setTextFont(1);
     tft.setTextColor(0x7BEF);
     if constexpr (board::HAS_TOUCH && !board::HAS_BTN_B) {
-      tft.drawString("Touch: weiter | Tippen = Start | BOOT: zurueck", 6, gfx.height() - 12);
+      tft.drawString("Touch: weiter | Tippen = Start", 6, gfx.height() - 12);
     } else {
       tft.drawString("A/B: select | B long: Start", 6, gfx.height() - 12);
     }
@@ -134,7 +134,8 @@ private:
   }
 
   static constexpr int16_t MENU_Y0    = 56;  // first menu row (y)
-  static constexpr int16_t MENU_ROW_H = 24;  // row pitch (px)
+  // row pitch: font 2 is ~34px on touch boards (FreeSans x2), 16px on TFT_eSPI
+  static constexpr int16_t MENU_ROW_H = board::HAS_TOUCH ? 36 : 24;
 
   Game*    active_  = nullptr;
   uint8_t  menuSel_  = 0;

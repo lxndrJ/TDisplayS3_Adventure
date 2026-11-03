@@ -16,6 +16,7 @@
 #include <Arduino_GFX_Library.h>
 #include "board_config.h"
 #include "touch.h"
+#include "fonts/FreeSans9pt7b.h"  // vendored Adafruit GFXfont - smoother than the 5x7 classic font
 
 // TFT_eSPI color aliases (RGB565)
 #define TFT_BLACK       0x0000
@@ -64,8 +65,8 @@ public:
   void setTextFont(uint8_t f) {
     font_ = f;
     if (!g_) return;
-    g_->setFont(nullptr);  // classic 5x7 font
-    g_->setTextSize(f == 2 ? 2 : 1);
+    g_->setFont(&FreeSans9pt7b);  // smooth GFXfont instead of pixelated 5x7 classic
+    g_->setTextSize(f == 2 ? 2 : 1);  // font 2 = ~2x size (titles, choices)
   }
 
   int16_t textWidth(const char* s) {
@@ -89,18 +90,21 @@ public:
     int16_t x1, y1;
     uint16_t w, h;
     g_->getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
+    // GFXfonts draw relative to the baseline (y1 is negative); the classic
+    // font has x1=y1=0, so the same math covers both.
+    int32_t cx = x - x1, cy = y - y1;  // TL_DATUM
     switch (datum_) {
-      case TC_DATUM: x -= w / 2; break;
-      case TR_DATUM: x -= w; break;
-      case ML_DATUM: y -= h / 2; break;
-      case MC_DATUM: x -= w / 2; y -= h / 2; break;
-      case MR_DATUM: x -= w; y -= h / 2; break;
-      case BL_DATUM: y -= h; break;
-      case BC_DATUM: x -= w / 2; y -= h; break;
-      case BR_DATUM: x -= w; y -= h; break;
+      case TC_DATUM: cx = x - w / 2 - x1; break;
+      case TR_DATUM: cx = x - w - x1; break;
+      case ML_DATUM: cy = y - h / 2 - y1; break;
+      case MC_DATUM: cx = x - w / 2 - x1; cy = y - h / 2 - y1; break;
+      case MR_DATUM: cx = x - w - x1; cy = y - h / 2 - y1; break;
+      case BL_DATUM: cy = y - h - y1; break;
+      case BC_DATUM: cx = x - w / 2 - x1; cy = y - h - y1; break;
+      case BR_DATUM: cx = x - w - x1; cy = y - h - y1; break;
       default: break;  // TL_DATUM
     }
-    g_->setCursor(x, y);
+    g_->setCursor(cx, cy);
     g_->print(s);
   }
 
@@ -165,6 +169,26 @@ public:
   int16_t width() const { return t_ ? t_->width() : 0; }
   int16_t height() const { return t_ ? t_->height() : 0; }
 
+  // Arduino_GFX 1.6.0 has no pushImage on Arduino_Canvas - use the
+  // draw16bitRGBBitmap primitive (RGB565, same layout as TFT_eSPI pushImage).
+  void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t* data) {
+    if (t_) t_->draw16bitRGBBitmap((int16_t)x, (int16_t)y, data, (int16_t)w, (int16_t)h);
+  }
+  void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, const uint16_t* data) {
+    if (t_) t_->draw16bitRGBBitmap((int16_t)x, (int16_t)y, const_cast<uint16_t*>(data), (int16_t)w, (int16_t)h);
+  }
+  // Nearest-neighbour scaled blit (for fullscreen art on the bigger panel).
+  void pushImageScaled(int32_t x, int32_t y, int32_t w, int32_t h,
+                       const uint16_t* data, int32_t srcW, int32_t srcH) {
+    if (!t_ || !data || w <= 0 || h <= 0 || srcW <= 0 || srcH <= 0) return;
+    for (int32_t dy = 0; dy < h; dy++) {
+      const uint16_t* row = data + (int32_t)((int64_t)dy * srcH / h) * srcW;
+      for (int32_t dx = 0; dx < w; dx++)
+        t_->drawPixel((int16_t)(x + dx), (int16_t)(y + dy),
+                      row[(int32_t)((int64_t)dx * srcW / w)]);
+    }
+  }
+
 protected:
   Arduino_GFX* t_ = nullptr;
 };
@@ -206,15 +230,6 @@ public:
 
   Arduino_Canvas* frameCanvas() { return canvas_; }
 
-  // Arduino_GFX 1.6.0 has no pushImage on Arduino_Canvas - use the
-  // draw16bitRGBBitmap primitive (RGB565, same layout as TFT_eSPI pushImage).
-  void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t* data) {
-    if (canvas_) canvas_->draw16bitRGBBitmap((int16_t)x, (int16_t)y, data, (int16_t)w, (int16_t)h);
-  }
-  void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, const uint16_t* data) {
-    if (canvas_) canvas_->draw16bitRGBBitmap((int16_t)x, (int16_t)y, const_cast<uint16_t*>(data), (int16_t)w, (int16_t)h);
-  }
-
 private:
   Arduino_AXS15231B* panel_ = nullptr;
   Arduino_Canvas* canvas_ = nullptr;
@@ -252,13 +267,6 @@ public:
   }
 
   void fillSprite(uint16_t color) { fillScreen(color); }
-
-  void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t* data) {
-    if (c_) c_->draw16bitRGBBitmap((int16_t)x, (int16_t)y, data, (int16_t)w, (int16_t)h);
-  }
-  void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, const uint16_t* data) {
-    if (c_) c_->draw16bitRGBBitmap((int16_t)x, (int16_t)y, const_cast<uint16_t*>(data), (int16_t)w, (int16_t)h);
-  }
 
 private:
   Arduino_Canvas* c_ = nullptr;

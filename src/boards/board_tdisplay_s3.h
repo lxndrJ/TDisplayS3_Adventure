@@ -33,6 +33,8 @@ constexpr uint32_t DEBOUNCE_MS = 30;
 constexpr uint8_t  TFT_ROTATION = 0;
 constexpr int16_t  SCR_W = 170;
 constexpr int16_t  SCR_H = 320;
+constexpr int16_t  SCR_LW = 320;  // landscape (rotation 1) sketch size
+constexpr int16_t  SCR_LH = 170;
 constexpr int16_t  PANEL_W = 170;  // native panel size (raw touch coordinates)
 constexpr int16_t  PANEL_H = 320;
 

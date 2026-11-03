@@ -29,11 +29,19 @@ Build with `pio run -e jc3248w535` (board file: `src/boards/board_jc3248w535.h`)
   touch **tap = Key::B short** and **hold ≥ 700 ms = Key::B long**
   (menu: BOOT = previous, tap = next, hold = start – plus **tap directly on a
   menu entry starts that game**; the menu hint line shows
-  `Touch: weiter | Tippen = Start | BOOT: zurueck`). Raw coordinates are
+  `Touch: weiter | Tippen = Start`). Raw coordinates are
   exposed as `InputState::touchX/touchY/touchDown/...` and are mapped to the
   current rotation automatically.
 - **Resolution:** 320×480 portrait (`TFT_ROTATION = 0`); landscape games get
-  480×320 (rotation 1).
+  480×320 (rotation 1) via `board::SCR_LW/SCR_LH` – the games scale their
+  layout to the board (landscape games use fullscreen art scaling
+  `pushImageScaled`, portrait games use `board::SCR_W/SCR_H`), so everything
+  is fullscreen on both boards
+- **Fonts:** the facade (`gfx_axs15231b.h`) renders text with the vendored
+  FreeSans GFXfont (`include/fonts/FreeSans9pt7b.h`, from Adafruit-GFX) instead
+  of the pixelated 5×7 classic font: `setTextFont(1)` ≈ 17 px, `setTextFont(2)`
+  ≈ 34 px. `.vlw` smooth fonts are not supported by Arduino_GFX – Survival
+  falls back to these bigger built-in sizes on touch boards
 
 | Function | GPIO | Note |
 |----------|------|------|
