@@ -282,7 +282,9 @@ public:
   void createSprite(int16_t w, int16_t h) {
     deleteSprite();
     c_ = new Arduino_Canvas(w, h, parent_ ? parent_->frameCanvas() : nullptr, 0, 0, 0);
-    c_->begin();
+    // GFX_SKIP_OUTPUT_BEGIN: must NOT call output->begin() again - that would
+    // re-initialize the QSPI bus (spi_bus_initialize -> abort) on this board.
+    c_->begin(GFX_SKIP_OUTPUT_BEGIN);
     g_ = c_;
     setTarget(c_);
   }
@@ -297,9 +299,15 @@ public:
   }
 
   void pushSprite(int32_t x, int32_t y) {
-    (void)x;
-    (void)y;
-    if (c_) c_->flush();  // blits the sprite into the frame canvas
+    // Blit the sprite framebuffer into the display's frame canvas (call
+    // sites all use 0,0). Canvas::flush() would work too, but a direct
+    // bitmap copy avoids re-walking the output chain.
+    if (c_ && parent_) {
+      Arduino_Canvas* fc = parent_->frameCanvas();
+      if (fc)
+        fc->draw16bitRGBBitmap((int16_t)x, (int16_t)y, c_->getFramebuffer(),
+                               c_->width(), c_->height());
+    }
   }
 
   void fillSprite(uint16_t color) { fillScreen(color); }

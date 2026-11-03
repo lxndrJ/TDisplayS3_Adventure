@@ -42,9 +42,13 @@ public:
     // otherwise the panel reads as permanently touched -> phantom long-press.
     uint8_t num   = d[1];
     uint8_t event = (d[2] >> 6) & 0x03;
-    if (num == 0 || event == 1) return false;
+    // Only accept real contact events (0 = down, 2 = contact); 1 = release,
+    // 3 = garbage read while the finger is already up (seen on hardware).
+    if (num == 0 || (event != 0 && event != 2)) return false;
     int16_t rx = (int16_t)(((d[2] & 0x0F) << 8) | d[3]);
     int16_t ry = (int16_t)(((d[4] & 0x0F) << 8) | d[5]);
+    // plausibility: raw coords must be inside the native panel
+    if (rx >= board::PANEL_W || ry >= board::PANEL_H) return false;
     if (rawX) *rawX = rx;
     if (rawY) *rawY = ry;
     if (ev)   *ev   = event;
