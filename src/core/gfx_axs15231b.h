@@ -201,8 +201,14 @@ public:
   void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t c) { if (c_) c_->drawFastVLine(x, y, h, c); }
   void drawPixel(int16_t x, int16_t y, uint16_t c) { if (c_) c_->drawPixel(x, y, c); }
   void drawRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, uint16_t c) { if (c_) c_->drawRoundRect(x, y, w, h, r, c); }
-  void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t* data) { if (c_) c_->pushImage(x, y, w, h, data); }
-  void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, const uint16_t* data) { if (c_) c_->pushImage(x, y, w, h, data); }
+  // Arduino_GFX 1.6.0 has no pushImage on Arduino_Canvas - use the
+  // draw16bitRGBBitmap primitive (RGB565, same layout as TFT_eSPI pushImage).
+  void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t* data) {
+    if (c_) c_->draw16bitRGBBitmap((int16_t)x, (int16_t)y, data, (int16_t)w, (int16_t)h);
+  }
+  void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, const uint16_t* data) {
+    if (c_) c_->draw16bitRGBBitmap((int16_t)x, (int16_t)y, const_cast<uint16_t*>(data), (int16_t)w, (int16_t)h);
+  }
   void setTextColor(uint16_t c) { if (c_) c_->setTextColor(c); }
   void setTextColor(uint16_t fg, uint16_t bg) { if (c_) c_->setTextColor(fg, bg); }
   void setTextSize(uint8_t s) { if (c_) c_->setTextSize(s); }

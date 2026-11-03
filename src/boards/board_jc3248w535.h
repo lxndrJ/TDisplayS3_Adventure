@@ -12,7 +12,10 @@ constexpr const char* BOARD_NAME = "JC3248W535";
 
 // Physische Pins
 constexpr uint8_t PIN_BTN_A      = 0;     // BOOT button (active LOW) - the only button
-constexpr bool    HAS_BTN_B      = false; // no second button; touch tap/hold acts as Key::B
+constexpr uint8_t PIN_BTN_B      = 0xFF;  // none; touch tap/hold acts as Key::B
+// (PIN_BTN_B must exist even when unused: with -std=gnu++11 the compiler
+// does not discard if-constexpr branches, so both sides must compile)
+constexpr bool    HAS_BTN_B      = false;
 constexpr bool    HAS_POWER_HOLD = false;
 constexpr uint8_t PIN_POWER_ON   = 0;     // unused
 
