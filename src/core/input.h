@@ -82,6 +82,7 @@ private:
       touchT0_ = now;
       touchLongFired_ = false;
       touchDebMs_ = now;
+      Serial.printf("[touch] down x=%d y=%d\n", lastX_, lastY_);
     }
     if (down && touchDown_ && !touchLongFired_ && now - touchT0_ >= board::LONG_B_MS) {
       touchLongFired_ = true;

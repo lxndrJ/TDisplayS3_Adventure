@@ -89,14 +89,17 @@ private:
     if constexpr (board::HAS_TOUCH) {
       if (in.touchTap) {
         Serial.printf("[touch] tap x=%d y=%d\n", in.touchX, in.touchY);
-        if (in.touchX >= 0 && in.touchX < gfx.width() && in.touchY >= MENU_Y0) {
-          int16_t row = (in.touchY - MENU_Y0) / MENU_ROW_H;
-          if (row < GAME_COUNT) {
-            Serial.printf("[touch] start game %d\n", row);
-            menuSel_ = (uint8_t)row;
-            active_ = makeGame(menuSel_);
-            if (active_) active_->init();
-          }
+        // nearest row (round, not floor) so slightly-off coordinates still hit
+        if (in.touchX >= 0 && in.touchX < gfx.width() &&
+            in.touchY >= MENU_Y0 - MENU_ROW_H / 2 &&
+            in.touchY < MENU_Y0 + GAME_COUNT * MENU_ROW_H) {
+          int16_t row = (in.touchY - MENU_Y0 + MENU_ROW_H / 2) / MENU_ROW_H;
+          if (row < 0) row = 0;
+          if (row >= GAME_COUNT) row = GAME_COUNT - 1;
+          Serial.printf("[touch] start game %d\n", row);
+          menuSel_ = (uint8_t)row;
+          active_ = makeGame(menuSel_);
+          if (active_) active_->init();
         }
       }
     }

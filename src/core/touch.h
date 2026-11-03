@@ -33,7 +33,13 @@ public:
     if (Wire.requestFrom(board::TOUCH_I2C_ADDR, (uint8_t)8) != 8) return false;
     uint8_t d[8];
     for (uint8_t i = 0; i < 8; i++) d[i] = Wire.read();
-    if (d[1] == 0) return false;  // no touch point (point count byte)
+    // Vendor layout (esp_lcd_axs15231b.c): d[1] = point count,
+    // (d[2] >> 6) & 3 = event flag (0 = down, 1 = up, 2 = contact).
+    // Treat event == 1 (release) as "not down" even if num is still set,
+    // otherwise the panel reads as permanently touched -> phantom long-press.
+    uint8_t num   = d[1];
+    uint8_t event = (d[2] >> 6) & 0x03;
+    if (num == 0 || event == 1) return false;
     int16_t rx = (int16_t)(((d[2] & 0x0F) << 8) | d[3]);
     int16_t ry = (int16_t)(((d[4] & 0x0F) << 8) | d[5]);
     switch (rot_) {
