@@ -19,6 +19,14 @@ public:
     tft_.fillScreen(TFT_BLACK);
   }
 
+  // QSPI boards (JC3248W535) render into a frame canvas - push it to the
+  // panel once per frame. No-op for direct-drive backends like TFT_eSPI.
+  void present() {
+#if defined(BOARD_JC3248W535)
+    tft_.present();
+#endif
+  }
+
   TFT_eSPI& tft() { return tft_; }
 
   static constexpr int16_t width()  { return board::SCR_W; }

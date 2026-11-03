@@ -15,6 +15,7 @@
 class Engine {
 public:
   void begin(Game* boot) {
+    Serial.begin(115200);
     // Power-hold BEFORE display init: without HIGH on GPIO15 the
     // panel on the T-Display-S3 stays unpowered (black screen, backlight off).
     boardPowerOn();
@@ -46,6 +47,9 @@ public:
       menuUpdate(in);
       menuDraw();
     }
+
+    // QSPI boards: push the frame canvas to the panel once per frame.
+    gfx.present();
 
     // Frame pacing (~60 FPS): without a cap the engine renders as fast
     // as the bus allows - animations flicker, dt becomes erratic.

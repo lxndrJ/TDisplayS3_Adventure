@@ -6,6 +6,11 @@
 // Arduino_ESP32QSPI + Arduino_AXS15231B. The facade implements exactly the
 // TFT_eSPI API surface the games use, so game code stays unchanged and both
 // envs compile against a type named TFT_eSPI / TFT_eSprite.
+//
+// Important: the AXS15231B in QSPI mode cannot address arbitrary Y per draw,
+// so ALL rendering goes through a full-screen Arduino_Canvas frame buffer;
+// Display::present() flushes it to the panel once per frame (the only
+// reliable render path on this chip - same approach as the vendor demo).
 
 #include <Arduino.h>
 #include <Arduino_GFX_Library.h>
@@ -136,31 +141,88 @@ protected:
   uint8_t font_ = 1;
 };
 
-// Display facade: AXS15231B over QSPI + backlight GPIO.
-class TFT_eSPI : public Arduino_AXS15231B, public GfxTextCompat {
+// Shared forwarding of the Arduino_GFX drawing API onto a target canvas.
+// Used by both the display facade (target = frame canvas) and sprites.
+class GfxDrawForward {
 public:
-  TFT_eSPI()
-    : Arduino_AXS15231B(new Arduino_ESP32QSPI(board::PIN_LCD_CS, board::PIN_LCD_SCK,
-                                              board::PIN_LCD_D0, board::PIN_LCD_D1,
-                                              board::PIN_LCD_D2, board::PIN_LCD_D3),
-                        GFX_NOT_DEFINED, 0, false, board::PANEL_W, board::PANEL_H),
-      GfxTextCompat(this) {}
+  void setTarget(Arduino_GFX* g) { t_ = g; }
+
+  void fillScreen(uint16_t c) { if (t_) t_->fillScreen(c); }
+  void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c) { if (t_) t_->fillRect(x, y, w, h, c); }
+  void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c) { if (t_) t_->drawRect(x, y, w, h, c); }
+  void fillCircle(int16_t x, int16_t y, int16_t r, uint16_t c) { if (t_) t_->fillCircle(x, y, r, c); }
+  void drawCircle(int16_t x, int16_t y, int16_t r, uint16_t c) { if (t_) t_->drawCircle(x, y, r, c); }
+  void fillTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t c) { if (t_) t_->fillTriangle(x0, y0, x1, y1, x2, y2, c); }
+  void drawTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t c) { if (t_) t_->drawTriangle(x0, y0, x1, y1, x2, y2, c); }
+  void drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t c) { if (t_) t_->drawLine(x0, y0, x1, y1, c); }
+  void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t c) { if (t_) t_->drawFastHLine(x, y, w, c); }
+  void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t c) { if (t_) t_->drawFastVLine(x, y, h, c); }
+  void drawPixel(int16_t x, int16_t y, uint16_t c) { if (t_) t_->drawPixel(x, y, c); }
+  void drawRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, uint16_t c) { if (t_) t_->drawRoundRect(x, y, w, h, r, c); }
+  void setTextColor(uint16_t c) { if (t_) t_->setTextColor(c); }
+  void setTextColor(uint16_t fg, uint16_t bg) { if (t_) t_->setTextColor(fg, bg); }
+  void setTextSize(uint8_t s) { if (t_) t_->setTextSize(s); }
+  int16_t width() const { return t_ ? t_->width() : 0; }
+  int16_t height() const { return t_ ? t_->height() : 0; }
+
+protected:
+  Arduino_GFX* t_ = nullptr;
+};
+
+// Display facade: panel behind a full-screen frame canvas (see note above).
+class TFT_eSPI : public GfxTextCompat, public GfxDrawForward {
+public:
+  TFT_eSPI() : GfxTextCompat(nullptr) {
+    panel_ = new Arduino_AXS15231B(
+        new Arduino_ESP32QSPI(board::PIN_LCD_CS, board::PIN_LCD_SCK,
+                              board::PIN_LCD_D0, board::PIN_LCD_D1,
+                              board::PIN_LCD_D2, board::PIN_LCD_D3),
+        GFX_NOT_DEFINED, 0, false, board::PANEL_W, board::PANEL_H);
+    canvas_ = new Arduino_Canvas(board::PANEL_W, board::PANEL_H, panel_, 0, 0, 0);
+    g_ = canvas_;
+    setTarget(canvas_);
+  }
 
   void init() {
-    begin();
+    bool ok = canvas_->begin();  // begins the QSPI bus + panel, allocs framebuffer (PSRAM)
+    if (Serial) Serial.printf("[jc3248w535] canvas begin=%d psram=%d\n", ok, psramFound());
     pinMode(board::PIN_LCD_BL, OUTPUT);
-    digitalWrite(board::PIN_LCD_BL, HIGH);
+    digitalWrite(board::PIN_LCD_BL, HIGH);  // backlight on
+    // boot flash: proves panel + backlight + flush path end to end
+    fillScreen(TFT_RED);
+    present();
+    delay(300);
+    fillScreen(TFT_BLACK);
+    present();
   }
 
   void setRotation(uint8_t r) {
-    Arduino_AXS15231B::setRotation(r);
+    canvas_->setRotation(r);
     touchNotifyRotation(r);
   }
+
+  // Push the frame canvas to the panel - called once per frame by the engine.
+  void present() { if (canvas_) canvas_->flush(); }
+
+  Arduino_Canvas* frameCanvas() { return canvas_; }
+
+  // Arduino_GFX 1.6.0 has no pushImage on Arduino_Canvas - use the
+  // draw16bitRGBBitmap primitive (RGB565, same layout as TFT_eSPI pushImage).
+  void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t* data) {
+    if (canvas_) canvas_->draw16bitRGBBitmap((int16_t)x, (int16_t)y, data, (int16_t)w, (int16_t)h);
+  }
+  void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, const uint16_t* data) {
+    if (canvas_) canvas_->draw16bitRGBBitmap((int16_t)x, (int16_t)y, const_cast<uint16_t*>(data), (int16_t)w, (int16_t)h);
+  }
+
+private:
+  Arduino_AXS15231B* panel_ = nullptr;
+  Arduino_Canvas* canvas_ = nullptr;
 };
 
-// Sprite facade: an Arduino_Canvas framebuffer flushed to the panel with
-// pushSprite() (all call sites use 0,0).
-class TFT_eSprite : public GfxTextCompat {
+// Sprite facade: an Arduino_Canvas whose flush() blits into the display's
+// frame canvas (pushSprite call sites all use 0,0).
+class TFT_eSprite : public GfxTextCompat, public GfxDrawForward {
 public:
   TFT_eSprite(TFT_eSPI* parent = nullptr) : GfxTextCompat(nullptr), parent_(parent) {}
 
@@ -168,9 +230,10 @@ public:
 
   void createSprite(int16_t w, int16_t h) {
     deleteSprite();
-    c_ = new Arduino_Canvas(w, h, parent_, 0, 0, 0);
+    c_ = new Arduino_Canvas(w, h, parent_ ? parent_->frameCanvas() : nullptr, 0, 0, 0);
     c_->begin();
     g_ = c_;
+    setTarget(c_);
   }
 
   void deleteSprite() {
@@ -179,45 +242,27 @@ public:
       c_ = nullptr;
     }
     g_ = nullptr;
+    setTarget(nullptr);
   }
 
   void pushSprite(int32_t x, int32_t y) {
     (void)x;
     (void)y;
-    if (c_) c_->flush();
+    if (c_) c_->flush();  // blits the sprite into the frame canvas
   }
 
   void fillSprite(uint16_t color) { fillScreen(color); }
 
-  void fillScreen(uint16_t c) { if (c_) c_->fillScreen(c); }
-  void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c) { if (c_) c_->fillRect(x, y, w, h, c); }
-  void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c) { if (c_) c_->drawRect(x, y, w, h, c); }
-  void fillCircle(int16_t x, int16_t y, int16_t r, uint16_t c) { if (c_) c_->fillCircle(x, y, r, c); }
-  void drawCircle(int16_t x, int16_t y, int16_t r, uint16_t c) { if (c_) c_->drawCircle(x, y, r, c); }
-  void fillTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t c) { if (c_) c_->fillTriangle(x0, y0, x1, y1, x2, y2, c); }
-  void drawTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t c) { if (c_) c_->drawTriangle(x0, y0, x1, y1, x2, y2, c); }
-  void drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t c) { if (c_) c_->drawLine(x0, y0, x1, y1, c); }
-  void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t c) { if (c_) c_->drawFastHLine(x, y, w, c); }
-  void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t c) { if (c_) c_->drawFastVLine(x, y, h, c); }
-  void drawPixel(int16_t x, int16_t y, uint16_t c) { if (c_) c_->drawPixel(x, y, c); }
-  void drawRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t r, uint16_t c) { if (c_) c_->drawRoundRect(x, y, w, h, r, c); }
-  // Arduino_GFX 1.6.0 has no pushImage on Arduino_Canvas - use the
-  // draw16bitRGBBitmap primitive (RGB565, same layout as TFT_eSPI pushImage).
   void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t* data) {
     if (c_) c_->draw16bitRGBBitmap((int16_t)x, (int16_t)y, data, (int16_t)w, (int16_t)h);
   }
   void pushImage(int32_t x, int32_t y, int32_t w, int32_t h, const uint16_t* data) {
     if (c_) c_->draw16bitRGBBitmap((int16_t)x, (int16_t)y, const_cast<uint16_t*>(data), (int16_t)w, (int16_t)h);
   }
-  void setTextColor(uint16_t c) { if (c_) c_->setTextColor(c); }
-  void setTextColor(uint16_t fg, uint16_t bg) { if (c_) c_->setTextColor(fg, bg); }
-  void setTextSize(uint8_t s) { if (c_) c_->setTextSize(s); }
-  int16_t width() const { return c_ ? c_->width() : 0; }
-  int16_t height() const { return c_ ? c_->height() : 0; }
 
 private:
   Arduino_Canvas* c_ = nullptr;
-  Arduino_G* parent_ = nullptr;
+  TFT_eSPI* parent_ = nullptr;
 };
 
 #endif
