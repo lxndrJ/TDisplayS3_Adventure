@@ -67,12 +67,16 @@ private:
   // game stays playable with BOOT + touch only.
   void updateTouch(InputState& s) {
     bool down = false;
-    int16_t x = 0, y = 0;
+    int16_t x = lastX_, y = lastY_;  // poll() keeps these when not touched
     touchPanel.poll(down, x, y);
+    if (down) {
+      lastX_ = x;
+      lastY_ = y;
+    }
     uint32_t now = millis();
     s.touchDown = down;
-    s.touchX = x;
-    s.touchY = y;
+    s.touchX = lastX_;  // last known position - also valid for the tap event
+    s.touchY = lastY_;
     if (down && !touchDown_ && now - touchDebMs_ > board::DEBOUNCE_MS) {
       touchDown_ = true;
       touchT0_ = now;
@@ -102,6 +106,8 @@ private:
   bool     touchLongFired_ = false;
   uint32_t touchT0_ = 0;
   uint32_t touchDebMs_ = 0;
+  int16_t  lastX_ = 0;
+  int16_t  lastY_ = 0;
 };
 
 extern InputManager input;

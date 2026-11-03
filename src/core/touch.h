@@ -19,12 +19,12 @@ public:
 
   void setRotation(uint8_t r) { rot_ = r & 3; }
 
-  // Fills down/x/y; x/y are mapped from the native panel orientation to the
-  // current display rotation. Returns the touch-down state.
+  // Fills down and (only when down) x/y, mapped from the native panel
+  // orientation to the current display rotation. When there is no touch,
+  // x/y are left unchanged so the caller can keep the last known position
+  // (a tap event fires on release, when the finger is already up).
   bool poll(bool& down, int16_t& x, int16_t& y) {
     down = false;
-    x = 0;
-    y = 0;
     if constexpr (!board::HAS_TOUCH) return false;
     static const uint8_t kCmd[11] = {0xB5, 0xAB, 0xA5, 0x5A, 0, 0, 0, 0x08, 0, 0, 0};
     Wire.beginTransmission(board::TOUCH_I2C_ADDR);
@@ -33,7 +33,7 @@ public:
     if (Wire.requestFrom(board::TOUCH_I2C_ADDR, (uint8_t)8) != 8) return false;
     uint8_t d[8];
     for (uint8_t i = 0; i < 8; i++) d[i] = Wire.read();
-    if (d[0] == 0 || d[1] == 0) return false;  // no touch point
+    if (d[1] == 0) return false;  // no touch point (point count byte)
     int16_t rx = (int16_t)(((d[2] & 0x0F) << 8) | d[3]);
     int16_t ry = (int16_t)(((d[4] & 0x0F) << 8) | d[5]);
     switch (rot_) {

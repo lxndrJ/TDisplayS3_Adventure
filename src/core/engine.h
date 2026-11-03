@@ -35,9 +35,11 @@ public:
     InputState in;
     input.update(in);
 
+    bool drew = false;
     if (active_) {
       active_->update(in, dt);
       active_->draw();
+      drew = true;
       if (active_->wantsMenu) {
         active_->quit();
         active_ = nullptr;
@@ -45,11 +47,13 @@ public:
       }
     } else {
       menuUpdate(in);
-      menuDraw();
+      drew = menuDraw();
     }
 
-    // QSPI boards: push the frame canvas to the panel once per frame.
-    gfx.present();
+    // QSPI boards: push the frame canvas to the panel - but only when
+    // something was actually drawn (a full flush costs ~60 ms over QSPI and
+    // would otherwise slow down touch polling in the idle menu).
+    if (drew) gfx.present();
 
     // Frame pacing (~60 FPS): without a cap the engine renders as fast
     // as the bus allows - animations flicker, dt becomes erratic.
@@ -83,20 +87,24 @@ private:
     }
     // Touch boards: a tap directly on a menu entry starts that game.
     if constexpr (board::HAS_TOUCH) {
-      if (in.touchTap && in.touchX >= 0 && in.touchX < gfx.width() &&
-          in.touchY >= MENU_Y0) {
-        int16_t row = (in.touchY - MENU_Y0) / MENU_ROW_H;
-        if (row < GAME_COUNT) {
-          menuSel_ = (uint8_t)row;
-          active_ = makeGame(menuSel_);
-          if (active_) active_->init();
+      if (in.touchTap) {
+        Serial.printf("[touch] tap x=%d y=%d\n", in.touchX, in.touchY);
+        if (in.touchX >= 0 && in.touchX < gfx.width() && in.touchY >= MENU_Y0) {
+          int16_t row = (in.touchY - MENU_Y0) / MENU_ROW_H;
+          if (row < GAME_COUNT) {
+            Serial.printf("[touch] start game %d\n", row);
+            menuSel_ = (uint8_t)row;
+            active_ = makeGame(menuSel_);
+            if (active_) active_->init();
+          }
         }
       }
     }
   }
 
-  void menuDraw() {
-    if (!menuDirty_) return;
+  // Returns true when the menu was redrawn (frame needs a present()).
+  bool menuDraw() {
+    if (!menuDirty_) return false;
     menuDirty_ = false;
     TFT_eSPI& tft = gfx.tft();
     tft.setRotation(board::TFT_ROTATION);
@@ -122,6 +130,7 @@ private:
     } else {
       tft.drawString("A/B: select | B long: Start", 6, gfx.height() - 12);
     }
+    return true;
   }
 
   static constexpr int16_t MENU_Y0    = 56;  // first menu row (y)
