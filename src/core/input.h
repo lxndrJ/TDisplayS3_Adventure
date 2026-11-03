@@ -68,7 +68,9 @@ private:
   void updateTouch(InputState& s) {
     bool down = false;
     int16_t x = lastX_, y = lastY_;  // poll() keeps these when not touched
-    touchPanel.poll(down, x, y);
+    int16_t rx = 0, ry = 0;
+    uint8_t ev = 0;
+    touchPanel.poll(down, x, y, &rx, &ry, &ev);
     if (down) {
       lastX_ = x;
       lastY_ = y;
@@ -82,7 +84,7 @@ private:
       touchT0_ = now;
       touchLongFired_ = false;
       touchDebMs_ = now;
-      Serial.printf("[touch] down x=%d y=%d\n", lastX_, lastY_);
+      Serial.printf("[touch] down raw=(%d,%d) ev=%u mapped=(%d,%d)\n", rx, ry, ev, lastX_, lastY_);
     }
     if (down && touchDown_ && !touchLongFired_ && now - touchT0_ >= board::LONG_B_MS) {
       touchLongFired_ = true;
@@ -90,7 +92,10 @@ private:
     }
     if (!down && touchDown_) {
       touchDown_ = false;
-      if (!touchLongFired_) s.touchTap = true;
+      if (!touchLongFired_) {
+        s.touchTap = true;
+        Serial.printf("[touch] up tap raw=(%d,%d) mapped=(%d,%d)\n", rx, ry, lastX_, lastY_);
+      }
     }
     if constexpr (!board::HAS_BTN_B) {
       uint8_t i = (uint8_t)Key::B;

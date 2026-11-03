@@ -23,7 +23,10 @@ public:
   // orientation to the current display rotation. When there is no touch,
   // x/y are left unchanged so the caller can keep the last known position
   // (a tap event fires on release, when the finger is already up).
-  bool poll(bool& down, int16_t& x, int16_t& y) {
+  // rawX/rawY/ev (optional) expose the unmapped panel coordinates + event
+  // flag for diagnostics.
+  bool poll(bool& down, int16_t& x, int16_t& y,
+            int16_t* rawX = nullptr, int16_t* rawY = nullptr, uint8_t* ev = nullptr) {
     down = false;
     if constexpr (!board::HAS_TOUCH) return false;
     static const uint8_t kCmd[11] = {0xB5, 0xAB, 0xA5, 0x5A, 0, 0, 0, 0x08, 0, 0, 0};
@@ -42,6 +45,9 @@ public:
     if (num == 0 || event == 1) return false;
     int16_t rx = (int16_t)(((d[2] & 0x0F) << 8) | d[3]);
     int16_t ry = (int16_t)(((d[4] & 0x0F) << 8) | d[5]);
+    if (rawX) *rawX = rx;
+    if (rawY) *rawY = ry;
+    if (ev)   *ev   = event;
     switch (rot_) {
       case 1:  x = ry;                       y = board::PANEL_W - 1 - rx; break;
       case 2:  x = board::PANEL_W - 1 - rx; y = board::PANEL_H - 1 - ry; break;
