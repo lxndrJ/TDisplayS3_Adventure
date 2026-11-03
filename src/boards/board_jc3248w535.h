@@ -24,10 +24,11 @@ constexpr uint32_t LONG_A_MS   = 1200;
 constexpr uint32_t LONG_B_MS   = 700;    // also the touch long-press threshold
 constexpr uint32_t DEBOUNCE_MS = 30;
 
-// Display geometry in sketch orientation (portrait = native panel orientation)
-constexpr uint8_t  TFT_ROTATION = 0;
-constexpr int16_t  SCR_W = 320;
-constexpr int16_t  SCR_H = 480;
+// Display geometry in sketch orientation. The 3.5" panel is used in
+// LANDSCAPE by default (like the factory firmware): 480x320.
+constexpr uint8_t  TFT_ROTATION = 1;
+constexpr int16_t  SCR_W = 480;
+constexpr int16_t  SCR_H = 320;
 constexpr int16_t  SCR_LW = 480;  // landscape (rotation 1) sketch size
 constexpr int16_t  SCR_LH = 320;
 constexpr int16_t  PANEL_W = 320;  // native panel size (raw touch coordinates)

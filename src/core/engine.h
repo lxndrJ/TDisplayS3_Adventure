@@ -137,14 +137,15 @@ private:
     return true;
   }
 
-  // Menu geometry. On touch boards the facade font is bigger (FreeSans:
-  // font 2 ~44px line, font 1 ~22px), so rows use font 1 with a wider pitch.
+  // Menu geometry. Touch board (JC3248W535, landscape 480x320, FreeSans):
+  // title font 2 (~44px line), rows font 1 (~22px) with 24px pitch - fits
+  // 9 games + hint into 320px height. S3 (portrait 170x320, TFT_eSPI) keeps
+  // the classic font-2 rows.
   static constexpr uint8_t MENU_ROW_FONT = board::HAS_TOUCH ? 1 : 2;
-  static constexpr int16_t MENU_SUB_Y    = board::HAS_TOUCH ? 52 : 26;
-  static constexpr int16_t MENU_Y0       = board::HAS_TOUCH ? 84 : 56;  // first menu row
-  static constexpr int16_t MENU_ROW_H    = board::HAS_TOUCH ? 28 : 24;  // row pitch (px)
+  static constexpr int16_t MENU_SUB_Y    = board::HAS_TOUCH ? 56 : 26;
+  static constexpr int16_t MENU_Y0       = board::HAS_TOUCH ? 80 : 56;  // first menu row
+  static constexpr int16_t MENU_ROW_H    = board::HAS_TOUCH ? 24 : 24;  // row pitch (px)
   static constexpr int16_t MENU_LINE_Y   = MENU_Y0 - 6;
-  // hint line: font 1 is ~22px on touch boards, so keep it clear of the edge
   static constexpr int16_t MENU_HINT_Y   = board::SCR_H - (board::HAS_TOUCH ? 26 : 12);
 
   Game*    active_  = nullptr;
