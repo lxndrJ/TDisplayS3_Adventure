@@ -99,6 +99,11 @@ src/
 | Next game | **B (GPIO14) short** |
 | Start game | **B (GPIO14) long (~0.7 s)** |
 
+On **touch boards** (e.g. JC3248W535, only BOOT button): a **tap = next entry**,
+**tapping directly on an entry starts that game**, **hold = start selected**,
+BOOT = previous. The hint line at the bottom of the menu shows this on the device
+(`Touch: weiter | Tippen = Start | BOOT: zurueck`).
+
 ### In the games
 
 | Game | Controls |

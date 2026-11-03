@@ -77,6 +77,18 @@ private:
       active_ = makeGame(menuSel_);
       if (active_) active_->init();
     }
+    // Touch boards: a tap directly on a menu entry starts that game.
+    if constexpr (board::HAS_TOUCH) {
+      if (in.touchTap && in.touchX >= 0 && in.touchX < gfx.width() &&
+          in.touchY >= MENU_Y0) {
+        int16_t row = (in.touchY - MENU_Y0) / MENU_ROW_H;
+        if (row < GAME_COUNT) {
+          menuSel_ = (uint8_t)row;
+          active_ = makeGame(menuSel_);
+          if (active_) active_->init();
+        }
+      }
+    }
   }
 
   void menuDraw() {
@@ -96,17 +108,20 @@ private:
       bool sel = (i == menuSel_);
       tft.setTextFont(2);
       tft.setTextColor(sel ? 0xFFE0 : 0x7BEF);  // Gelb = ausgewaehlt
-      tft.drawString(sel ? "> " : "  ", 12, 56 + i * 24);
-      tft.drawString(makeGame(i)->name(), 34, 56 + i * 24);
+      tft.drawString(sel ? "> " : "  ", 12, MENU_Y0 + i * MENU_ROW_H);
+      tft.drawString(makeGame(i)->name(), 34, MENU_Y0 + i * MENU_ROW_H);
     }
     tft.setTextFont(1);
     tft.setTextColor(0x7BEF);
     if constexpr (board::HAS_TOUCH && !board::HAS_BTN_B) {
-      tft.drawString("BOOT: back | tap: next | hold: start", 6, gfx.height() - 12);
+      tft.drawString("Touch: weiter | Tippen = Start | BOOT: zurueck", 6, gfx.height() - 12);
     } else {
       tft.drawString("A/B: select | B long: Start", 6, gfx.height() - 12);
     }
   }
+
+  static constexpr int16_t MENU_Y0    = 56;  // first menu row (y)
+  static constexpr int16_t MENU_ROW_H = 24;  // row pitch (px)
 
   Game*    active_  = nullptr;
   uint8_t  menuSel_  = 0;

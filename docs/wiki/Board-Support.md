@@ -27,7 +27,9 @@ Build with `pio run -e jc3248w535` (board file: `src/boards/board_jc3248w535.h`)
   on **SDA=GPIO4 / SCL=GPIO8** (400 kHz), polled in `src/core/touch.*`
   (INT/RST not wired). The board has only the **BOOT button (GPIO0)**, so a
   touch **tap = Key::B short** and **hold ≥ 700 ms = Key::B long**
-  (menu: BOOT = previous, tap = next, hold = start). Raw coordinates are
+  (menu: BOOT = previous, tap = next, hold = start – plus **tap directly on a
+  menu entry starts that game**; the menu hint line shows
+  `Touch: weiter | Tippen = Start | BOOT: zurueck`). Raw coordinates are
   exposed as `InputState::touchX/touchY/touchDown/...` and are mapped to the
   current rotation automatically.
 - **Resolution:** 320×480 portrait (`TFT_ROTATION = 0`); landscape games get
