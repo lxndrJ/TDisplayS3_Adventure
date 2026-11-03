@@ -50,8 +50,10 @@ public:
         tft.drawRect(gfx.width() - BACK_W, 0, BACK_W, BACK_H, 0x07FF);
         tft.setTextDatum(MC_DATUM);
         tft.setTextFont(1);
+        tft.setTextSize(2);  // ~34px
         tft.setTextColor(0x07FF);
         tft.drawString("Menu", gfx.width() - BACK_W / 2, BACK_H / 2 - 1);
+        tft.setTextSize(1);
       }
       drew = true;
       if (active_->wantsMenu) {
@@ -142,8 +144,10 @@ private:
         tft.drawRect(x, y, GRID_CW, GRID_CH, sel ? 0xFFE0 : 0x07FF);
         tft.setTextDatum(MC_DATUM);
         tft.setTextFont(1);
+        tft.setTextSize(board::HAS_TOUCH ? 2 : 1);  // ~34px labels on the big panel
         tft.setTextColor(sel ? 0xFFE0 : 0xCFF7);
         tft.drawString(makeGame(i)->name(), x + GRID_CW / 2, y + GRID_CH / 2 - 1);
+        tft.setTextSize(1);
       }
       tft.setTextDatum(TL_DATUM);
       tft.setTextFont(1);
@@ -180,13 +184,14 @@ private:
   static constexpr int16_t GRID_COLS  = 3;
   static constexpr int16_t GRID_ROWS  = 3;
   static constexpr int16_t GRID_X     = 10;
-  static constexpr int16_t GRID_Y     = 62;
-  static constexpr int16_t GRID_GAP   = 8;
+  static constexpr int16_t GRID_Y     = 60;
+  static constexpr int16_t GRID_GAP   = 10;
   static constexpr int16_t GRID_CW    = (board::SCR_W - 2 * GRID_X - (GRID_COLS - 1) * GRID_GAP) / GRID_COLS;
-  static constexpr int16_t GRID_CH    = 68;
+  // fill the area down to the hint line with 3 rows
+  static constexpr int16_t GRID_CH    = (board::SCR_H - 26 - GRID_Y - (GRID_ROWS - 1) * GRID_GAP) / GRID_ROWS;
   // global "back to menu" button zone, top-right corner (touch boards)
-  static constexpr int16_t BACK_W = 64;
-  static constexpr int16_t BACK_H = 28;
+  static constexpr int16_t BACK_W = 88;
+  static constexpr int16_t BACK_H = 40;
 
   Game*    active_  = nullptr;
   uint8_t  menuSel_  = 0;
