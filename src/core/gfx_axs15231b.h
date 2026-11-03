@@ -69,11 +69,44 @@ public:
     g_->setTextSize(f == 2 ? 2 : 1);  // font 2 = ~2x size (titles, choices)
   }
 
+  // FreeSans9pt7b covers ASCII only (0x20-0x7E): fold German UTF-8 umlauts
+  // to ae/oe/ue/ss so German game text stays readable on the QSPI board.
+  static void foldUmlauts(const char* s, char* out, size_t cap) {
+    size_t o = 0;
+    for (size_t i = 0; s[i] && o + 3 < cap; ) {
+      uint8_t c = (uint8_t)s[i];
+      if (c == 0xC3 && s[i + 1]) {
+        uint8_t c2 = (uint8_t)s[i + 1];
+        const char* rep = nullptr;
+        switch (c2) {
+          case 0xA4: rep = "ae"; break;
+          case 0xB6: rep = "oe"; break;
+          case 0xBC: rep = "ue"; break;
+          case 0x9F: rep = "ss"; break;
+          case 0x84: rep = "Ae"; break;
+          case 0x96: rep = "Oe"; break;
+          case 0x9C: rep = "Ue"; break;
+          default: break;
+        }
+        if (rep) {
+          while (*rep && o + 1 < cap) out[o++] = *rep++;
+          i += 2;
+          continue;
+        }
+      }
+      out[o++] = (char)c;
+      i++;
+    }
+    out[o] = 0;
+  }
+
   int16_t textWidth(const char* s) {
     if (!g_ || !s) return 0;
+    char buf[160];
+    foldUmlauts(s, buf, sizeof(buf));
     int16_t x1, y1;
     uint16_t w, h;
-    g_->getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
+    g_->getTextBounds(buf, 0, 0, &x1, &y1, &w, &h);
     return (int16_t)w;
   }
 
@@ -87,6 +120,9 @@ public:
 
   void drawString(const char* s, int32_t x, int32_t y) {
     if (!g_ || !s) return;
+    char buf[160];
+    foldUmlauts(s, buf, sizeof(buf));
+    s = buf;
     int16_t x1, y1;
     uint16_t w, h;
     g_->getTextBounds(s, 0, 0, &x1, &y1, &w, &h);
