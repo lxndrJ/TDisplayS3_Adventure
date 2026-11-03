@@ -110,15 +110,16 @@ private:
     tft.setRotation(board::TFT_ROTATION);
     tft.fillScreen(TFT_BLACK);
     tft.setTextDatum(TL_DATUM);
-    tft.setTextFont(2);
+    tft.setTextFont(2);  // title: 16px on TFT_eSPI, ~44px (FreeSans x2) on touch
     tft.setTextColor(0x07FF);  // Neon-Cyan
     tft.drawString(board::BOARD_NAME, 6, 8);
+    tft.setTextFont(MENU_ROW_FONT);
     tft.setTextColor(0x7BEF);
-    tft.drawString("Games", 6, 26);
-    tft.drawFastHLine(0, 44, gfx.width(), 0x8010);
+    tft.drawString("Games", 6, MENU_SUB_Y);
+    tft.drawFastHLine(0, MENU_LINE_Y, gfx.width(), 0x8010);
     for (uint8_t i = 0; i < GAME_COUNT; i++) {
       bool sel = (i == menuSel_);
-      tft.setTextFont(2);
+      tft.setTextFont(MENU_ROW_FONT);
       tft.setTextColor(sel ? 0xFFE0 : 0x7BEF);  // Gelb = ausgewaehlt
       tft.drawString(sel ? "> " : "  ", 12, MENU_Y0 + i * MENU_ROW_H);
       tft.drawString(makeGame(i)->name(), 34, MENU_Y0 + i * MENU_ROW_H);
@@ -126,16 +127,22 @@ private:
     tft.setTextFont(1);
     tft.setTextColor(0x7BEF);
     if constexpr (board::HAS_TOUCH && !board::HAS_BTN_B) {
-      tft.drawString("Touch: weiter | Tippen = Start", 6, gfx.height() - 12);
+      tft.drawString("Touch: weiter | Tippen = Start", 6, MENU_HINT_Y);
     } else {
-      tft.drawString("A/B: select | B long: Start", 6, gfx.height() - 12);
+      tft.drawString("A/B: select | B long: Start", 6, MENU_HINT_Y);
     }
     return true;
   }
 
-  static constexpr int16_t MENU_Y0    = 56;  // first menu row (y)
-  // row pitch: font 2 is ~34px on touch boards (FreeSans x2), 16px on TFT_eSPI
-  static constexpr int16_t MENU_ROW_H = board::HAS_TOUCH ? 36 : 24;
+  // Menu geometry. On touch boards the facade font is bigger (FreeSans:
+  // font 2 ~44px line, font 1 ~22px), so rows use font 1 with a wider pitch.
+  static constexpr uint8_t MENU_ROW_FONT = board::HAS_TOUCH ? 1 : 2;
+  static constexpr int16_t MENU_SUB_Y    = board::HAS_TOUCH ? 52 : 26;
+  static constexpr int16_t MENU_Y0       = board::HAS_TOUCH ? 84 : 56;  // first menu row
+  static constexpr int16_t MENU_ROW_H    = board::HAS_TOUCH ? 28 : 24;  // row pitch (px)
+  static constexpr int16_t MENU_LINE_Y   = MENU_Y0 - 6;
+  // hint line: font 1 is ~22px on touch boards, so keep it clear of the edge
+  static constexpr int16_t MENU_HINT_Y   = board::SCR_H - (board::HAS_TOUCH ? 26 : 12);
 
   Game*    active_  = nullptr;
   uint8_t  menuSel_  = 0;
