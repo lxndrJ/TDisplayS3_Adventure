@@ -13,6 +13,57 @@ Guide for adding new boards (ESP32-based with display + 2 buttons).
 | Board | Status | Environment name |
 |-------|--------|------------------|
 | LilyGo T-Display-S3 | ✅ Standard | `t_display_s3` |
+| Guition JC3248W535C_I_Y (3.5" 320×480 touch) | ⚠️ new – needs on-device test | `jc3248w535` |
+
+## Guition JC3248W535C_I_Y (ESP32-S3, 3.5" touch)
+
+Build with `pio run -e jc3248w535` (board file: `src/boards/board_jc3248w535.h`).
+
+- **Display:** AXS15231B over **QSPI** – TFT_eSPI cannot drive QSPI, so this
+  env renders via **Arduino_GFX** (`Arduino_ESP32QSPI` + `Arduino_AXS15231B`)
+  behind the TFT_eSPI-compatible facade in `src/core/gfx_axs15231b.h`
+  (games stay unchanged). Backlight = GPIO1 (HIGH = on). No power-hold pin.
+- **Touch:** capacitive touch integrated in the AXS15231B, I2C slave **0x3B**
+  on **SDA=GPIO4 / SCL=GPIO8** (400 kHz), polled in `src/core/touch.*`
+  (INT/RST not wired). The board has only the **BOOT button (GPIO0)**, so a
+  touch **tap = Key::B short** and **hold ≥ 700 ms = Key::B long**
+  (menu: BOOT = previous, tap = next, hold = start – plus **tap directly on a
+  menu entry starts that game**; the menu hint line shows
+  `Touch: weiter | Tippen = Start`). Raw coordinates are
+  exposed as `InputState::touchX/touchY/touchDown/...` and are mapped to the
+  current rotation automatically.
+- **Resolution:** 320×480 portrait (`TFT_ROTATION = 0`); landscape games get
+  480×320 (rotation 1) via `board::SCR_LW/SCR_LH` – the games scale their
+  layout to the board (landscape games use fullscreen art scaling
+  `pushImageScaled`, portrait games use `board::SCR_W/SCR_H`), so everything
+  is fullscreen on both boards
+- **Fonts:** the facade (`gfx_axs15231b.h`) renders text with the vendored
+  FreeSans GFXfont (`include/fonts/FreeSans9pt7b.h`, from Adafruit-GFX) instead
+  of the pixelated 5×7 classic font: `setTextFont(1)` ≈ 17 px, `setTextFont(2)`
+  ≈ 34 px. `.vlw` smooth fonts are not supported by Arduino_GFX – Survival
+  falls back to these bigger built-in sizes on touch boards
+
+| Function | GPIO | Note |
+|----------|------|------|
+| LCD QSPI | CS=45, SCK=47, D0=21, D1=48, D2=40, D3=39 | AXS15231B, no RST |
+| LCD backlight | 1 | HIGH = on |
+| Touch I2C | SDA=4, SCL=8, addr 0x3B | polled, no INT/RST |
+| Button A (BOOT) | 0 | active LOW |
+| SD card | CS=10, MOSI=11, SCK=12, MISO=13 | |
+| Speaker (I2S) | DIN=41, BCLK=42, LRCLK=2 | |
+| Battery ADC | 5 | divider 33k/100k |
+
+> ⚠️ The JC3248W535 port has **not been tested on hardware yet** – display
+> init sequence, touch coordinate mapping per rotation and the Arduino_GFX
+> facade (`setTextFont` maps to the classic font, `.vlw` fonts fall back to
+> built-in) should be verified on the device (see checklist below).
+
+### References (pinout & touch verified against the vendor BSP)
+
+- [NorthernMan54/JC3248W535EN](https://github.com/NorthernMan54/JC3248W535EN/tree/main/src) – vendor demo (ESP-IDF 5.3 + LVGL) as PlatformIO build; `src/esp_bsp.h` = pinout (QSPI CS=45/PCLK=47/D0–D3=21/48/40/39, RST=NC, BL=1, TE=38; touch I2C0 400 kHz SCL=8/SDA=4, RST/INT=-1), `src/esp_lcd_axs15231b.c` = touch read command `{B5 AB A5 5A 00 00 00 08 00 00 00}` @ 0x3B → 8-byte reply, 12-bit x/y – identical to `src/boards/board_jc3248w535.h` and `src/core/touch.h`
+- [done.land: Guition JC3248W535](https://done.land/components/microcontroller/families/esp/esp32/developmentboards/esp32-s3/guitionjc3248w535/) – schematic analysis (SD SPI 10–13, speaker I2S 41/42/2, battery divider GPIO5, exposed GPIOs)
+- [ESPHome axs15231 touchscreen](https://esphome.io/components/touchscreen/axs15231/) – merged I2C touch driver (same command/response format)
+- [Waveshare ESP32-S3-Touch-LCD-3.5B](https://www.waveshare.com/wiki/ESP32-S3-Touch-LCD-3.5B) – same AXS15231B chip: Arduino_GFX usage (`Arduino_ESP32QSPI` + `Arduino_AXS15231B`)
 
 ## Adding a New Board (4 Steps)
 

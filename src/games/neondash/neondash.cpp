@@ -19,8 +19,8 @@ static const uint16_t COL_CHIP_D  = 0x8400;  // dark yellow
 static const uint16_t COL_TEXT    = 0xFFFF;
 static const uint16_t COL_DIM     = 0x7BEF;
 
-static constexpr int16_t SW = 170;
-static constexpr int16_t SH = 320;
+static constexpr int16_t SW = board::SCR_W;
+static constexpr int16_t SH = board::SCR_H;
 
 // ---------------------------------------------------------------- Spielstart
 

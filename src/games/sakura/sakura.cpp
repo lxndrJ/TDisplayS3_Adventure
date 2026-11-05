@@ -2,8 +2,8 @@
 
 // ================================================================ Layout
 
-static constexpr int16_t SW = 170;
-static constexpr int16_t SH = 320;
+static constexpr int16_t SW = board::SCR_W;
+static constexpr int16_t SH = board::SCR_H;
 
 // Ground line where the tree stands
 static constexpr int16_t GROUND_Y = 252;
@@ -579,6 +579,6 @@ void SakuraGame::drawDead(TFT_eSprite& fb) {
 
   fb.setTextFont(1);
   fb.setTextColor(COL_DIM, 0x0000);
-  fb.drawString("any key: Plant again", SW / 2, 170);
+  fb.drawString("any key: Plant again", SW / 2, SH / 2);
   fb.drawString("A long: Menu", SW / 2, 182);
 }

@@ -2,8 +2,7 @@
 #define GAMES_NEONRUN_SPRITES_H
 
 #include <Arduino.h>
-#include <TFT_eSPI.h>
-#include "core/display.h"
+#include "core/display.h"  // provides the TFT_eSPI / TFT_eSprite type per board
 
 // Central color palette (RGB565). Each theme picks its own colors.
 struct NeonPalette {

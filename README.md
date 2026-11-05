@@ -5,6 +5,11 @@ A collection of games for the **LilyGo T-Display-S3** (ESP32-S3, 320×170 displa
 nor display drivers, only the interfaces in `src/core/`. Additional boards can
 be added via a single file in `src/boards/` and an entry in `platformio.ini`.
 
+**Supported boards:** LilyGo T-Display-S3 (`pio run -e t_display_s3`) and
+Guition **JC3248W535C_I_Y** 3.5" touch module (`pio run -e jc3248w535`,
+320×480 AXS15231B over QSPI via Arduino_GFX; capacitive touch, tap/hold act as
+button B since the board has only BOOT).
+
 After flashing, a **launcher menu** starts; pick the game you want to play. Every
 game is controlled entirely with the board's **two buttons**
 (**A = BOOT = GPIO0** and **B = free = GPIO14**, both active LOW).
@@ -68,7 +73,8 @@ src/
 │   ├── game.h               Game interface: init / update / draw / quit
 │   └── engine.h/.cpp        Launcher loop (starts game, switches on wantsMenu)
 ├── boards/
-│   └── board_tdisplay_s3.h  All GPIOs/pins/display geometry of the board
+│   ├── board_tdisplay_s3.h   LilyGo T-Display-S3 (all GPIOs/pins/geometry)
+│   └── board_jc3248w535.h    Guition JC3248W535C_I_Y (QSPI display + touch pins)
 └── games/
     ├── games.h              Game registry (register new games here)
     ├── eldoria/             Eldoria (eldoria.h/.cpp)
@@ -93,19 +99,24 @@ src/
 | Next game | **B (GPIO14) short** |
 | Start game | **B (GPIO14) long (~0.7 s)** |
 
+On **touch boards** (e.g. JC3248W535, only BOOT button): a **tap = next entry**,
+**tapping directly on an entry starts that game**, **hold = start selected**,
+BOOT = previous. The hint line at the bottom of the menu shows this on the device
+(`Touch: weiter | Tippen = Start | BOOT: zurueck`).
+
 ### In the games
 
 | Game | Controls |
 |---|---|
-| **Eldoria** | A short = up / previous option, B short = down / next option, B long = OK / roll / flee / restart, A long = open inventory |
+| **Eldoria** | A short = up / previous option, B short = down / next option, B long = OK / roll / flee / restart, A long = open inventory; **touch: tap an option to run it directly** |
 | **Neon Run** | A short = lane left, B short = lane right (on title/game-over/win: any press starts), A long = restart, B long = back to menu |
-| **Neon Shard** | A short = previous target, B short = next target, B long = action / continue dialog, A long = fast-forward dialog |
+| **Neon Shard** | A short = previous target, B short = next target, B long = action / continue dialog, A long = fast-forward dialog; **touch: tap a hotspot to act on it, tap a dialog choice to pick it** |
 | **Chip Slide** | A short = change slide direction (arrow in the HUD), B short = slide tile in arrow direction, B hold = keep sliding automatically, A long = back to menu |
 | **Neon Dash** | A or B short = jump (on title/game-over: any press starts/restarts), B long = back to menu |
 | **Neon Roll** | A short/hold = kick ball in arrow direction, B short = rotate direction 90°, A long = back to menu |
 | **Sakura** | A short = cycle action (Water/Fertilize/Prune/Harvest), B short = perform action, A long = back to menu |
 | **Sprout** | Hold A = walk in facing direction, A short = turn, B short = act on plot (dig/plant/water/harvest/clear), B long = back to menu |
-| **Survival** | A short = previous page/choice, B short = next page/choice, B long = confirm choice / start / restart, A long = back to menu |
+| **Survival** | A short = previous page/choice, B short = next page/choice, B long = confirm choice / start / restart, A long = back to menu; **touch: tap a choice row (full width) to confirm it, tap on game-over/win = restart; larger text on touch boards** |
 
 > ⚠️ **Note:** GPIO0 is the BOOT button. To **flash**, keep using:
 > hold BOOT → press RST → release → start upload.
@@ -147,9 +158,12 @@ Game logic, collisions and controls stay untouched.
 ## Adding a New Board
 
 1. Create `src/boards/board_<name>.h` (pins, `LONG_A_MS`/`LONG_B_MS`,
-   `SCR_W`/`SCR_H`, `TFT_ROTATION`).
+   `SCR_W`/`SCR_H`, `TFT_ROTATION`; for touch boards also `HAS_TOUCH` +
+   `PIN_TOUCH_*`/`TOUCH_I2C_*`).
 2. Include it in `src/core/board_config.h`.
-3. Add an `[env:<name>]` with `-D BOARD_<NAME>` in `platformio.ini`.
+3. Add an `[env:<name>]` with `-D BOARD_<NAME>` in `platformio.ini` (and the
+   matching display lib; QSPI panels like the AXS15231B need Arduino_GFX
+   behind the facade in `src/core/gfx_axs15231b.h`).
 
 ## Build & Flash (PlatformIO)
 

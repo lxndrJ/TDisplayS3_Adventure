@@ -8,6 +8,8 @@
 // never direct GPIO numbers.
 #if defined(BOARD_TDISPLAY_S3)
   #include "boards/board_tdisplay_s3.h"
+#elif defined(BOARD_JC3248W535)
+  #include "boards/board_jc3248w535.h"
 #else
   #error "No board selected - set a -D BOARD_<NAME> in platformio.ini"
 #endif

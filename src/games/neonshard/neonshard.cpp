@@ -2,10 +2,16 @@
 
 // ---------------------------------------------------------------- Konstanten
 
-static constexpr int16_t SW = 320;   // Landscape-Breite
-static constexpr int16_t SH = 170;   // Landscape-Hoehe
-static constexpr int16_t BAND_Y = 100;  // Dialogband-Offset (Font 2, 16px)
+// Sketch size = board landscape (320x170 on T-Display-S3, 480x320 on JC3248W535).
+static constexpr int16_t SW = board::SCR_LW;
+static constexpr int16_t SH = board::SCR_LH;
+// Scene art is fixed 320x170 and gets scaled to the full screen.
+static constexpr int16_t ART_W = 320;
+static constexpr int16_t ART_H = 170;
+static constexpr int16_t BAND_Y = SH - (board::HAS_TOUCH ? 90 : 70);  // dialog band
 static constexpr int16_t BAND_H = SH - BAND_Y;
+static constexpr uint8_t DLG_FONT  = board::HAS_TOUCH ? 1 : 2;  // FreeSans ~17px vs Font2 16px
+static constexpr int16_t ROW_LH    = board::HAS_TOUCH ? 20 : 17; // dialog text/choice rows
 static const uint16_t COL_BAND   = 0x0008;  // fast schwarz-blau
 static const uint16_t COL_ACCENT = 0x07FF;  // Neon-Cyan
 static const uint16_t COL_WARM   = 0xFFE0;  // Neon-Gelb
@@ -108,6 +114,43 @@ void NeonShardGame::gotoScene(uint8_t sc) {
 
 void NeonShardGame::update(const InputState& in, uint32_t dtMs) {
   (void)dtMs;
+  // Touch boards: tap directly on a hotspot / choice / title. A tap that is
+  // consumed here must not also fire the Key::B mapping (pressed[B]).
+  bool touchUsed = false;
+  if constexpr (board::HAS_TOUCH) {
+    if (in.touchTap) {
+      if (phase_ == PH_TITLE) {
+        startStory();
+        touchUsed = true;
+      } else if (phase_ == PH_SCENE) {
+        const SceneDef& s = kScenes[scene_];
+        // art is scaled to the full screen -> map touch back to art coords
+        int16_t ax = (int16_t)((int32_t)in.touchX * ART_W / SW);
+        int16_t ay = (int16_t)((int32_t)in.touchY * ART_H / SH);
+        for (uint8_t i = 0; i < s.nHot; i++) {
+          const Hotspot& h = s.hot[i];
+          if (ax >= h.x && ax < h.x + h.w && ay >= h.y && ay < h.y + h.h) {
+            sel_ = i;
+            interact(h.id);
+            touchUsed = true;
+            break;
+          }
+        }
+      } else if (phase_ == PH_DIALOG && dlgIdx_ == dlgLineCount_ - 1 &&
+                 dlgChoiceCount_ > 0) {
+        int16_t row = (in.touchY - (BAND_Y + 20)) / ROW_LH;
+        if (in.touchX >= 0 && in.touchX < SW && row >= 0 &&
+            row < dlgChoiceCount_ && row < 3) {
+          dialogEnd(dlgId_, (uint8_t)row);
+          touchUsed = true;
+        }
+      } else if (phase_ == PH_END) {
+        wantsMenu = true;
+        touchUsed = true;
+      }
+    }
+  }
+  if (touchUsed) return;
   switch (phase_) {
     case PH_TITLE:
       if (in.longPressed[(uint8_t)Key::B]) startStory();
@@ -337,7 +380,7 @@ void NeonShardGame::draw() {
 
 void NeonShardGame::drawTitle(TFT_eSprite& fb) {
   // Title art; the lettering is part of the generated image
-  fb.pushImage(0, 0, SW, SH, bg_);
+  fb.pushImageScaled(0, 0, SW, SH, bg_, ART_W, ART_H); // fullscreen art
   fb.setTextFont(1);
   fb.setTextColor(COL_DIM, 0x0000);
   fb.setTextDatum(TL_DATUM);
@@ -345,31 +388,34 @@ void NeonShardGame::drawTitle(TFT_eSprite& fb) {
 }
 
 void NeonShardGame::drawScene(TFT_eSprite& fb) {
-  fb.pushImage(0, 0, SW, SH, bg_);
+  fb.pushImageScaled(0, 0, SW, SH, bg_, ART_W, ART_H);  // fullscreen art
   const SceneDef& s = kScenes[scene_];
 
-  // Hotspot markers: corner brackets, selection in neon
+  // Hotspot markers: corner brackets (scaled to the screen), selection in neon
   for (uint8_t i = 0; i < s.nHot; i++) {
     const Hotspot& h = s.hot[i];
     uint16_t col = (i == sel_) ? COL_ACCENT : 0x39E7;
-    int16_t x1 = h.x + h.w - 1, y1 = h.y + h.h - 1;
+    int16_t hx = h.x * SW / ART_W, hy = h.y * SH / ART_H;
+    int16_t hw = h.w * SW / ART_W, hh = h.h * SH / ART_H;
+    int16_t x1 = hx + hw - 1, y1 = hy + hh - 1;
     int16_t c = 6;
-    fb.drawFastHLine(h.x, h.y, c, col);           fb.drawFastVLine(h.x, h.y, c, col);
-    fb.drawFastHLine(x1 - c + 1, h.y, c, col);    fb.drawFastVLine(x1, h.y, c, col);
-    fb.drawFastHLine(h.x, y1, c, col);            fb.drawFastVLine(h.x, y1 - c + 1, c, col);
-    fb.drawFastHLine(x1 - c + 1, y1, c, col);      fb.drawFastVLine(x1, y1 - c + 1, c, col);
+    fb.drawFastHLine(hx, hy, c, col);           fb.drawFastVLine(hx, hy, c, col);
+    fb.drawFastHLine(x1 - c + 1, hy, c, col);   fb.drawFastVLine(x1, hy, c, col);
+    fb.drawFastHLine(hx, y1, c, col);           fb.drawFastVLine(hx, y1 - c + 1, c, col);
+    fb.drawFastHLine(x1 - c + 1, y1, c, col);   fb.drawFastVLine(x1, y1 - c + 1, c, col);
   }
 
   // Hint line at the bottom: selected target + controls
-  fb.fillRect(0, 148, SW, 22, COL_BAND);
-  fb.drawFastHLine(0, 148, SW, 0x1082);
+  fb.fillRect(0, SH - 22, SW, 22, COL_BAND);
+  fb.drawFastHLine(0, SH - 22, SW, 0x1082);
   fb.setTextDatum(TL_DATUM);
-  fb.setTextFont(2);
+  fb.setTextFont(DLG_FONT);
   fb.setTextColor(COL_WARM, COL_BAND);
-  fb.drawString(s.hot[sel_].label, 6, 151);
+  fb.drawString(s.hot[sel_].label, 6, SH - 19);
   fb.setTextFont(1);
   fb.setTextColor(COL_DIM, COL_BAND);
-  fb.drawString("A/B: Target | B long: Action", SW - 104, 155);
+  fb.drawString(board::HAS_TOUCH ? "Tap: Target + Action" : "A/B: Target | B long: Action",
+                SW - 150, SH - 15);
 }
 
 void NeonShardGame::drawDialog(TFT_eSprite& fb) {
@@ -378,7 +424,7 @@ void NeonShardGame::drawDialog(TFT_eSprite& fb) {
   fb.drawFastHLine(0, BAND_Y, SW, COL_ACCENT);
 
   fb.setTextDatum(TL_DATUM);
-  fb.setTextFont(2);   // font 2 (16px): easily readable on the small panel
+  fb.setTextFont(DLG_FONT);   // font 2 (16px): easily readable on the small panel
 
   // "Name: " prefix colored on its own line, text wrapped below
   const char* colon = strstr(line, ": ");
@@ -404,7 +450,7 @@ void NeonShardGame::drawDialog(TFT_eSprite& fb) {
       while (n > 12 && text[off + n - 1] != ' ') n--;
     }
     memcpy(buf, text + off, n); buf[n] = 0;
-    fb.drawString(buf, 6, py + row * 17);
+    fb.drawString(buf, 6, py + row * ROW_LH);
     off += n;
   }
 
@@ -417,13 +463,13 @@ void NeonShardGame::drawDialog(TFT_eSprite& fb) {
 
   // Choices (only on the last line), font 2
   if (dlgIdx_ == dlgLineCount_ - 1 && dlgChoiceCount_ > 0) {
-    fb.setTextFont(2);
+    fb.setTextFont(DLG_FONT);
     int16_t cy = BAND_Y + 20;
     for (uint8_t i = 0; i < dlgChoiceCount_ && i < 3; i++) {
       bool on = (i == dlgChoice_);
       fb.setTextColor(on ? COL_WARM : 0x7BEF, COL_BAND);
-      fb.drawString(on ? "> " : "  ", 6, cy + i * 17);
-      fb.drawString(dlgChoices_[i], 28, cy + i * 17);
+      fb.drawString(on ? "> " : "  ", 6, cy + i * ROW_LH);
+      fb.drawString(dlgChoices_[i], 28, cy + i * ROW_LH);
     }
   } else if (dlgIdx_ < dlgLineCount_ - 1) {
     fb.setTextColor(COL_DIM, COL_BAND);
@@ -432,7 +478,7 @@ void NeonShardGame::drawDialog(TFT_eSprite& fb) {
 }
 
 void NeonShardGame::drawEnd(TFT_eSprite& fb) {
-  fb.pushImage(0, 0, SW, SH, bg_);
+  fb.pushImageScaled(0, 0, SW, SH, bg_, ART_W, ART_H); // fullscreen art
   // Comic caption: short lines in large-type quality (font 2)
   static const char* const A[] = {
     "The shard is empty.",
@@ -450,9 +496,9 @@ void NeonShardGame::drawEnd(TFT_eSprite& fb) {
   fb.fillRect(0, BAND_Y, SW, BAND_H, COL_BAND);
   fb.drawFastHLine(0, BAND_Y, SW, (scene_ == SC_ENDA) ? COL_WARM : 0xF81F);
   fb.setTextDatum(TL_DATUM);
-  fb.setTextFont(2);
+  fb.setTextFont(DLG_FONT);
   fb.setTextColor(0xFFFF, COL_BAND);
-  for (uint8_t i = 0; i < 4; i++) fb.drawString(ep[i], 6, BAND_Y + 4 + i * 17);
+  for (uint8_t i = 0; i < 4; i++) fb.drawString(ep[i], 6, BAND_Y + 4 + i * ROW_LH);
   fb.setTextFont(1);
   fb.setTextColor(COL_DIM, COL_BAND);
   fb.drawString("B long: Menu", SW - 80, SH - 10);

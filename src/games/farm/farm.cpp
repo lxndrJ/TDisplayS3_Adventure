@@ -2,13 +2,14 @@
 
 // ================================================================ Layout
 
-static constexpr int16_t SW = 320;
-static constexpr int16_t SH = 170;
+// Sketch size = board landscape (320x170 on T-Display-S3, 480x320 on JC3248W535).
+static constexpr int16_t SW = board::SCR_LW;
+static constexpr int16_t SH = board::SCR_LH;
 
-// Field area: 8 x 4 plots of 16 px = 128 x 64, centred-left.
+// Field area: 8 x 4 plots, tiles scale up on the bigger touch panel.
 static constexpr int16_t FIELD_X = 8;
-static constexpr int16_t FIELD_Y = 40;
-static constexpr int16_t TILE = 16;
+static constexpr int16_t FIELD_Y = board::HAS_TOUCH ? 60 : 40;
+static constexpr int16_t TILE = board::HAS_TOUCH ? 32 : 16;
 
 // Side panel: field info + controls.
 static constexpr int16_t PANEL_X = FIELD_X + FarmGame::COLS * TILE + 8;  // 144
@@ -173,6 +174,20 @@ void FarmGame::update(const InputState& in, uint32_t dtMs) {
     case PH_PLAY: {
       if (in.longPressed[(uint8_t)Key::B]) { wantsMenu = true; return; }
 
+      // Touch boards: tap a plot = walk there and act on it directly.
+      bool touchUsed = false;
+      if constexpr (board::HAS_TOUCH) {
+        if (in.touchTap) {
+          uint8_t idx = fieldAt(in.touchX, in.touchY);
+          if (idx < FIELD_COUNT) {
+            px_ = FIELD_X + (idx % COLS) * TILE;
+            py_ = FIELD_Y + (idx / COLS) * TILE;
+            doAction();
+            touchUsed = true;
+          }
+        }
+      }
+
       // A short = turn clockwise
       if (in.pressed[(uint8_t)Key::A]) {
         dir_ = (dir_ + 1) & 3;
@@ -205,7 +220,7 @@ void FarmGame::update(const InputState& in, uint32_t dtMs) {
       }
 
       // B short = act
-      if (in.pressed[(uint8_t)Key::B]) doAction();
+      if (!touchUsed && in.pressed[(uint8_t)Key::B]) doAction();
 
       // Message timeout
       if (msgMs_ && dtMs)
@@ -248,8 +263,9 @@ void FarmGame::draw() {
 }
 
 static void drawSprite(TFT_eSprite& fb, const SpriteArt* sp,
-                       int16_t x, int16_t y, uint16_t scale = 1) {
+                       int16_t x, int16_t y, uint16_t scale = 0) {
   if (!sp) return;
+  if (scale == 0) scale = TILE / 16;  // tiles follow TILE; icons pass 1
   if (scale == 1) {
     fb.pushImage(x, y, sp->w, sp->h, (uint16_t*)sp->data);
   } else {
@@ -333,7 +349,7 @@ void FarmGame::drawScene(TFT_eSprite& fb) {
   }
 
   // Farmhouse (32x32, drawn at 1x)
-  drawSprite(fb, kSprites[SP_HOUSE], HOUSE_X, HOUSE_Y);
+  drawSprite(fb, kSprites[SP_HOUSE], HOUSE_X, HOUSE_Y, 1);
 
   // Field plots
   for (uint8_t r = 0; r < ROWS; r++) {
@@ -430,7 +446,7 @@ void FarmGame::drawHud(TFT_eSprite& fb) {
   snprintf(b, sizeof(b), "Gold %u", (unsigned)gold_);
   fb.setTextColor(COL_GOLD, COL_SKY_TOP);
   fb.drawString(b, 110, HUD_Y);
-  drawSprite(fb, kSprites[SP_WATERCAN], 180, HUD_Y - 4);
+  drawSprite(fb, kSprites[SP_WATERCAN], 180, HUD_Y - 4, 1);
   snprintf(b, sizeof(b), "Best %u", (unsigned)best_);
   fb.setTextColor(COL_DIM, COL_SKY_TOP);
   fb.drawString(b, 200, HUD_Y);
@@ -473,11 +489,11 @@ void FarmGame::drawPanel(TFT_eSprite& fb) {
   fb.setTextColor(COL_DIM, COL_PANEL);
   fb.drawString("growth:", PANEL_X + 4, FIELD_Y + 84);
   for (uint8_t s = 0; s < GROW_STAGES + 1; s++) {
-    drawSprite(fb, kSprites[SP_SPROUT + s], PANEL_X + 4 + s * 18, FIELD_Y + 94);
+    drawSprite(fb, kSprites[SP_SPROUT + s], PANEL_X + 4 + s * 18, FIELD_Y + 94, 1);
   }
   fb.drawString("water daily or", PANEL_X + 4, FIELD_Y + 112);
   fb.drawString("it withers!", PANEL_X + 4, FIELD_Y + 122);
 
   // Coin icon in the panel footer
-  drawSprite(fb, kSprites[SP_COIN], PANEL_X + PANEL_W - 20, FIELD_Y + ROWS * TILE - 20);
+  drawSprite(fb, kSprites[SP_COIN], PANEL_X + PANEL_W - 20, FIELD_Y + ROWS * TILE - 20, 1);
 }

@@ -2,8 +2,8 @@
 
 // ================================================================ Layout
 
-static constexpr int16_t SW = 170;
-static constexpr int16_t SH = 320;
+static constexpr int16_t SW = board::SCR_W;
+static constexpr int16_t SH = board::SCR_H;
 
 // HUD occupies the top ~26 px, playfield below.
 static constexpr int16_t HUD_H = 26;
@@ -425,15 +425,15 @@ void NeonRollGame::drawTitle(TFT_eSprite& fb) {
   t += 16;
   float dx = cosf(t / 300.0f) * 40.0f;
   float dy = sinf(t / 400.0f) * 24.0f;
-  float cx = SW / 2 + dx, cy = 170 + dy;
+  float cx = SW / 2 + dx, cy = SH / 2 + dy;
   for (uint8_t i = 4; i > 0; i--)
     fb.fillCircle((int16_t)cx, (int16_t)cy, i + 2, th.ballGlow);
   fb.fillCircle((int16_t)cx, (int16_t)cy, 5, th.ball);
   fb.fillCircle((int16_t)cx - 1, (int16_t)cy - 1, 2, 0xFFFF);
 
   // goal demo
-  fb.drawCircle(SW / 2 + 52, 170, 8, th.goal);
-  fb.drawCircle(SW / 2 + 52, 170, 5, th.goal);
+  fb.drawCircle(SW / 2 + 52, SH / 2, 8, th.goal);
+  fb.drawCircle(SW / 2 + 52, SH / 2, 5, th.goal);
 
   fb.setTextFont(2);
   fb.setTextColor(th.goal, th.bg);

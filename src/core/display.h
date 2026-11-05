@@ -1,18 +1,30 @@
 #ifndef CORE_DISPLAY_H
 #define CORE_DISPLAY_H
 
-#include <TFT_eSPI.h>
 #include "board_config.h"
 
-// Thin wrapper object around TFT_eSPI. Games draw through this and
-// know neither drivers nor pins. If needed (e.g. LovyanGFX), the
-// implementation can be swapped behind this interface.
+// Display backend per board. Games draw through this and know neither
+// drivers nor pins. TFT_eSPI cannot drive QSPI panels, so the JC3248W535
+// uses a TFT_eSPI-compatible facade over Arduino_GFX (same type names).
+#if defined(BOARD_JC3248W535)
+  #include "gfx_axs15231b.h"
+#else
+  #include <TFT_eSPI.h>
+#endif
 class Display {
 public:
   void init() {
     tft_.init();
     tft_.setRotation(board::TFT_ROTATION);
     tft_.fillScreen(TFT_BLACK);
+  }
+
+  // QSPI boards (JC3248W535) render into a frame canvas - push it to the
+  // panel once per frame. No-op for direct-drive backends like TFT_eSPI.
+  void present() {
+#if defined(BOARD_JC3248W535)
+    tft_.present();
+#endif
   }
 
   TFT_eSPI& tft() { return tft_; }

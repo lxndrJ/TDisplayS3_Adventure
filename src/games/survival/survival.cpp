@@ -79,11 +79,13 @@ static constexpr uint16_t K_COL_SAFE   = 0x5E4B;  // muted rescue green
 // Landscape layout constants (rotation 1, 320x170). Story text and
 // choices use the compiled-in Roboto .vlw smooth fonts.
 static constexpr int16_t K_STATUS_H   = 24;   // status row height
-static constexpr int16_t K_TEXT_Y     = 30;   // first story line
-static constexpr int16_t K_TEXT_LH    = 28;   // Roboto24 yAdvance ~29px
-static constexpr int16_t K_OPT_Y      = 36;   // first choice row
-static constexpr int16_t K_OPT_H      = 40;   // Roboto28 yAdvance ~33px + gap
-static constexpr int16_t K_FOOTER_Y   = 160;  // bottom hint row (Font 1)
+static constexpr int16_t K_TEXT_Y     = K_STATUS_H + 6;  // first story line
+// On touch boards the facade renders FreeSans (~17px at font 1) instead of
+// Roboto .vlw, and the panel is 480x320 landscape -> more lines, lower rows.
+static constexpr int16_t K_TEXT_LH    = board::HAS_TOUCH ? 20 : 28;  // line height
+static constexpr int16_t K_OPT_Y      = board::HAS_TOUCH ? 90 : 36;  // first choice row
+static constexpr int16_t K_OPT_H      = board::HAS_TOUCH ? 48 : 40;  // choice row height (big tap area)
+static constexpr int16_t K_FOOTER_Y   = board::SCR_LH - 10;  // bottom hint row
 
 // Lenient line parser (see prompts.h for the expected format). Returns
 // number of parsed fields so the caller can decide on a retry.
@@ -529,6 +531,18 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
 
     case PH_PLAY: {
       if (in.longPressed[(uint8_t)Key::A]) { wantsMenu = true; break; }
+      // Touch boards: tap directly on a choice row (full width, K_OPT_H tall)
+      // confirms that choice immediately.
+      if constexpr (board::HAS_TOUCH) {
+        if (in.touchTap && choosing_ && optCount_ > 0) {
+          int16_t row = (in.touchY - K_OPT_Y) / K_OPT_H;
+          if (in.touchX >= 0 && in.touchX < SCR_W &&
+              row >= 0 && row < optCount_) {
+            choose((uint8_t)row);
+            break;  // consumed - do not also fire the Key::B mapping
+          }
+        }
+      }
       loadStoryFont();
       int lines = wrapText(text_,
                            false, SCR_W - 8, wrapBuf_, MAX_WRAP_LINES);
@@ -561,6 +575,9 @@ void SurvivalGame::update(const InputState& in, uint32_t dtMs) {
 
     case PH_DEAD:
     case PH_WIN:
+      if constexpr (board::HAS_TOUCH) {
+        if (in.touchTap) { init(); break; }  // tap = restart
+      }
       if (in.longPressed[(uint8_t)Key::B]) init();
       else if (in.longPressed[(uint8_t)Key::A]) wantsMenu = true;
       break;
@@ -583,16 +600,25 @@ void SurvivalGame::draw() {
 
 void SurvivalGame::loadStoryFont() {
   TFT_eSPI& tft = gfx.tft();
-  tft.loadFont(Roboto24_vlw);          // PROGMEM array from Roboto24.h
-  tft.setTextFont(1);                  // font 1 = use loaded smooth font
-  tft.setTextSize(1);
+  if constexpr (board::HAS_TOUCH) {
+    tft.setTextFont(1);                // FreeSans ~17px (facade has no .vlw)
+  } else {
+    tft.loadFont(Roboto24_vlw);        // PROGMEM array from Roboto24.h
+    tft.setTextFont(1);                // font 1 = use loaded smooth font
+    tft.setTextSize(1);
+  }
 }
 
 void SurvivalGame::loadBigFont() {
   TFT_eSPI& tft = gfx.tft();
-  tft.loadFont(Roboto28_vlw);          // PROGMEM array from Roboto28.h
-  tft.setTextFont(1);
-  tft.setTextSize(1);
+  if constexpr (board::HAS_TOUCH) {
+    tft.setTextFont(2);
+    tft.setTextSize(2);                // FreeSans ~44px line; choice rows are 48px tall
+  } else {
+    tft.loadFont(Roboto28_vlw);        // PROGMEM array from Roboto28.h
+    tft.setTextFont(1);
+    tft.setTextSize(1);
+  }
 }
 
 void SurvivalGame::unloadFontIfLoaded() {
@@ -619,24 +645,41 @@ int16_t SurvivalGame::drawText(const char* s, int16_t x, int16_t y,
 void SurvivalGame::drawStatus() {
   TFT_eSPI& tft = gfx.tft();
   const UiText& ui = kUi[lang_];
-  tft.setTextFont(2);
+  tft.setTextFont(board::HAS_TOUCH ? 1 : 2);  // font 2 = 44px on touch -> too big for the 24px status bar
   tft.setTextColor(K_COL_TEXT);
   tft.setTextDatum(TL_DATUM);
   tft.drawString("HP", 4, 4);
   for (uint8_t i = 0; i < MAX_HP; i++)
     tft.fillRect(30 + i * 13, 6, 11, 12, i < hp_ ? TFT_RED : TFT_DARKGREY);
   char b[24];
-  snprintf(b, sizeof(b), ui.dayLabel, day_);
-  tft.drawString(b, 150, 4);
-  snprintf(b, sizeof(b), ui.ptsLabel, score_);
-  tft.drawString(b, 224, 4);
-  // connection indicator
-  uint16_t connColor;
-  const char* connLabel;
-  if (net.connected())  { connColor = 0x07E0; connLabel = "AI"; }
-  else                 { connColor = TFT_YELLOW; connLabel = "..."; }
-  tft.setTextColor(connColor);
-  tft.drawString(connLabel, 296, 4);
+  const char* connLabel = net.connected() ? "AI" : "...";
+  const uint16_t connColor = net.connected() ? 0x07E0 : TFT_YELLOW;
+
+  if constexpr (board::HAS_TOUCH) {
+    // The engine paints a "Menu" button (88px) in the top-right corner AFTER
+    // the game renders, so the right-side labels must stay to its left. Anchor
+    // them to the button's left edge (measured widths) so neither the button
+    // nor a long score can cover the connection indicator.
+    constexpr int16_t kMenuBtnW = 88;  // keep in sync with Engine::BACK_W
+    int16_t right = SCR_W - kMenuBtnW - 8;
+    tft.setTextColor(connColor);
+    int16_t cw = tft.textWidth(connLabel);
+    tft.drawString(connLabel, right - cw, 4);
+    right -= cw + 14;
+    snprintf(b, sizeof(b), ui.ptsLabel, score_);
+    int16_t pw = tft.textWidth(b);
+    tft.drawString(b, right - pw, 4);
+    right -= pw + 14;
+    snprintf(b, sizeof(b), ui.dayLabel, day_);
+    tft.drawString(b, right - tft.textWidth(b), 4);
+  } else {
+    snprintf(b, sizeof(b), ui.dayLabel, day_);
+    tft.drawString(b, SCR_W / 3, 4);
+    snprintf(b, sizeof(b), ui.ptsLabel, score_);
+    tft.drawString(b, SCR_W * 2 / 3, 4);
+    tft.setTextColor(connColor);
+    tft.drawString(connLabel, SCR_W - 40, 4);
+  }
   tft.drawFastHLine(0, K_STATUS_H - 2, SCR_W, TFT_DARKGREY);
 }
 
@@ -646,26 +689,35 @@ void SurvivalGame::drawTitle() {
   tft.fillScreen(K_COL_BG);
   tft.setTextDatum(TL_DATUM);
 
+  // On touch boards the big font is ~44px (FreeSans x2), on TFT_eSPI ~33px
+  // (Roboto28) - shift the blocks below accordingly so nothing overlaps.
+  static constexpr int16_t T_SUB_Y  = board::HAS_TOUCH ? 68 : 56;
+  static constexpr int16_t T_I1_Y   = board::HAS_TOUCH ? 94 : 76;
+  static constexpr int16_t T_I2_Y   = board::HAS_TOUCH ? 118 : 88;
+  static constexpr int16_t T_LINE_Y = board::HAS_TOUCH ? 146 : 100;
+  static constexpr int16_t T_CONN_Y = board::HAS_TOUCH ? 152 : 106;
+  static constexpr int16_t T_Y0     = board::HAS_TOUCH ? 170 : 120;
+
   loadBigFont();
   drawText("SURVIVAL", -1, 12, true, K_COL_BLOOD);
   unloadFontIfLoaded();
 
   tft.setTextFont(2);
   tft.setTextColor(K_COL_DIM);
-  tft.drawString(ui.subtitle, (SCR_W - tft.textWidth(ui.subtitle, 2)) / 2, 56);
+  tft.drawString(ui.subtitle, (SCR_W - tft.textWidth(ui.subtitle, 2)) / 2, T_SUB_Y);
 
   tft.setTextFont(1);
   tft.setTextColor(K_COL_TEXT);
-  tft.drawString(ui.intro1, 20, 76);
-  tft.drawString(ui.intro2, 20, 88);
+  tft.drawString(ui.intro1, 20, T_I1_Y);
+  tft.drawString(ui.intro2, 20, T_I2_Y);
 
   // Live connection status block
-  tft.drawFastHLine(0, 100, SCR_W, TFT_DARKGREY);
+  tft.drawFastHLine(0, T_LINE_Y, SCR_W, TFT_DARKGREY);
   tft.setTextColor(TFT_CYAN);
-  tft.drawString(ui.connTitle, 20, 106);
+  tft.drawString(ui.connTitle, 20, T_CONN_Y);
 
   tft.setTextColor(K_COL_TEXT);
-  uint8_t y = 120;
+  uint8_t y = T_Y0;
   if (!net.configured()) {
     tft.setTextColor(TFT_ORANGE);
     tft.drawString("No secrets.h - offline mode", 20, y);
