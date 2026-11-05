@@ -652,17 +652,34 @@ void SurvivalGame::drawStatus() {
   for (uint8_t i = 0; i < MAX_HP; i++)
     tft.fillRect(30 + i * 13, 6, 11, 12, i < hp_ ? TFT_RED : TFT_DARKGREY);
   char b[24];
-  snprintf(b, sizeof(b), ui.dayLabel, day_);
-  tft.drawString(b, SCR_W / 3, 4);
-  snprintf(b, sizeof(b), ui.ptsLabel, score_);
-  tft.drawString(b, SCR_W * 2 / 3, 4);
-  // connection indicator
-  uint16_t connColor;
-  const char* connLabel;
-  if (net.connected())  { connColor = 0x07E0; connLabel = "AI"; }
-  else                 { connColor = TFT_YELLOW; connLabel = "..."; }
-  tft.setTextColor(connColor);
-  tft.drawString(connLabel, SCR_W - 40, 4);
+  const char* connLabel = net.connected() ? "AI" : "...";
+  const uint16_t connColor = net.connected() ? 0x07E0 : TFT_YELLOW;
+
+  if constexpr (board::HAS_TOUCH) {
+    // The engine paints a "Menu" button (88px) in the top-right corner AFTER
+    // the game renders, so the right-side labels must stay to its left. Anchor
+    // them to the button's left edge (measured widths) so neither the button
+    // nor a long score can cover the connection indicator.
+    constexpr int16_t kMenuBtnW = 88;  // keep in sync with Engine::BACK_W
+    int16_t right = SCR_W - kMenuBtnW - 8;
+    tft.setTextColor(connColor);
+    int16_t cw = tft.textWidth(connLabel);
+    tft.drawString(connLabel, right - cw, 4);
+    right -= cw + 14;
+    snprintf(b, sizeof(b), ui.ptsLabel, score_);
+    int16_t pw = tft.textWidth(b);
+    tft.drawString(b, right - pw, 4);
+    right -= pw + 14;
+    snprintf(b, sizeof(b), ui.dayLabel, day_);
+    tft.drawString(b, right - tft.textWidth(b), 4);
+  } else {
+    snprintf(b, sizeof(b), ui.dayLabel, day_);
+    tft.drawString(b, SCR_W / 3, 4);
+    snprintf(b, sizeof(b), ui.ptsLabel, score_);
+    tft.drawString(b, SCR_W * 2 / 3, 4);
+    tft.setTextColor(connColor);
+    tft.drawString(connLabel, SCR_W - 40, 4);
+  }
   tft.drawFastHLine(0, K_STATUS_H - 2, SCR_W, TFT_DARKGREY);
 }
 
